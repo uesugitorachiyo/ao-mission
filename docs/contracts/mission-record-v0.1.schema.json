@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ao.mission.record.v0.1",
+  "type": "object",
+  "required": [
+    "schema",
+    "mission_id",
+    "objective_digest",
+    "status",
+    "created_at_utc",
+    "current_route"
+  ]
+}

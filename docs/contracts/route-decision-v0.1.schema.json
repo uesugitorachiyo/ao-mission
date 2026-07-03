@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ao.mission.route-decision.v0.1",
+  "type": "object",
+  "required": [
+    "schema",
+    "mission_id",
+    "route",
+    "reason",
+    "safe_to_execute"
+  ]
+}

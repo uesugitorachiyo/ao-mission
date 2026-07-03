@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ao.mission.scheduler-readback.v0.1",
+  "type": "object",
+  "required": [
+    "schema",
+    "mission_id",
+    "status",
+    "scheduler",
+    "event_loop"
+  ]
+}
