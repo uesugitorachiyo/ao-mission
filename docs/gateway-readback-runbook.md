@@ -19,7 +19,7 @@ Supported Telegram commands are represented in `examples/valid/telegram-command-
 - `/where`
 - `/help`
 
-Every command returns `mutation_authority=false`. Admin commands are still requests for AO Mission continuation or readback, not direct execution.
+Every command returns `mutation_authority=false`. Admin commands are still requests for AO Mission continuation or readback, not direct execution. Unsupported slash commands and non-slash command strings are rejected by the invalid fixtures under `examples/invalid/`; non-admin `/continue` and `/approve` remain denied intents.
 
 ## A2A
 
@@ -30,6 +30,8 @@ Parameter validation is intentionally strict:
 - `mission.start` requires an objective.
 - Status, next, continue, pause, resume, cancel, artifacts, and governance snapshot requests require a mission ID.
 - Unknown methods produce an invalid readback.
+
+The invalid JSON-RPC fixtures under `examples/invalid/` cover missing objective, missing mission ID, and unknown method requests.
 
 Every A2A response remains intent/readback only and reports `mutation_authority=false`.
 

@@ -102,6 +102,30 @@ func TestSchedulerReadbackImportRecordsWakeupOnlyEvidence(t *testing.T) {
 	}
 }
 
+func TestSchedulerReadbackImportRejectsExecutionAuthority(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("schedule long-running workgraph mission")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "scheduler-readback.json")
+	body := `{"schema":"ao.mission.scheduler-readback.v0.1","mission_id":"` + rec.MissionID + `","status":"ready","scheduler":"codex-cron","event_loop":true,"executes_work":true,"reason":"unsafe fixture","generated_at_utc":"2026-07-03T00:00:00Z"}`
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(s, rec.MissionID, "scheduler-readback", path); err == nil || !strings.Contains(err.Error(), "executes_work") {
+		t.Fatalf("expected scheduler authority rejection, got %v", err)
+	}
+	updated, err := s.Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Evidence.SchedulerReadback != nil {
+		t.Fatalf("unsafe scheduler readback was recorded: %+v", updated.Evidence.SchedulerReadback)
+	}
+}
+
 func TestTelegramIntentOnly(t *testing.T) {
 	rb := HandleTelegramCommand(TelegramCommand{ChatID: "1001", Command: "/continue", Role: "admin"}, map[string]string{"1001": "admin"})
 	if rb.Status != "intent_recorded" || rb.MutationAuthority {
@@ -258,6 +282,28 @@ func TestMissionListInspectCommandStatusAndArtifactManifest(t *testing.T) {
 		t.Fatalf("mission list len=%d", len(list))
 	}
 	out.Reset()
+	if code := Run([]string{"--home", dir, "mission", "list", "--route", first.CurrentRoute, "--status", first.Status, "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("mission list filters: %s", errb.String())
+	}
+	var filtered []Record
+	if err := json.Unmarshal(out.Bytes(), &filtered); err != nil {
+		t.Fatal(err)
+	}
+	if len(filtered) != 2 {
+		t.Fatalf("filtered mission list len=%d", len(filtered))
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "mission", "list", "--route", "complete", "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("mission list empty filter: %s", errb.String())
+	}
+	filtered = nil
+	if err := json.Unmarshal(out.Bytes(), &filtered); err != nil {
+		t.Fatal(err)
+	}
+	if len(filtered) != 0 {
+		t.Fatalf("empty filtered mission list len=%d", len(filtered))
+	}
+	out.Reset()
 	if code := Run([]string{"--home", dir, "mission", "inspect", "--mission", first.MissionID, "--json"}, &out, &errb); code != 0 {
 		t.Fatalf("mission inspect: %s", errb.String())
 	}
@@ -352,6 +398,27 @@ func TestTelegramCommandFixtureMatrix(t *testing.T) {
 	}
 }
 
+func TestTelegramInvalidCommandMatrix(t *testing.T) {
+	allowlist := map[string]string{"1001": "admin", "1002": "user"}
+	matrix, err := LoadTelegramCommandMatrix(filepath.Join("..", "..", "examples", "invalid", "telegram-command-matrix-denied.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range matrix.Commands {
+		chat := "1002"
+		if tc.Role == "admin" {
+			chat = "1001"
+		}
+		if tc.Role == "none" {
+			chat = "9999"
+		}
+		rb := HandleTelegramCommand(TelegramCommand{ChatID: chat, Command: tc.Command, Role: tc.Role}, allowlist)
+		if rb.Status != tc.ExpectedStatus || rb.MutationAuthority {
+			t.Fatalf("%s/%s: %+v", tc.Command, tc.Role, rb)
+		}
+	}
+}
+
 func TestA2AJSONRPCHandlerIntentOnly(t *testing.T) {
 	server := httptest.NewServer(A2AHandler())
 	defer server.Close()
@@ -401,6 +468,33 @@ func TestA2AJSONRPCHandlerValidatesMethodParams(t *testing.T) {
 	}
 	if rpc.Result.Status != "intent_recorded" || rpc.Result.Method != "mission.start" || rpc.Result.MutationAuthority {
 		t.Fatalf("expected valid intent-only response: %+v", rpc)
+	}
+}
+
+func TestA2AInvalidJSONRPCExamples(t *testing.T) {
+	paths, err := filepath.Glob(filepath.Join("..", "..", "examples", "invalid", "a2a-jsonrpc-*.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) == 0 {
+		t.Fatal("no invalid A2A examples")
+	}
+	for _, path := range paths {
+		body, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var req struct {
+			Method string         `json:"method"`
+			Params map[string]any `json:"params"`
+		}
+		if err := json.Unmarshal(body, &req); err != nil {
+			t.Fatal(err)
+		}
+		task := A2ATaskForParams(req.Method, req.Params)
+		if task.Status != "invalid" || task.MutationAuthority {
+			t.Fatalf("%s expected invalid intent-only task, got %+v", path, task)
+		}
 	}
 }
 

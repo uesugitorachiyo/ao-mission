@@ -71,7 +71,17 @@ func (s Store) Load(id string) (Record, error) {
 	}
 	return r, json.Unmarshal(b, &r)
 }
+
+type ListFilters struct {
+	Status string
+	Route  string
+}
+
 func (s Store) List() ([]Record, error) {
+	return s.ListFiltered(ListFilters{})
+}
+
+func (s Store) ListFiltered(filters ListFilters) ([]Record, error) {
 	if err := s.Init(); err != nil {
 		return nil, err
 	}
@@ -91,6 +101,15 @@ func (s Store) List() ([]Record, error) {
 		}
 		if err := json.Unmarshal(body, &rec); err != nil {
 			return nil, err
+		}
+		if rec.Schema != RecordSchema || rec.MissionID == "" {
+			continue
+		}
+		if filters.Status != "" && rec.Status != filters.Status {
+			continue
+		}
+		if filters.Route != "" && rec.CurrentRoute != filters.Route {
+			continue
 		}
 		records = append(records, rec)
 	}
