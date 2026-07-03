@@ -41,6 +41,26 @@ type Record struct {
 	ExactNextAction string             `json:"exact_next_action"`
 	ArtifactRefs    []ArtifactRef      `json:"artifact_refs"`
 	Steps           []ContinuationStep `json:"steps"`
+	Evidence        EvidenceSummary    `json:"evidence,omitempty"`
+}
+
+type EvidenceSummary struct {
+	AtlasWorkgraph *NodeCounts          `json:"atlas_workgraph,omitempty"`
+	FoundryRollup  *FoundryRollupCounts `json:"foundry_rollup,omitempty"`
+}
+
+type NodeCounts struct {
+	Total     int `json:"total"`
+	Ready     int `json:"ready"`
+	Blocked   int `json:"blocked"`
+	Completed int `json:"completed"`
+	Failed    int `json:"failed"`
+}
+
+type FoundryRollupCounts struct {
+	Status         string `json:"status"`
+	CompletedNodes int    `json:"completed_nodes"`
+	TotalNodes     int    `json:"total_nodes"`
 }
 
 type RouteDecision struct {
@@ -133,6 +153,40 @@ type A2ATask struct {
 	Method            string `json:"method"`
 	Status            string `json:"status"`
 	MutationAuthority bool   `json:"mutation_authority"`
+}
+
+type A2AJSONRPCResponse struct {
+	JSONRPC string  `json:"jsonrpc"`
+	ID      any     `json:"id,omitempty"`
+	Result  A2ATask `json:"result"`
+}
+
+type ArtifactManifest struct {
+	Schema         string        `json:"schema"`
+	MissionID      string        `json:"mission_id"`
+	ArtifactRefs   []ArtifactRef `json:"artifact_refs"`
+	ManifestDigest string        `json:"manifest_digest"`
+	Signature      string        `json:"signature"`
+	SafeToExecute  bool          `json:"safe_to_execute"`
+	ExecutesWork   bool          `json:"executes_work"`
+	ApprovesWork   bool          `json:"approves_work"`
+	GeneratedAtUTC string        `json:"generated_at_utc"`
+}
+
+type CommandStatus struct {
+	Schema              string   `json:"schema"`
+	MissionID           string   `json:"mission_id"`
+	Status              string   `json:"status"`
+	CurrentRoute        string   `json:"current_route"`
+	CurrentPhase        string   `json:"current_phase"`
+	ExactNextAction     string   `json:"exact_next_action"`
+	ReadOnly            bool     `json:"read_only"`
+	SafeToExecute       bool     `json:"safe_to_execute"`
+	ExecutesWork        bool     `json:"executes_work"`
+	ApprovesWork        bool     `json:"approves_work"`
+	MutatesRepositories bool     `json:"mutates_repositories"`
+	Blockers            []string `json:"blockers"`
+	GeneratedAtUTC      string   `json:"generated_at_utc"`
 }
 
 func now(clock func() time.Time) string {

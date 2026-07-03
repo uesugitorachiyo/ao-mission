@@ -29,7 +29,7 @@ func printJSON(w io.Writer, v any) error {
 
 func run(args []string, stdout io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: ao-mission [--home <dir>] <init|start|continue|status|next|stop|pause|resume|schedule|daemon|telegram|a2a|governance|artifacts|validate|import|final>")
+		return errors.New("usage: ao-mission [--home <dir>] <init|start|mission|continue|status|next|stop|pause|resume|schedule|daemon|telegram|a2a|governance|command|artifacts|validate|import|final>")
 	}
 	home, args, err := parseGlobalHome(args)
 	if err != nil {
@@ -55,6 +55,43 @@ func run(args []string, stdout io.Writer) error {
 			return err
 		}
 		return printJSON(stdout, r)
+	case "mission":
+		if len(args) < 2 {
+			return errors.New("mission requires list or inspect")
+		}
+		switch args[1] {
+		case "list":
+			fs := flag.NewFlagSet("mission list", flag.ContinueOnError)
+			jsonOut := fs.Bool("json", false, "")
+			_ = fs.Parse(args[2:])
+			records, err := s.List()
+			if err != nil {
+				return err
+			}
+			if *jsonOut {
+				return printJSON(stdout, records)
+			}
+			for _, rec := range records {
+				fmt.Fprintf(stdout, "mission=%s status=%s route=%s\n", rec.MissionID, rec.Status, rec.CurrentRoute)
+			}
+			return nil
+		case "inspect":
+			fs := flag.NewFlagSet("mission inspect", flag.ContinueOnError)
+			id := fs.String("mission", "", "")
+			jsonOut := fs.Bool("json", false, "")
+			_ = fs.Parse(args[2:])
+			r, err := s.Load(*id)
+			if err != nil {
+				return err
+			}
+			if *jsonOut {
+				return printJSON(stdout, r)
+			}
+			fmt.Fprintf(stdout, "mission=%s\nstatus=%s\nphase=%s\nroute=%s\nnext=%s\n", r.MissionID, r.Status, r.CurrentPhase, r.CurrentRoute, r.ExactNextAction)
+			return nil
+		default:
+			return errors.New("mission requires list or inspect")
+		}
 	case "status":
 		fs := flag.NewFlagSet("status", flag.ContinueOnError)
 		id := fs.String("mission", "", "")
@@ -179,7 +216,33 @@ func run(args []string, stdout io.Writer) error {
 			return printJSON(stdout, Snapshot(r))
 		}
 		return errors.New("governance requires snapshot")
+	case "command":
+		if len(args) >= 2 && args[1] == "status" {
+			fs := flag.NewFlagSet("command status", flag.ContinueOnError)
+			id := fs.String("mission", "", "")
+			jsonOut := fs.Bool("json", false, "")
+			_ = fs.Parse(args[2:])
+			r, err := s.Load(*id)
+			if err != nil {
+				return err
+			}
+			status := BuildCommandStatus(r)
+			if *jsonOut {
+				return printJSON(stdout, status)
+			}
+			fmt.Fprintf(stdout, "mission=%s\nstatus=%s\nread_only=%t\nexecutes_work=%t\nnext=%s\n", status.MissionID, status.Status, status.ReadOnly, status.ExecutesWork, status.ExactNextAction)
+			return nil
+		}
+		return errors.New("command requires status")
 	case "artifacts":
+		if len(args) >= 2 && args[1] == "manifest" {
+			id := missionFlag(args[2:])
+			r, err := s.Load(id)
+			if err != nil {
+				return err
+			}
+			return printJSON(stdout, BuildArtifactManifest(r))
+		}
 		id := missionFlag(args[1:])
 		r, err := s.Load(id)
 		if err != nil {
@@ -200,7 +263,7 @@ func run(args []string, stdout io.Writer) error {
 		return errors.New("validate requires contract --path <file>")
 	case "import":
 		if len(args) < 2 {
-			return errors.New("import requires blueprint-authorization, atlas-workgraph, or foundry-run-link")
+			return errors.New("import requires blueprint-authorization, atlas-workgraph, foundry-run-link, or foundry-final-rollup")
 		}
 		fs := flag.NewFlagSet("import "+args[1], flag.ContinueOnError)
 		id := fs.String("mission", "", "")

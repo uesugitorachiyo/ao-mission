@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -66,6 +67,37 @@ func (s Store) Load(id string) (Record, error) {
 		return r, err
 	}
 	return r, json.Unmarshal(b, &r)
+}
+func (s Store) List() ([]Record, error) {
+	if err := s.Init(); err != nil {
+		return nil, err
+	}
+	entries, err := os.ReadDir(filepath.Join(s.Root, "missions"))
+	if err != nil {
+		return nil, err
+	}
+	records := make([]Record, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+		var rec Record
+		body, err := os.ReadFile(filepath.Join(s.Root, "missions", entry.Name()))
+		if err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(body, &rec); err != nil {
+			return nil, err
+		}
+		records = append(records, rec)
+	}
+	sort.Slice(records, func(i, j int) bool {
+		if records[i].CreatedAtUTC == records[j].CreatedAtUTC {
+			return records[i].MissionID < records[j].MissionID
+		}
+		return records[i].CreatedAtUTC < records[j].CreatedAtUTC
+	})
+	return records, nil
 }
 func (s Store) Save(r Record) error {
 	if err := s.Init(); err != nil {
