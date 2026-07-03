@@ -63,8 +63,12 @@ func run(args []string, stdout io.Writer) error {
 		case "list":
 			fs := flag.NewFlagSet("mission list", flag.ContinueOnError)
 			jsonOut := fs.Bool("json", false, "")
-			_ = fs.Parse(args[2:])
-			records, err := s.List()
+			statusFilter := fs.String("status", "", "")
+			routeFilter := fs.String("route", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			records, err := s.ListFiltered(ListFilters{Status: *statusFilter, Route: *routeFilter})
 			if err != nil {
 				return err
 			}
@@ -79,7 +83,9 @@ func run(args []string, stdout io.Writer) error {
 			fs := flag.NewFlagSet("mission inspect", flag.ContinueOnError)
 			id := fs.String("mission", "", "")
 			jsonOut := fs.Bool("json", false, "")
-			_ = fs.Parse(args[2:])
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
 			r, err := s.Load(*id)
 			if err != nil {
 				return err
@@ -96,7 +102,9 @@ func run(args []string, stdout io.Writer) error {
 		fs := flag.NewFlagSet("status", flag.ContinueOnError)
 		id := fs.String("mission", "", "")
 		jsonOut := fs.Bool("json", false, "")
-		_ = fs.Parse(args[1:])
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
 		r, err := s.Load(*id)
 		if err != nil {
 			return err
@@ -110,7 +118,9 @@ func run(args []string, stdout io.Writer) error {
 		fs := flag.NewFlagSet("next", flag.ContinueOnError)
 		id := fs.String("mission", "", "")
 		jsonOut := fs.Bool("json", false, "")
-		_ = fs.Parse(args[1:])
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
 		r, err := s.Load(*id)
 		if err != nil {
 			return err
@@ -126,7 +136,9 @@ func run(args []string, stdout io.Writer) error {
 		id := fs.String("mission", "", "")
 		until := fs.Bool("until-done", false, "")
 		max := fs.Int("max-iterations", 1, "")
-		_ = fs.Parse(args[1:])
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
 		r, err := Continue(s, *id, ContinueOptions{UntilDone: *until, MaxIterations: *max})
 		if err != nil {
 			return err
@@ -158,7 +170,9 @@ func run(args []string, stdout io.Writer) error {
 		id := fs.String("mission", "", "")
 		every := fs.String("every", "", "")
 		eventLoop := fs.Bool("event-loop", false, "")
-		_ = fs.Parse(args[1:])
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
 		_ = every
 		return printJSON(stdout, ScheduleReadback(*id, *every, *eventLoop))
 	case "daemon":
@@ -171,7 +185,9 @@ func run(args []string, stdout io.Writer) error {
 		if len(args) >= 2 && args[1] == "serve" {
 			fs := flag.NewFlagSet("telegram serve", flag.ContinueOnError)
 			configPath := fs.String("config", "", "")
-			_ = fs.Parse(args[2:])
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
 			if *configPath == "" {
 				return printJSON(stdout, TelegramReadback{Schema: TelegramReadbackSchema, Status: "disabled", Message: "telegram gateway disabled by default; configure environment token name and allowlist", MutationAuthority: false})
 			}
@@ -188,7 +204,9 @@ func run(args []string, stdout io.Writer) error {
 			httpMode := fs.Bool("http", false, "")
 			listen := fs.String("listen", "127.0.0.1:0", "")
 			once := fs.Bool("once", false, "")
-			_ = fs.Parse(args[2:])
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
 			if !*httpMode {
 				return printJSON(stdout, AgentCard())
 			}
@@ -221,7 +239,9 @@ func run(args []string, stdout io.Writer) error {
 			fs := flag.NewFlagSet("command status", flag.ContinueOnError)
 			id := fs.String("mission", "", "")
 			jsonOut := fs.Bool("json", false, "")
-			_ = fs.Parse(args[2:])
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
 			r, err := s.Load(*id)
 			if err != nil {
 				return err
@@ -253,7 +273,9 @@ func run(args []string, stdout io.Writer) error {
 		if len(args) >= 2 && args[1] == "contract" {
 			fs := flag.NewFlagSet("validate contract", flag.ContinueOnError)
 			path := fs.String("path", "", "")
-			_ = fs.Parse(args[2:])
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
 			result, err := ValidateContractFile(*path)
 			if printErr := printJSON(stdout, result); printErr != nil {
 				return printErr
@@ -268,7 +290,9 @@ func run(args []string, stdout io.Writer) error {
 		fs := flag.NewFlagSet("import "+args[1], flag.ContinueOnError)
 		id := fs.String("mission", "", "")
 		path := fs.String("path", "", "")
-		_ = fs.Parse(args[2:])
+		if err := fs.Parse(args[2:]); err != nil {
+			return err
+		}
 		rb, err := ImportArtifact(s, *id, args[1], *path)
 		if printErr := printJSON(stdout, rb); printErr != nil {
 			return printErr

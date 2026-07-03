@@ -24,6 +24,19 @@ type GatewayReadback struct {
 	GeneratedAtUTC    string   `json:"generated_at_utc"`
 }
 
+var allowedTelegramCommands = map[string]bool{
+	"/status":   true,
+	"/next":     true,
+	"/continue": true,
+	"/pause":    true,
+	"/resume":   true,
+	"/stop":     true,
+	"/approve":  true,
+	"/deny":     true,
+	"/where":    true,
+	"/help":     true,
+}
+
 func LoadTelegramConfig(path string) (TelegramConfig, error) {
 	var cfg TelegramConfig
 	body, err := os.ReadFile(path)
@@ -85,6 +98,9 @@ func HandleTelegramCommand(cmd TelegramCommand, allowlist map[string]string) Tel
 	}
 	if !strings.HasPrefix(cmd.Command, "/") {
 		return TelegramReadback{Schema: TelegramReadbackSchema, Status: "invalid", Message: "telegram command must start with slash", MutationAuthority: false}
+	}
+	if !allowedTelegramCommands[cmd.Command] {
+		return TelegramReadback{Schema: TelegramReadbackSchema, Status: "invalid", Message: "telegram command is not supported", MutationAuthority: false}
 	}
 	return TelegramReadback{Schema: TelegramReadbackSchema, Status: "intent_recorded", Message: "telegram gateway records intents and readbacks only", MutationAuthority: false}
 }

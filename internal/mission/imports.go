@@ -33,6 +33,9 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 	if err := json.Unmarshal(body, &doc); err != nil {
 		return ImportReadback{}, err
 	}
+	if kind == "scheduler-readback" && boolFromAny(doc["executes_work"]) {
+		return ImportReadback{}, fmt.Errorf("scheduler-readback executes_work must be false")
+	}
 	ref := ArtifactRef{Schema: ArtifactRefSchema, Ref: path, Digest: digestBytes(body), Kind: kind}
 	r, err := s.Update(missionID, func(rec *Record) error {
 		rec.ArtifactRefs = append(rec.ArtifactRefs, ref)
