@@ -33,6 +33,9 @@ func NewStore(root string) Store {
 }
 func (s Store) Init() error           { return os.MkdirAll(filepath.Join(s.Root, "missions"), 0o755) }
 func (s Store) path(id string) string { return filepath.Join(s.Root, "missions", id+".json") }
+func (s Store) eventLoopPath(id string) string {
+	return filepath.Join(s.Root, "missions", id+".event-loop-decision.json")
+}
 
 func DigestObjective(objective string) string {
 	sum := sha256.Sum256([]byte(strings.TrimSpace(objective)))
@@ -109,6 +112,27 @@ func (s Store) Save(r Record) error {
 	}
 	b = append(b, '\n')
 	return os.WriteFile(s.path(r.MissionID), b, 0o644)
+}
+
+func (s Store) SaveEventLoopDecision(decision EventLoopDecision) error {
+	if err := s.Init(); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(decision, "", "  ")
+	if err != nil {
+		return err
+	}
+	b = append(b, '\n')
+	return os.WriteFile(s.eventLoopPath(decision.MissionID), b, 0o644)
+}
+
+func (s Store) LoadEventLoopDecision(id string) (EventLoopDecision, error) {
+	var decision EventLoopDecision
+	b, err := os.ReadFile(s.eventLoopPath(id))
+	if err != nil {
+		return decision, err
+	}
+	return decision, json.Unmarshal(b, &decision)
 }
 func (s Store) Update(id string, fn func(*Record) error) (Record, error) {
 	r, err := s.Load(id)

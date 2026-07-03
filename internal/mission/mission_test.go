@@ -36,6 +36,32 @@ func TestMissionLifecycleAndSnapshot(t *testing.T) {
 		t.Fatal("authority boundary widened")
 	}
 }
+
+func TestContinuePersistsEventLoopDecision(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("build a long-running atlas workgraph mission")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Continue(s, rec.MissionID, ContinueOptions{UntilDone: true, MaxIterations: 3}); err != nil {
+		t.Fatal(err)
+	}
+	decision, err := s.LoadEventLoopDecision(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decision.Schema != EventLoopDecisionSchema || decision.MissionID != rec.MissionID {
+		t.Fatalf("bad event loop decision: %+v", decision)
+	}
+	if decision.Status != "handoff_required" || decision.Route != "ao-atlas" || decision.Iteration != 1 {
+		t.Fatalf("unexpected event loop decision: %+v", decision)
+	}
+	if decision.ExecutesWork || decision.ApprovesWork || decision.MutatesRepositories {
+		t.Fatalf("event loop widened authority: %+v", decision)
+	}
+}
+
 func TestSchedulerFailsClosedWhenCronMissing(t *testing.T) {
 	old := os.Getenv("PATH")
 	t.Cleanup(func() { os.Setenv("PATH", old) })
@@ -48,6 +74,34 @@ func TestSchedulerFailsClosedWhenCronMissing(t *testing.T) {
 		t.Fatalf("reason=%s", rb.Reason)
 	}
 }
+
+func TestSchedulerReadbackImportRecordsWakeupOnlyEvidence(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("schedule long-running workgraph mission")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "scheduler-readback.json")
+	body := `{"schema":"ao.mission.scheduler-readback.v0.1","mission_id":"` + rec.MissionID + `","status":"ready","scheduler":"codex-cron","event_loop":true,"reason":"fixture wakeup only","generated_at_utc":"2026-07-03T00:00:00Z"}`
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(s, rec.MissionID, "scheduler-readback", path); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := s.Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Evidence.SchedulerReadback == nil || updated.Evidence.SchedulerReadback.Scheduler != "codex-cron" {
+		t.Fatalf("scheduler evidence missing: %+v", updated.Evidence.SchedulerReadback)
+	}
+	if updated.Evidence.SchedulerReadback.ExecutesWork || updated.CurrentPhase != "scheduler_readback_recorded" {
+		t.Fatalf("scheduler import widened authority or wrong phase: %+v", updated)
+	}
+}
+
 func TestTelegramIntentOnly(t *testing.T) {
 	rb := HandleTelegramCommand(TelegramCommand{ChatID: "1001", Command: "/continue", Role: "admin"}, map[string]string{"1001": "admin"})
 	if rb.Status != "intent_recorded" || rb.MutationAuthority {
@@ -282,32 +336,18 @@ func TestImportAtlasWorkgraphCountsAndFoundryFinalRollupCompletion(t *testing.T)
 
 func TestTelegramCommandFixtureMatrix(t *testing.T) {
 	allowlist := map[string]string{"1001": "admin", "1002": "user"}
-	cases := []struct {
-		command string
-		role    string
-		want    string
-	}{
-		{"/status", "user", "intent_recorded"},
-		{"/next", "user", "intent_recorded"},
-		{"/pause", "user", "intent_recorded"},
-		{"/resume", "user", "intent_recorded"},
-		{"/stop", "user", "intent_recorded"},
-		{"/where", "user", "intent_recorded"},
-		{"/help", "user", "intent_recorded"},
-		{"/continue", "admin", "intent_recorded"},
-		{"/approve", "admin", "intent_recorded"},
-		{"/deny", "admin", "intent_recorded"},
-		{"/continue", "user", "denied"},
-		{"/approve", "user", "denied"},
+	matrix, err := LoadTelegramCommandMatrix(filepath.Join("..", "..", "examples", "valid", "telegram-command-matrix.json"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, tc := range cases {
+	for _, tc := range matrix.Commands {
 		chat := "1002"
-		if tc.role == "admin" {
+		if tc.Role == "admin" {
 			chat = "1001"
 		}
-		rb := HandleTelegramCommand(TelegramCommand{ChatID: chat, Command: tc.command, Role: tc.role}, allowlist)
-		if rb.Status != tc.want || rb.MutationAuthority {
-			t.Fatalf("%s/%s: %+v", tc.command, tc.role, rb)
+		rb := HandleTelegramCommand(TelegramCommand{ChatID: chat, Command: tc.Command, Role: tc.Role}, allowlist)
+		if rb.Status != tc.ExpectedStatus || rb.MutationAuthority {
+			t.Fatalf("%s/%s: %+v", tc.Command, tc.Role, rb)
 		}
 	}
 }
@@ -330,6 +370,83 @@ func TestA2AJSONRPCHandlerIntentOnly(t *testing.T) {
 	}
 	if rpc.Result.Method != "mission.status" || rpc.Result.Status != "intent_recorded" {
 		t.Fatalf("bad a2a task: %+v", rpc.Result)
+	}
+}
+
+func TestA2AJSONRPCHandlerValidatesMethodParams(t *testing.T) {
+	server := httptest.NewServer(A2AHandler())
+	defer server.Close()
+	req := strings.NewReader(`{"jsonrpc":"2.0","id":"req-2","method":"mission.continue","params":{}}`)
+	resp, err := http.Post(server.URL+"/", "application/json", req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var rpc A2AJSONRPCResponse
+	if err := json.NewDecoder(resp.Body).Decode(&rpc); err != nil {
+		t.Fatal(err)
+	}
+	if rpc.Result.Status != "invalid" || rpc.Result.MutationAuthority {
+		t.Fatalf("expected invalid intent-only response: %+v", rpc)
+	}
+
+	req = strings.NewReader(`{"jsonrpc":"2.0","id":"req-3","method":"mission.start","params":{"objective":"build mission gateway readback"}}`)
+	resp, err = http.Post(server.URL+"/", "application/json", req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if err := json.NewDecoder(resp.Body).Decode(&rpc); err != nil {
+		t.Fatal(err)
+	}
+	if rpc.Result.Status != "intent_recorded" || rpc.Result.Method != "mission.start" || rpc.Result.MutationAuthority {
+		t.Fatalf("expected valid intent-only response: %+v", rpc)
+	}
+}
+
+func TestContractSchemasDeclareRequiredProperties(t *testing.T) {
+	paths, err := filepath.Glob(filepath.Join("..", "..", "docs", "contracts", "*.schema.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) == 0 {
+		t.Fatal("no contract schemas found")
+	}
+	for _, path := range paths {
+		body, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var schema map[string]any
+		if err := json.Unmarshal(body, &schema); err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		props, ok := schema["properties"].(map[string]any)
+		if !ok {
+			t.Fatalf("%s missing properties", path)
+		}
+		for _, item := range schema["required"].([]any) {
+			field := item.(string)
+			if _, ok := props[field]; !ok {
+				t.Fatalf("%s missing property for required field %s", path, field)
+			}
+		}
+	}
+}
+
+func TestGatewayRunbookDocumentsIntentOnlyReferences(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("..", "..", "docs", "gateway-readback-runbook.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(body)
+	for _, want := range []string{"Hermes-style", "Telegram", "A2A", "intent/readback only", "mutation_authority=false"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("runbook missing %q", want)
+		}
+	}
+	if err := ValidatePublicSafeText(text); err != nil {
+		t.Fatal(err)
 	}
 }
 

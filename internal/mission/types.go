@@ -11,6 +11,7 @@ const (
 	StepSchema              = "ao.mission.continuation-step.v0.1"
 	SchedulerRequestSchema  = "ao.mission.scheduler-request.v0.1"
 	SchedulerReadbackSchema = "ao.mission.scheduler-readback.v0.1"
+	EventLoopDecisionSchema = "ao.mission.event-loop-decision.v0.1"
 	KillSwitchSchema        = "ao.mission.kill-switch.v0.1"
 	TelegramCommandSchema   = "ao.mission.telegram-command.v0.1"
 	TelegramReadbackSchema  = "ao.mission.telegram-readback.v0.1"
@@ -45,8 +46,9 @@ type Record struct {
 }
 
 type EvidenceSummary struct {
-	AtlasWorkgraph *NodeCounts          `json:"atlas_workgraph,omitempty"`
-	FoundryRollup  *FoundryRollupCounts `json:"foundry_rollup,omitempty"`
+	AtlasWorkgraph    *NodeCounts              `json:"atlas_workgraph,omitempty"`
+	FoundryRollup     *FoundryRollupCounts     `json:"foundry_rollup,omitempty"`
+	SchedulerReadback *SchedulerEvidenceCounts `json:"scheduler_readback,omitempty"`
 }
 
 type NodeCounts struct {
@@ -61,6 +63,13 @@ type FoundryRollupCounts struct {
 	Status         string `json:"status"`
 	CompletedNodes int    `json:"completed_nodes"`
 	TotalNodes     int    `json:"total_nodes"`
+}
+
+type SchedulerEvidenceCounts struct {
+	Status       string `json:"status"`
+	Scheduler    string `json:"scheduler"`
+	EventLoop    bool   `json:"event_loop"`
+	ExecutesWork bool   `json:"executes_work"`
 }
 
 type RouteDecision struct {
@@ -129,6 +138,19 @@ type SchedulerReadback struct {
 	GeneratedAtUTC string `json:"generated_at_utc"`
 }
 
+type EventLoopDecision struct {
+	Schema              string `json:"schema"`
+	MissionID           string `json:"mission_id"`
+	Iteration           int    `json:"iteration"`
+	Status              string `json:"status"`
+	Route               string `json:"route"`
+	ExactNextAction     string `json:"exact_next_action"`
+	ExecutesWork        bool   `json:"executes_work"`
+	ApprovesWork        bool   `json:"approves_work"`
+	MutatesRepositories bool   `json:"mutates_repositories"`
+	GeneratedAtUTC      string `json:"generated_at_utc"`
+}
+
 type TelegramCommand struct {
 	Schema  string `json:"schema"`
 	ChatID  string `json:"chat_id"`
@@ -140,6 +162,15 @@ type TelegramReadback struct {
 	Status            string `json:"status"`
 	Message           string `json:"message"`
 	MutationAuthority bool   `json:"mutation_authority"`
+}
+type TelegramCommandMatrix struct {
+	Schema   string                       `json:"schema"`
+	Commands []TelegramCommandMatrixEntry `json:"commands"`
+}
+type TelegramCommandMatrixEntry struct {
+	Command        string `json:"command"`
+	Role           string `json:"role"`
+	ExpectedStatus string `json:"expected_status"`
 }
 type A2AAgentCard struct {
 	Schema            string   `json:"schema"`

@@ -34,6 +34,7 @@ ao-mission import blueprint-authorization --mission <id> --path <json>
 ao-mission import atlas-workgraph --mission <id> --path <json>
 ao-mission import foundry-run-link --mission <id> --path <json>
 ao-mission import foundry-final-rollup --mission <id> --path <json>
+ao-mission import scheduler-readback --mission <id> --path <json>
 ao-mission final rollup --mission <id>
 ```
 
@@ -46,6 +47,8 @@ The messaging surface follows the same split used by Hermes-style gateways: CLI 
 
 Telegram is disabled by default. A config file may name the environment variable that contains the real token and a chat allowlist, but ao-mission never prints or persists the token value.
 
+See [Gateway Readback Runbook](docs/gateway-readback-runbook.md) for the fixture-backed command matrix, A2A JSON-RPC parameter checks, and intent-only authority boundary.
+
 ## Readback Surfaces
 
-`ao-mission import atlas-workgraph` records node counts from Atlas workgraphs, and `ao-mission import foundry-final-rollup` marks the mission done only when completed and total node counts agree. `ao-mission command status` emits a read-only AO Command compatible status packet. `ao-mission artifacts manifest` emits a digest-bound local manifest over mission artifacts without granting execution or approval authority.
+`ao-mission continue` persists `ao.mission.event-loop-decision.v0.1` after each continuation step so the zero-wait event loop has durable no-authority readback. `ao-mission import atlas-workgraph` records node counts from Atlas workgraphs, `ao-mission import scheduler-readback` records codex-cron wakeup evidence without granting execution authority, and `ao-mission import foundry-final-rollup` marks the mission done only when completed and total node counts agree. `ao-mission command status` emits a read-only AO Command compatible status packet. `ao-mission artifacts manifest` emits a digest-bound local manifest over mission artifacts without granting execution or approval authority.
