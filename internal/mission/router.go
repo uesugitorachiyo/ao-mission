@@ -5,7 +5,7 @@ import "strings"
 func DecideRoute(missionID, objective string, artifacts []ArtifactRef) RouteDecision {
 	lower := strings.ToLower(objective)
 	words := len(strings.Fields(objective))
-	decision := RouteDecision{Schema: RouteSchema, MissionID: missionID, SafeToRequest: true, SafeToExecute: false, SafeToPromote: false}
+	decision := RouteDecision{Schema: RouteSchema, MissionID: missionID, SafeToRequest: true, SafeToExecute: false, SafeToPromote: false, GeneratedAtUTC: now(nil)}
 	switch {
 	case words < 4 || strings.Contains(lower, "figure out") || strings.Contains(lower, "not sure"):
 		decision.Route = "ao-blueprint"
@@ -28,3 +28,16 @@ func DecideRoute(missionID, objective string, artifacts []ArtifactRef) RouteDeci
 }
 
 func NextAction(r Record) RouteDecision { return DecideRoute(r.MissionID, r.Objective, r.ArtifactRefs) }
+
+func AppendRouteHistory(r *Record, decision RouteDecision) {
+	if decision.Schema == "" {
+		decision.Schema = RouteSchema
+	}
+	if decision.MissionID == "" {
+		decision.MissionID = r.MissionID
+	}
+	if decision.GeneratedAtUTC == "" {
+		decision.GeneratedAtUTC = now(nil)
+	}
+	r.RouteHistory = append(r.RouteHistory, decision)
+}

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 )
 
 type ImportReadback struct {
@@ -44,15 +45,18 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 			rec.CurrentRoute = "ao-atlas"
 			rec.CurrentPhase = "blueprint_authorized"
 			rec.ExactNextAction = "send authorized Blueprint pack to AO Atlas"
+			AppendRouteHistory(rec, routeFromRecord(*rec, "Blueprint authorization imported"))
 		case "atlas-workgraph":
 			counts := countWorkgraphNodes(doc)
 			rec.Evidence.AtlasWorkgraph = &counts
 			rec.CurrentRoute = "ao-foundry"
 			rec.CurrentPhase = "atlas_workgraph_ready"
 			rec.ExactNextAction = "send first safe Atlas node to AO Foundry"
+			AppendRouteHistory(rec, routeFromRecord(*rec, "Atlas workgraph imported"))
 		case "foundry-run-link":
 			rec.CurrentPhase = "foundry_run_link_recorded"
 			rec.ExactNextAction = "read next Atlas dependency-unblocked node or final rollup"
+			AppendRouteHistory(rec, routeFromRecord(*rec, "Foundry run-link imported"))
 		case "foundry-final-rollup":
 			rollup := parseFoundryRollupCounts(doc)
 			rec.Evidence.FoundryRollup = &rollup
@@ -65,15 +69,18 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 				rec.CurrentPhase = "foundry_final_rollup_recorded"
 				rec.ExactNextAction = "review final rollup blockers before continuing"
 			}
+			AppendRouteHistory(rec, routeFromRecord(*rec, "Foundry final rollup imported"))
 		case "scheduler-readback":
 			rec.Evidence.SchedulerReadback = &SchedulerEvidenceCounts{
-				Status:       stringFromAny(doc["status"]),
-				Scheduler:    stringFromAny(doc["scheduler"]),
-				EventLoop:    boolFromAny(doc["event_loop"]),
-				ExecutesWork: false,
+				Status:          stringFromAny(doc["status"]),
+				Scheduler:       stringFromAny(doc["scheduler"]),
+				EventLoop:       boolFromAny(doc["event_loop"]),
+				FreshnessStatus: classifyFreshness(stringFromAny(doc["generated_at_utc"])),
+				ExecutesWork:    false,
 			}
 			rec.CurrentPhase = "scheduler_readback_recorded"
 			rec.ExactNextAction = "scheduler wakeup readback recorded; continue mission through AO Mission event loop"
+			AppendRouteHistory(rec, routeFromRecord(*rec, "Scheduler readback imported"))
 		default:
 			return fmt.Errorf("unsupported import kind %q", kind)
 		}
@@ -94,6 +101,35 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 		ApprovesWork:    false,
 		GeneratedAtUTC:  now(nil),
 	}, nil
+}
+
+func routeFromRecord(rec Record, reason string) RouteDecision {
+	return RouteDecision{
+		Schema:          RouteSchema,
+		MissionID:       rec.MissionID,
+		Route:           rec.CurrentRoute,
+		Reason:          reason,
+		SafeToRequest:   true,
+		SafeToExecute:   false,
+		SafeToPromote:   false,
+		ExactNextAction: rec.ExactNextAction,
+		GeneratedAtUTC:  now(nil),
+	}
+}
+
+func classifyFreshness(generatedAt string) string {
+	if generatedAt == "" {
+		return "unknown"
+	}
+	stamp, err := time.Parse(time.RFC3339, generatedAt)
+	if err != nil {
+		return "unknown"
+	}
+	age := time.Since(stamp)
+	if age > 24*time.Hour {
+		return "stale"
+	}
+	return "fresh"
 }
 
 func digestBytes(body []byte) string {

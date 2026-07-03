@@ -577,3 +577,131 @@ func TestA2AHTTPHandler(t *testing.T) {
 		t.Fatal("agent card must not grant mutation authority")
 	}
 }
+
+func TestRouteDecisionHistoryPersistsAcrossNextAndImports(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "build atlas workgraph mission"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.RouteHistory) != 1 || rec.RouteHistory[0].Route != "ao-atlas" {
+		t.Fatalf("start did not persist initial route history: %+v", rec.RouteHistory)
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "next", "--mission", rec.MissionID, "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("next: %s", errb.String())
+	}
+	updated, err := NewStore(dir).Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.RouteHistory) != 2 || updated.RouteHistory[1].Route != "ao-atlas" {
+		t.Fatalf("next did not append route history: %+v", updated.RouteHistory)
+	}
+	workgraphPath := filepath.Join(dir, "workgraph.json")
+	if err := os.WriteFile(workgraphPath, []byte(`{"schema":"ao.atlas.workgraph.v0.1","nodes":[{"status":"ready"}]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(NewStore(dir), rec.MissionID, "atlas-workgraph", workgraphPath); err != nil {
+		t.Fatal(err)
+	}
+	updated, err = NewStore(dir).Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	last := updated.RouteHistory[len(updated.RouteHistory)-1]
+	if last.Route != "ao-foundry" || last.ExactNextAction != "send first safe Atlas node to AO Foundry" {
+		t.Fatalf("atlas import did not append Foundry route history: %+v", updated.RouteHistory)
+	}
+}
+
+func TestTelegramReplayFixtureProducesIntentOnlyReadback(t *testing.T) {
+	readback, err := ReplayTelegramCommandMatrix(
+		filepath.Join("..", "..", "examples", "valid", "telegram-command-matrix.json"),
+		map[string]string{"1001": "admin", "1002": "user"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.Schema != "ao.mission.telegram-replay-readback.v0.1" || readback.Status != "ready" {
+		t.Fatalf("bad replay readback: %+v", readback)
+	}
+	if readback.Total != len(readback.Results) || readback.Denied != 2 || readback.Invalid != 0 {
+		t.Fatalf("unexpected replay counts: %+v", readback)
+	}
+	if readback.MutationAuthority || readback.ExecutesWork || readback.ApprovesWork {
+		t.Fatalf("telegram replay widened authority: %+v", readback)
+	}
+}
+
+func TestA2AHTTPFixtureReplayProducesIntentOnlyReadback(t *testing.T) {
+	readback, err := ReplayA2AHTTPFixture(filepath.Join("..", "..", "examples", "valid", "a2a-http-integration.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.Schema != "ao.mission.a2a-http-replay-readback.v0.1" || readback.Status != "ready" {
+		t.Fatalf("bad A2A HTTP replay readback: %+v", readback)
+	}
+	if readback.Total != 3 || readback.Invalid != 1 {
+		t.Fatalf("unexpected A2A replay counts: %+v", readback)
+	}
+	if readback.MutationAuthority || readback.ExecutesWork || readback.ApprovesWork {
+		t.Fatalf("A2A replay widened authority: %+v", readback)
+	}
+}
+
+func TestSchedulerReadbackImportClassifiesFreshness(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("schedule long-running workgraph mission")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "scheduler-readback.json")
+	body := `{"schema":"ao.mission.scheduler-readback.v0.1","mission_id":"` + rec.MissionID + `","status":"ready","scheduler":"codex-cron","event_loop":true,"reason":"fixture wakeup only","generated_at_utc":"2026-07-01T00:00:00Z"}`
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(s, rec.MissionID, "scheduler-readback", path); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := s.Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Evidence.SchedulerReadback == nil || updated.Evidence.SchedulerReadback.FreshnessStatus != "stale" {
+		t.Fatalf("scheduler freshness was not classified as stale: %+v", updated.Evidence.SchedulerReadback)
+	}
+	snap := Snapshot(updated)
+	if snap.EvidenceFreshnessStatus != "stale" {
+		t.Fatalf("snapshot freshness=%s", snap.EvidenceFreshnessStatus)
+	}
+}
+
+func TestOperatorNextActionsDocsAreConcreteAndPublicSafe(t *testing.T) {
+	path := filepath.Join("..", "..", "docs", "operator-next-actions.md")
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(body)
+	for _, want := range []string{
+		"ao-mission start",
+		"ao-mission next --mission",
+		"ao-mission continue --mission",
+		"ao-mission artifacts manifest --mission",
+		"Move to AO Atlas",
+		"Move to AO Foundry",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("operator docs missing %q", want)
+		}
+	}
+	if err := ValidatePublicSafeText(text); err != nil {
+		t.Fatal(err)
+	}
+}

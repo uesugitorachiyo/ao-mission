@@ -61,6 +61,7 @@ func (s Store) Start(objective string) (Record, error) {
 	id := MissionID(objective, t())
 	route := DecideRoute(id, objective, nil)
 	rec := Record{Schema: RecordSchema, MissionID: id, Objective: objective, ObjectiveDigest: DigestObjective(objective), Status: "active", CreatedAtUTC: stamp, UpdatedAtUTC: stamp, CurrentRoute: route.Route, CurrentPhase: "routing", ExactNextAction: route.ExactNextAction, ArtifactRefs: []ArtifactRef{}, Blockers: []string{}, Steps: []ContinuationStep{}}
+	AppendRouteHistory(&rec, route)
 	return rec, s.Save(rec)
 }
 func (s Store) Load(id string) (Record, error) {
