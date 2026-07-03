@@ -234,6 +234,96 @@ func ReplayA2AHTTPFixture(path string) (GatewayReplayReadback, error) {
 	return readback, nil
 }
 
+func BuildGatewayIntentLedger(missionID string, readbacks ...GatewayReplayReadback) GatewayIntentLedger {
+	ledger := GatewayIntentLedger{
+		Schema:            "ao.mission.gateway-intent-ledger.v0.1",
+		MissionID:         missionID,
+		Status:            "ready",
+		Intents:           []GatewayIntentRecord{},
+		MutationAuthority: false,
+		ExecutesWork:      false,
+		ApprovesWork:      false,
+		GeneratedAtUTC:    now(nil),
+	}
+	for _, readback := range readbacks {
+		if readback.Status == "blocked" {
+			ledger.Status = "blocked"
+		}
+		for _, result := range readback.Results {
+			record := GatewayIntentRecord{
+				Schema:            "ao.mission.gateway-intent.v0.1",
+				MissionID:         missionID,
+				Gateway:           readback.Gateway,
+				Command:           result.Command,
+				Method:            result.Method,
+				Status:            result.ActualStatus,
+				ExpectedStatus:    result.ExpectedStatus,
+				MutationAuthority: false,
+				ExecutesWork:      false,
+				ApprovesWork:      false,
+				GeneratedAtUTC:    now(nil),
+			}
+			ledger.Intents = append(ledger.Intents, record)
+			switch result.ActualStatus {
+			case "intent_recorded":
+				ledger.IntentRecorded++
+			case "denied":
+				ledger.Denied++
+			case "invalid":
+				ledger.Invalid++
+			}
+		}
+	}
+	ledger.Total = len(ledger.Intents)
+	return ledger
+}
+
+func ReplayA2ATaskLifecycle(path string) (A2ATaskLifecycleReadback, error) {
+	var fixture struct {
+		Schema string    `json:"schema"`
+		Tasks  []A2ATask `json:"tasks"`
+	}
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return A2ATaskLifecycleReadback{}, err
+	}
+	if err := ValidatePublicSafeText(string(body)); err != nil {
+		return A2ATaskLifecycleReadback{}, err
+	}
+	if err := json.Unmarshal(body, &fixture); err != nil {
+		return A2ATaskLifecycleReadback{}, err
+	}
+	readback := A2ATaskLifecycleReadback{
+		Schema:            "ao.mission.a2a-task-lifecycle-readback.v0.1",
+		Status:            "ready",
+		Tasks:             append([]A2ATask(nil), fixture.Tasks...),
+		MutationAuthority: false,
+		ExecutesWork:      false,
+		ApprovesWork:      false,
+		GeneratedAtUTC:    now(nil),
+	}
+	for i, task := range fixture.Tasks {
+		if task.Schema != A2ATaskSchema {
+			return A2ATaskLifecycleReadback{}, fmt.Errorf("A2A lifecycle task %d schema must be %s", i, A2ATaskSchema)
+		}
+		if task.MutationAuthority {
+			return A2ATaskLifecycleReadback{}, fmt.Errorf("A2A lifecycle task %d must not claim mutation authority", i)
+		}
+		switch task.Status {
+		case "intent_recorded":
+			readback.IntentRecorded++
+		case "cancel_requested":
+			readback.CancelRequested++
+		case "cancelled":
+			readback.Cancelled++
+		default:
+			return A2ATaskLifecycleReadback{}, fmt.Errorf("A2A lifecycle task %d has unsupported status %q", i, task.Status)
+		}
+	}
+	readback.Total = len(fixture.Tasks)
+	return readback, nil
+}
+
 func chatIDForRole(role string) string {
 	switch role {
 	case "admin":

@@ -56,3 +56,28 @@ func ReplaySchedulerReadbacks(path string) (SchedulerReplayReadback, error) {
 	}
 	return readback, nil
 }
+
+func BuildSchedulerAlertSummary(replay SchedulerReplayReadback) SchedulerAlertSummary {
+	summary := SchedulerAlertSummary{
+		Schema:         "ao.mission.scheduler-alert-summary.v0.1",
+		Status:         "ready",
+		Total:          replay.Total,
+		Fresh:          replay.Fresh,
+		Stale:          replay.Stale,
+		Unknown:        replay.Unknown,
+		Alerts:         []string{},
+		ExecutesWork:   false,
+		ApprovesWork:   false,
+		GeneratedAtUTC: now(nil),
+	}
+	if replay.Stale > 0 {
+		summary.Alerts = append(summary.Alerts, fmt.Sprintf("%d scheduler readback(s) are stale", replay.Stale))
+	}
+	if replay.Unknown > 0 {
+		summary.Alerts = append(summary.Alerts, fmt.Sprintf("%d scheduler readback(s) have unknown freshness", replay.Unknown))
+	}
+	if len(summary.Alerts) > 0 {
+		summary.Status = "attention_required"
+	}
+	return summary
+}

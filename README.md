@@ -24,15 +24,19 @@ ao-mission resume --mission <id>
 ao-mission stop --mission <id>
 ao-mission schedule --mission <id> --every <duration> --event-loop
 ao-mission schedule replay --fixture <scheduler-readback-replay.json>
+ao-mission schedule alerts --fixture <scheduler-readback-replay.json>
 ao-mission daemon install|status|uninstall
 ao-mission telegram serve
 ao-mission telegram replay --matrix <matrix.json> --config <telegram-config.json>
 ao-mission telegram replay-updates --fixture <telegram-update-replay.json> --config <telegram-config.json>
 ao-mission a2a serve
 ao-mission a2a replay --fixture <a2a-http-integration.json>
+ao-mission a2a lifecycle --fixture <a2a-task-lifecycle.json>
+ao-mission gateway ledger --mission <id> --telegram-updates <fixture> --telegram-config <config> --a2a-http <fixture> --out <ledger.json>
 ao-mission governance snapshot --mission <id>
 ao-mission artifacts --mission <id>
 ao-mission artifacts manifest --mission <id> [--out <manifest.json>]
+ao-mission artifacts validate-manifest --path <manifest.json>
 ao-mission command status --mission <id> [--json]
 ao-mission validate contract --path <json>
 ao-mission import blueprint-authorization --mission <id> --path <json>
@@ -56,4 +60,4 @@ See [Gateway Readback Runbook](docs/gateway-readback-runbook.md) for the fixture
 
 ## Readback Surfaces
 
-`ao-mission continue` persists `ao.mission.event-loop-decision.v0.1` after each continuation step so the zero-wait event loop has durable no-authority readback. `ao-mission next` appends `ao.mission.route-decision.v0.1` entries to the mission route history, and `ao-mission mission history` exports that history for AO Command or Atlas inspection. `ao-mission import atlas-workgraph` records node counts from Atlas workgraphs, `ao-mission import scheduler-readback` records codex-cron wakeup evidence without granting execution authority, rejects any scheduler readback that claims `executes_work=true`, and classifies evidence freshness. `ao-mission schedule replay` classifies fresh, stale, and unknown scheduler readback fixtures. `ao-mission import foundry-final-rollup` marks the mission done only when completed and total node counts agree. `ao-mission command status` emits a read-only AO Command compatible status packet. `ao-mission artifacts manifest` emits or writes a digest-bound local manifest over mission artifacts without granting execution or approval authority.
+`ao-mission continue` persists `ao.mission.event-loop-decision.v0.1` after each continuation step so the zero-wait event loop has durable no-authority readback. `ao-mission next` appends `ao.mission.route-decision.v0.1` entries to the mission route history, and `ao-mission mission history` exports that history for AO Command or Atlas inspection. `ao-mission import atlas-workgraph` records node counts from Atlas workgraphs, `ao-mission import scheduler-readback` records codex-cron wakeup evidence without granting execution authority, rejects any scheduler readback that claims `executes_work=true`, and classifies evidence freshness. `ao-mission schedule replay` classifies fresh, stale, and unknown scheduler readback fixtures, while `ao-mission schedule alerts` turns stale or unknown scheduler readbacks into an attention-required summary. `ao-mission gateway ledger` persists Telegram and A2A replay intents into `ao.mission.gateway-intent-ledger.v0.1` with no mutation authority, and `ao-mission a2a lifecycle` validates cancellation lifecycle fixtures as readback only. `ao-mission import foundry-final-rollup` marks the mission done only when completed and total node counts agree. `ao-mission command status` emits a read-only AO Command compatible status packet. `ao-mission artifacts manifest` emits or writes a digest-bound local manifest over mission artifacts without granting execution or approval authority, and `ao-mission artifacts validate-manifest` recomputes the manifest and referenced artifact digests so tampering fails closed.

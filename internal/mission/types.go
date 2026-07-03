@@ -199,6 +199,49 @@ type GatewayReplayReadback struct {
 	GeneratedAtUTC    string                `json:"generated_at_utc"`
 }
 
+type GatewayIntentRecord struct {
+	Schema            string `json:"schema"`
+	MissionID         string `json:"mission_id"`
+	Gateway           string `json:"gateway"`
+	Command           string `json:"command,omitempty"`
+	Method            string `json:"method,omitempty"`
+	Status            string `json:"status"`
+	ExpectedStatus    string `json:"expected_status,omitempty"`
+	MutationAuthority bool   `json:"mutation_authority"`
+	ExecutesWork      bool   `json:"executes_work"`
+	ApprovesWork      bool   `json:"approves_work"`
+	GeneratedAtUTC    string `json:"generated_at_utc"`
+}
+
+type GatewayIntentLedger struct {
+	Schema            string                `json:"schema"`
+	MissionID         string                `json:"mission_id"`
+	Status            string                `json:"status"`
+	Total             int                   `json:"total"`
+	IntentRecorded    int                   `json:"intent_recorded"`
+	Denied            int                   `json:"denied"`
+	Invalid           int                   `json:"invalid"`
+	Intents           []GatewayIntentRecord `json:"intents"`
+	MutationAuthority bool                  `json:"mutation_authority"`
+	ExecutesWork      bool                  `json:"executes_work"`
+	ApprovesWork      bool                  `json:"approves_work"`
+	GeneratedAtUTC    string                `json:"generated_at_utc"`
+}
+
+type A2ATaskLifecycleReadback struct {
+	Schema            string    `json:"schema"`
+	Status            string    `json:"status"`
+	Total             int       `json:"total"`
+	IntentRecorded    int       `json:"intent_recorded"`
+	CancelRequested   int       `json:"cancel_requested"`
+	Cancelled         int       `json:"cancelled"`
+	Tasks             []A2ATask `json:"tasks"`
+	MutationAuthority bool      `json:"mutation_authority"`
+	ExecutesWork      bool      `json:"executes_work"`
+	ApprovesWork      bool      `json:"approves_work"`
+	GeneratedAtUTC    string    `json:"generated_at_utc"`
+}
+
 type A2AAgentCard struct {
 	Schema            string   `json:"schema"`
 	Name              string   `json:"name"`
@@ -235,6 +278,17 @@ type ArtifactManifest struct {
 	GeneratedAtUTC string        `json:"generated_at_utc"`
 }
 
+type ArtifactManifestValidation struct {
+	Schema         string `json:"schema"`
+	Status         string `json:"status"`
+	MissionID      string `json:"mission_id"`
+	ArtifactCount  int    `json:"artifact_count"`
+	ManifestDigest string `json:"manifest_digest"`
+	ExecutesWork   bool   `json:"executes_work"`
+	ApprovesWork   bool   `json:"approves_work"`
+	GeneratedAtUTC string `json:"generated_at_utc"`
+}
+
 type SchedulerReplayReadback struct {
 	Schema         string `json:"schema"`
 	Status         string `json:"status"`
@@ -245,6 +299,19 @@ type SchedulerReplayReadback struct {
 	ExecutesWork   bool   `json:"executes_work"`
 	ApprovesWork   bool   `json:"approves_work"`
 	GeneratedAtUTC string `json:"generated_at_utc"`
+}
+
+type SchedulerAlertSummary struct {
+	Schema         string   `json:"schema"`
+	Status         string   `json:"status"`
+	Total          int      `json:"total"`
+	Fresh          int      `json:"fresh"`
+	Stale          int      `json:"stale"`
+	Unknown        int      `json:"unknown"`
+	Alerts         []string `json:"alerts"`
+	ExecutesWork   bool     `json:"executes_work"`
+	ApprovesWork   bool     `json:"approves_work"`
+	GeneratedAtUTC string   `json:"generated_at_utc"`
 }
 
 type CommandStatus struct {
