@@ -62,6 +62,15 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 				rec.CurrentPhase = "foundry_final_rollup_recorded"
 				rec.ExactNextAction = "review final rollup blockers before continuing"
 			}
+		case "scheduler-readback":
+			rec.Evidence.SchedulerReadback = &SchedulerEvidenceCounts{
+				Status:       stringFromAny(doc["status"]),
+				Scheduler:    stringFromAny(doc["scheduler"]),
+				EventLoop:    boolFromAny(doc["event_loop"]),
+				ExecutesWork: false,
+			}
+			rec.CurrentPhase = "scheduler_readback_recorded"
+			rec.ExactNextAction = "scheduler wakeup readback recorded; continue mission through AO Mission event loop"
 		default:
 			return fmt.Errorf("unsupported import kind %q", kind)
 		}
@@ -131,4 +140,14 @@ func intFromAny(v any) int {
 	default:
 		return 0
 	}
+}
+
+func stringFromAny(v any) string {
+	s, _ := v.(string)
+	return s
+}
+
+func boolFromAny(v any) bool {
+	b, _ := v.(bool)
+	return b
 }

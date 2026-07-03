@@ -57,6 +57,21 @@ func TelegramConfigReadback(cfg TelegramConfig) GatewayReadback {
 	}
 }
 
+func LoadTelegramCommandMatrix(path string) (TelegramCommandMatrix, error) {
+	var matrix TelegramCommandMatrix
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return matrix, err
+	}
+	if err := ValidatePublicSafeText(string(body)); err != nil {
+		return matrix, err
+	}
+	if err := json.Unmarshal(body, &matrix); err != nil {
+		return matrix, err
+	}
+	return matrix, nil
+}
+
 func HandleTelegramCommand(cmd TelegramCommand, allowlist map[string]string) TelegramReadback {
 	if cmd.Schema == "" {
 		cmd.Schema = TelegramCommandSchema
@@ -80,6 +95,24 @@ func AgentCard() A2AAgentCard {
 func A2ATaskFor(method string) A2ATask {
 	return A2ATask{Schema: A2ATaskSchema, TaskID: "task-" + strings.ReplaceAll(method, ".", "-"), Method: method, Status: "intent_recorded", MutationAuthority: false}
 }
+func A2ATaskForParams(method string, params map[string]any) A2ATask {
+	task := A2ATaskFor(method)
+	if !stringSliceContains(AgentCard().Methods, method) {
+		task.Status = "invalid"
+		return task
+	}
+	switch method {
+	case "mission.start":
+		if strings.TrimSpace(stringParam(params, "objective")) == "" {
+			task.Status = "invalid"
+		}
+	case "mission.status", "mission.next", "mission.continue", "mission.pause", "mission.resume", "mission.cancel", "mission.artifacts", "mission.governance_snapshot":
+		if strings.TrimSpace(stringParam(params, "mission_id")) == "" {
+			task.Status = "invalid"
+		}
+	}
+	return task
+}
 
 func A2AHandler() http.Handler {
 	mux := http.NewServeMux()
@@ -94,16 +127,17 @@ func A2AHandler() http.Handler {
 			return
 		}
 		var req struct {
-			JSONRPC string `json:"jsonrpc"`
-			ID      any    `json:"id"`
-			Method  string `json:"method"`
+			JSONRPC string         `json:"jsonrpc"`
+			ID      any            `json:"id"`
+			Method  string         `json:"method"`
+			Params  map[string]any `json:"params"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		if req.Method == "" {
 			req.Method = "mission.status"
 		}
 		w.Header().Set("Content-Type", "application/json")
-		task := A2ATaskFor(req.Method)
+		task := A2ATaskForParams(req.Method, req.Params)
 		if req.JSONRPC == "2.0" || req.ID != nil {
 			_ = json.NewEncoder(w).Encode(A2AJSONRPCResponse{JSONRPC: "2.0", ID: req.ID, Result: task})
 			return
@@ -111,4 +145,21 @@ func A2AHandler() http.Handler {
 		_ = json.NewEncoder(w).Encode(task)
 	})
 	return mux
+}
+
+func stringSliceContains(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
+
+func stringParam(params map[string]any, key string) string {
+	if params == nil {
+		return ""
+	}
+	value, _ := params[key].(string)
+	return value
 }

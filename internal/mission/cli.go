@@ -263,7 +263,7 @@ func run(args []string, stdout io.Writer) error {
 		return errors.New("validate requires contract --path <file>")
 	case "import":
 		if len(args) < 2 {
-			return errors.New("import requires blueprint-authorization, atlas-workgraph, foundry-run-link, or foundry-final-rollup")
+			return errors.New("import requires blueprint-authorization, atlas-workgraph, foundry-run-link, foundry-final-rollup, or scheduler-readback")
 		}
 		fs := flag.NewFlagSet("import "+args[1], flag.ContinueOnError)
 		id := fs.String("mission", "", "")

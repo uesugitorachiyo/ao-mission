@@ -25,6 +25,20 @@ func Continue(s Store, missionID string, opts ContinueOptions) (Record, error) {
 			r.CurrentRoute = decision.Route
 			r.CurrentPhase = "handoff_required"
 			r.ExactNextAction = decision.ExactNextAction
+			if err := s.SaveEventLoopDecision(EventLoopDecision{
+				Schema:              EventLoopDecisionSchema,
+				MissionID:           r.MissionID,
+				Iteration:           step.Iteration,
+				Status:              step.Result,
+				Route:               step.Route,
+				ExactNextAction:     step.ExactNextAction,
+				ExecutesWork:        false,
+				ApprovesWork:        false,
+				MutatesRepositories: false,
+				GeneratedAtUTC:      step.GeneratedAtUTC,
+			}); err != nil {
+				return err
+			}
 			if !opts.UntilDone {
 				break
 			}

@@ -8,5 +8,14 @@
     "status",
     "scheduler",
     "event_loop"
-  ]
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "ao.mission.scheduler-readback.v0.1" },
+    "mission_id": { "type": "string" },
+    "status": { "type": "string" },
+    "scheduler": { "type": "string" },
+    "event_loop": { "type": "boolean" },
+    "reason": { "type": "string" },
+    "generated_at_utc": { "type": "string" }
+  }
 }

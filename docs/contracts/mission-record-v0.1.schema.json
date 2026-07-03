@@ -9,5 +9,21 @@
     "status",
     "created_at_utc",
     "current_route"
-  ]
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "ao.mission.record.v0.1" },
+    "mission_id": { "type": "string" },
+    "objective": { "type": "string" },
+    "objective_digest": { "type": "string" },
+    "status": { "type": "string" },
+    "created_at_utc": { "type": "string" },
+    "updated_at_utc": { "type": "string" },
+    "current_route": { "type": "string" },
+    "current_phase": { "type": "string" },
+    "blockers": { "type": "array" },
+    "exact_next_action": { "type": "string" },
+    "artifact_refs": { "type": "array" },
+    "steps": { "type": "array" },
+    "evidence": { "type": "object" }
+  }
 }
