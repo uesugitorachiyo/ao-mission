@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -95,8 +96,26 @@ func run(args []string, stdout io.Writer) error {
 			}
 			fmt.Fprintf(stdout, "mission=%s\nstatus=%s\nphase=%s\nroute=%s\nnext=%s\n", r.MissionID, r.Status, r.CurrentPhase, r.CurrentRoute, r.ExactNextAction)
 			return nil
+		case "history":
+			fs := flag.NewFlagSet("mission history", flag.ContinueOnError)
+			id := fs.String("mission", "", "")
+			jsonOut := fs.Bool("json", false, "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			r, err := s.Load(*id)
+			if err != nil {
+				return err
+			}
+			if *jsonOut {
+				return printJSON(stdout, r.RouteHistory)
+			}
+			for _, item := range r.RouteHistory {
+				fmt.Fprintf(stdout, "route=%s reason=%s safe_to_execute=%t next=%s\n", item.Route, item.Reason, item.SafeToExecute, item.ExactNextAction)
+			}
+			return nil
 		default:
-			return errors.New("mission requires list or inspect")
+			return errors.New("mission requires list, inspect, or history")
 		}
 	case "status":
 		fs := flag.NewFlagSet("status", flag.ContinueOnError)
@@ -170,6 +189,21 @@ func run(args []string, stdout io.Writer) error {
 		}
 		return printJSON(stdout, r)
 	case "schedule":
+		if len(args) >= 2 && args[1] == "replay" {
+			fs := flag.NewFlagSet("schedule replay", flag.ContinueOnError)
+			fixturePath := fs.String("fixture", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if *fixturePath == "" {
+				return errors.New("schedule replay requires --fixture")
+			}
+			readback, err := ReplaySchedulerReadbacks(*fixturePath)
+			if err != nil {
+				return err
+			}
+			return printJSON(stdout, readback)
+		}
 		fs := flag.NewFlagSet("schedule", flag.ContinueOnError)
 		id := fs.String("mission", "", "")
 		every := fs.String("every", "", "")
@@ -186,6 +220,26 @@ func run(args []string, stdout io.Writer) error {
 		fmt.Fprintf(stdout, "daemon=%s\nstatus=readback_only\n", args[1])
 		return nil
 	case "telegram":
+		if len(args) >= 2 && args[1] == "replay-updates" {
+			fs := flag.NewFlagSet("telegram replay-updates", flag.ContinueOnError)
+			fixturePath := fs.String("fixture", "", "")
+			configPath := fs.String("config", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if *fixturePath == "" || *configPath == "" {
+				return errors.New("telegram replay-updates requires --fixture and --config")
+			}
+			cfg, err := LoadTelegramConfig(*configPath)
+			if err != nil {
+				return err
+			}
+			readback, err := ReplayTelegramUpdates(*fixturePath, cfg.AllowedChats)
+			if err != nil {
+				return err
+			}
+			return printJSON(stdout, readback)
+		}
 		if len(args) >= 2 && args[1] == "replay" {
 			fs := flag.NewFlagSet("telegram replay", flag.ContinueOnError)
 			matrixPath := fs.String("matrix", "", "")
@@ -295,12 +349,30 @@ func run(args []string, stdout io.Writer) error {
 		return errors.New("command requires status")
 	case "artifacts":
 		if len(args) >= 2 && args[1] == "manifest" {
-			id := missionFlag(args[2:])
-			r, err := s.Load(id)
+			fs := flag.NewFlagSet("artifacts manifest", flag.ContinueOnError)
+			id := fs.String("mission", "", "")
+			outPath := fs.String("out", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			r, err := s.Load(*id)
 			if err != nil {
 				return err
 			}
-			return printJSON(stdout, BuildArtifactManifest(r))
+			manifest := BuildArtifactManifest(r)
+			if *outPath == "" {
+				return printJSON(stdout, manifest)
+			}
+			body, err := json.MarshalIndent(manifest, "", "  ")
+			if err != nil {
+				return err
+			}
+			body = append(body, '\n')
+			if err := os.WriteFile(*outPath, body, 0o644); err != nil {
+				return err
+			}
+			fmt.Fprintf(stdout, "artifact_manifest=%s\nmission=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, manifest.MissionID)
+			return nil
 		}
 		id := missionFlag(args[1:])
 		r, err := s.Load(id)

@@ -1,6 +1,9 @@
 {
   "schema": "ao.mission.a2a-agent-card.v0.1",
   "name": "ao-mission",
+  "protocol_version": "a2a-local-fixture-v0.1",
+  "description": "AO Mission local gateway for intent and readback requests only",
+  "endpoint": "/",
   "methods": [
     "mission.start",
     "mission.status",
@@ -11,6 +14,11 @@
     "mission.cancel",
     "mission.artifacts",
     "mission.governance_snapshot"
+  ],
+  "capabilities": [
+    "streaming=false",
+    "push_notifications=false",
+    "mutation_authority=false"
   ],
   "mutation_authority": false
 }

@@ -16,6 +16,18 @@ type TelegramConfig struct {
 	AllowedChats map[string]string `json:"allowed_chats"`
 }
 
+type TelegramUpdateReplay struct {
+	Schema  string                  `json:"schema"`
+	Updates []TelegramUpdateFixture `json:"updates"`
+}
+
+type TelegramUpdateFixture struct {
+	UpdateID       int    `json:"update_id"`
+	ChatID         string `json:"chat_id"`
+	Text           string `json:"text"`
+	ExpectedStatus string `json:"expected_status"`
+}
+
 type GatewayReadback struct {
 	Schema            string   `json:"schema"`
 	Gateway           string   `json:"gateway"`
@@ -113,6 +125,45 @@ func ReplayTelegramCommandMatrix(path string, allowlist map[string]string) (Gate
 		}
 		countGatewayStatus(&readback, rb.Status)
 		if tc.ExpectedStatus != "" && rb.Status != tc.ExpectedStatus {
+			readback.Status = "blocked"
+		}
+	}
+	readback.Total = len(readback.Results)
+	return readback, nil
+}
+
+func ReplayTelegramUpdates(path string, allowlist map[string]string) (GatewayReplayReadback, error) {
+	var fixture TelegramUpdateReplay
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return GatewayReplayReadback{}, err
+	}
+	if err := ValidatePublicSafeText(string(body)); err != nil {
+		return GatewayReplayReadback{}, err
+	}
+	if err := json.Unmarshal(body, &fixture); err != nil {
+		return GatewayReplayReadback{}, err
+	}
+	readback := GatewayReplayReadback{
+		Schema:            "ao.mission.telegram-update-replay-readback.v0.1",
+		Gateway:           "telegram",
+		Status:            "ready",
+		Results:           []GatewayReplayResult{},
+		MutationAuthority: false,
+		ExecutesWork:      false,
+		ApprovesWork:      false,
+		GeneratedAtUTC:    now(nil),
+	}
+	for _, update := range fixture.Updates {
+		role := allowlist[update.ChatID]
+		rb := HandleTelegramCommand(TelegramCommand{ChatID: update.ChatID, Command: update.Text, Role: role}, allowlist)
+		result := GatewayReplayResult{Command: update.Text, ExpectedStatus: update.ExpectedStatus, ActualStatus: rb.Status, MutationAuthority: rb.MutationAuthority}
+		readback.Results = append(readback.Results, result)
+		if rb.MutationAuthority {
+			readback.MutationAuthority = true
+		}
+		countGatewayStatus(&readback, rb.Status)
+		if update.ExpectedStatus != "" && rb.Status != update.ExpectedStatus {
 			readback.Status = "blocked"
 		}
 	}
@@ -226,7 +277,16 @@ func HandleTelegramCommand(cmd TelegramCommand, allowlist map[string]string) Tel
 }
 
 func AgentCard() A2AAgentCard {
-	return A2AAgentCard{Schema: A2AAgentCardSchema, Name: "ao-mission", Methods: []string{"mission.start", "mission.status", "mission.next", "mission.continue", "mission.pause", "mission.resume", "mission.cancel", "mission.artifacts", "mission.governance_snapshot"}, MutationAuthority: false}
+	return A2AAgentCard{
+		Schema:            A2AAgentCardSchema,
+		Name:              "ao-mission",
+		ProtocolVersion:   "a2a-local-fixture-v0.1",
+		Description:       "AO Mission local gateway for intent and readback requests only",
+		Endpoint:          "/",
+		Methods:           []string{"mission.start", "mission.status", "mission.next", "mission.continue", "mission.pause", "mission.resume", "mission.cancel", "mission.artifacts", "mission.governance_snapshot"},
+		Capabilities:      []string{"streaming=false", "push_notifications=false", "mutation_authority=false"},
+		MutationAuthority: false,
+	}
 }
 func A2ATaskFor(method string) A2ATask {
 	return A2ATask{Schema: A2ATaskSchema, TaskID: "task-" + strings.ReplaceAll(method, ".", "-"), Method: method, Status: "intent_recorded", MutationAuthority: false}
