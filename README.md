@@ -13,6 +13,8 @@ Denied boundaries remain denied: unrestricted self-modification, hidden instruct
 ```sh
 ao-mission init
 ao-mission start "<objective>"
+ao-mission mission list [--json]
+ao-mission mission inspect --mission <id> [--json]
 ao-mission continue --mission <id> [--until-done] [--max-iterations N]
 ao-mission status --mission <id> [--json]
 ao-mission next --mission <id> [--json]
@@ -25,10 +27,13 @@ ao-mission telegram serve
 ao-mission a2a serve
 ao-mission governance snapshot --mission <id>
 ao-mission artifacts --mission <id>
+ao-mission artifacts manifest --mission <id>
+ao-mission command status --mission <id> [--json]
 ao-mission validate contract --path <json>
 ao-mission import blueprint-authorization --mission <id> --path <json>
 ao-mission import atlas-workgraph --mission <id> --path <json>
 ao-mission import foundry-run-link --mission <id> --path <json>
+ao-mission import foundry-final-rollup --mission <id> --path <json>
 ao-mission final rollup --mission <id>
 ```
 
@@ -40,3 +45,7 @@ Every command also accepts `--home <dir>` before the command name for explicit l
 The messaging surface follows the same split used by Hermes-style gateways: CLI and messaging platforms are separate entry points into one mission ledger, and messaging commands create intents/readbacks instead of direct mutation. The A2A local gateway exposes an Agent Card and task-style readbacks for local interoperability while preserving `mutation_authority=false`.
 
 Telegram is disabled by default. A config file may name the environment variable that contains the real token and a chat allowlist, but ao-mission never prints or persists the token value.
+
+## Readback Surfaces
+
+`ao-mission import atlas-workgraph` records node counts from Atlas workgraphs, and `ao-mission import foundry-final-rollup` marks the mission done only when completed and total node counts agree. `ao-mission command status` emits a read-only AO Command compatible status packet. `ao-mission artifacts manifest` emits a digest-bound local manifest over mission artifacts without granting execution or approval authority.

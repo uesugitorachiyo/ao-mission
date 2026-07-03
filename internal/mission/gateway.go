@@ -94,14 +94,21 @@ func A2AHandler() http.Handler {
 			return
 		}
 		var req struct {
-			Method string `json:"method"`
+			JSONRPC string `json:"jsonrpc"`
+			ID      any    `json:"id"`
+			Method  string `json:"method"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		if req.Method == "" {
 			req.Method = "mission.status"
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(A2ATaskFor(req.Method))
+		task := A2ATaskFor(req.Method)
+		if req.JSONRPC == "2.0" || req.ID != nil {
+			_ = json.NewEncoder(w).Encode(A2AJSONRPCResponse{JSONRPC: "2.0", ID: req.ID, Result: task})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(task)
 	})
 	return mux
 }
