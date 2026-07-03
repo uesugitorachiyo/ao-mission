@@ -1,0 +1,16 @@
+{
+  "schema": "ao.mission.a2a-agent-card.v0.1",
+  "name": "ao-mission",
+  "methods": [
+    "mission.start",
+    "mission.status",
+    "mission.next",
+    "mission.continue",
+    "mission.pause",
+    "mission.resume",
+    "mission.cancel",
+    "mission.artifacts",
+    "mission.governance_snapshot"
+  ],
+  "mutation_authority": false
+}

@@ -3,6 +3,8 @@ package mission
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -104,5 +106,92 @@ func TestPublicSafeTextRejectsSecrets(t *testing.T) {
 	}
 	if err := ValidatePublicSafeText("safe fixture with redacted token example"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestGlobalHomeAndFinalRollup(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "atlas workgraph objective"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "final", "rollup", "--mission", rec.MissionID}, &out, &errb); code != 0 {
+		t.Fatalf("rollup: %s", errb.String())
+	}
+	var rollup FinalRollup
+	if err := json.Unmarshal(out.Bytes(), &rollup); err != nil {
+		t.Fatal(err)
+	}
+	if rollup.SafeToExecute || rollup.ExecutesWork {
+		t.Fatal("final rollup widened authority")
+	}
+}
+
+func TestValidateContractAndImports(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("build atlas workgraph")
+	if err != nil {
+		t.Fatal(err)
+	}
+	authPath := filepath.Join(dir, "auth.json")
+	if err := os.WriteFile(authPath, []byte(`{"schema":"ao.blueprint.build-authorization.v0.1","project_id":"demo","status":"ready","next_allowed_action":"ao-atlas"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ValidateContractFile(filepath.Join("..", "..", "examples", "valid", "mission-record.json")); err != nil {
+		t.Fatal(err)
+	}
+	rb, err := ImportArtifact(s, rec.MissionID, "blueprint-authorization", authPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rb.SafeToExecute || rb.Kind != "blueprint-authorization" {
+		t.Fatalf("bad readback: %+v", rb)
+	}
+	updated, err := s.Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.ArtifactRefs) != 1 {
+		t.Fatalf("artifact refs=%d", len(updated.ArtifactRefs))
+	}
+}
+
+func TestTelegramConfigReadback(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "telegram.json")
+	body := `{"schema":"ao.mission.telegram-config.v0.1","token_env":"AO_MISSION_TELEGRAM_REDACTED","allowed_chats":{"1001":"admin","1002":"user"}}`
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadTelegramConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rb := TelegramConfigReadback(cfg)
+	if rb.AllowedChatCount != 2 || rb.MutationAuthority {
+		t.Fatalf("bad gateway readback: %+v", rb)
+	}
+}
+
+func TestA2AHTTPHandler(t *testing.T) {
+	server := httptest.NewServer(A2AHandler())
+	defer server.Close()
+	resp, err := http.Get(server.URL + "/.well-known/agent-card.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var card A2AAgentCard
+	if err := json.NewDecoder(resp.Body).Decode(&card); err != nil {
+		t.Fatal(err)
+	}
+	if card.MutationAuthority {
+		t.Fatal("agent card must not grant mutation authority")
 	}
 }
