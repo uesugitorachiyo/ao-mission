@@ -1,0 +1,19 @@
+{
+  "schema": "ao.mission.final-rollup.v0.1",
+  "mission_id": "mission-demo",
+  "status": "active",
+  "completed_steps": 1,
+  "artifact_refs": [],
+  "highest_proven_live_class": "public_safe_unrestricted_self_modification_authority_request_dry_run_four_attempts",
+  "next_denied_class": "unrestricted_self_modification",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "provider_calls": false,
+  "exact_next_action": "send objective to AO Blueprint",
+  "remaining_denied_surfaces": [
+    "unrestricted_self_modification",
+    "broad_RSI"
+  ],
+  "generated_at_utc": "2026-01-01T00:00:00Z"
+}

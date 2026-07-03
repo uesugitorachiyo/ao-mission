@@ -6,6 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net"
+	"net/http"
 	"strings"
 )
 
@@ -27,9 +29,16 @@ func printJSON(w io.Writer, v any) error {
 
 func run(args []string, stdout io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: ao-mission <init|start|continue|status|next|stop|pause|resume|schedule|daemon|telegram|a2a|governance|artifacts>")
+		return errors.New("usage: ao-mission [--home <dir>] <init|start|continue|status|next|stop|pause|resume|schedule|daemon|telegram|a2a|governance|artifacts|validate|import|final>")
 	}
-	s := NewStore("")
+	home, args, err := parseGlobalHome(args)
+	if err != nil {
+		return err
+	}
+	if len(args) == 0 {
+		return errors.New("command is required")
+	}
+	s := NewStore(home)
 	switch args[0] {
 	case "init":
 		if err := s.Init(); err != nil {
@@ -123,12 +132,41 @@ func run(args []string, stdout io.Writer) error {
 		return nil
 	case "telegram":
 		if len(args) >= 2 && args[1] == "serve" {
-			return printJSON(stdout, TelegramReadback{Schema: TelegramReadbackSchema, Status: "disabled", Message: "telegram gateway disabled by default; configure fake-token-safe environment and allowlist", MutationAuthority: false})
+			fs := flag.NewFlagSet("telegram serve", flag.ContinueOnError)
+			configPath := fs.String("config", "", "")
+			_ = fs.Parse(args[2:])
+			if *configPath == "" {
+				return printJSON(stdout, TelegramReadback{Schema: TelegramReadbackSchema, Status: "disabled", Message: "telegram gateway disabled by default; configure environment token name and allowlist", MutationAuthority: false})
+			}
+			cfg, err := LoadTelegramConfig(*configPath)
+			if err != nil {
+				return err
+			}
+			return printJSON(stdout, TelegramConfigReadback(cfg))
 		}
 		return errors.New("telegram requires serve")
 	case "a2a":
 		if len(args) >= 2 && args[1] == "serve" {
-			return printJSON(stdout, AgentCard())
+			fs := flag.NewFlagSet("a2a serve", flag.ContinueOnError)
+			httpMode := fs.Bool("http", false, "")
+			listen := fs.String("listen", "127.0.0.1:0", "")
+			once := fs.Bool("once", false, "")
+			_ = fs.Parse(args[2:])
+			if !*httpMode {
+				return printJSON(stdout, AgentCard())
+			}
+			ln, err := net.Listen("tcp", *listen)
+			if err != nil {
+				return err
+			}
+			server := &http.Server{Handler: A2AHandler()}
+			if *once {
+				addr := ln.Addr().String()
+				_ = ln.Close()
+				return printJSON(stdout, GatewayReadback{Schema: "ao.mission.gateway-readback.v0.1", Gateway: "a2a", Status: "ready", Methods: AgentCard().Methods, Message: "A2A local HTTP fixture server can bind at " + addr + " and records intents only", MutationAuthority: false, GeneratedAtUTC: now(nil)})
+			}
+			fmt.Fprintf(stdout, "a2a_listen=%s\nmutation_authority=false\n", ln.Addr().String())
+			return server.Serve(ln)
 		}
 		return errors.New("a2a requires serve")
 	case "governance":
@@ -148,9 +186,54 @@ func run(args []string, stdout io.Writer) error {
 			return err
 		}
 		return printJSON(stdout, r.ArtifactRefs)
+	case "validate":
+		if len(args) >= 2 && args[1] == "contract" {
+			fs := flag.NewFlagSet("validate contract", flag.ContinueOnError)
+			path := fs.String("path", "", "")
+			_ = fs.Parse(args[2:])
+			result, err := ValidateContractFile(*path)
+			if printErr := printJSON(stdout, result); printErr != nil {
+				return printErr
+			}
+			return err
+		}
+		return errors.New("validate requires contract --path <file>")
+	case "import":
+		if len(args) < 2 {
+			return errors.New("import requires blueprint-authorization, atlas-workgraph, or foundry-run-link")
+		}
+		fs := flag.NewFlagSet("import "+args[1], flag.ContinueOnError)
+		id := fs.String("mission", "", "")
+		path := fs.String("path", "", "")
+		_ = fs.Parse(args[2:])
+		rb, err := ImportArtifact(s, *id, args[1], *path)
+		if printErr := printJSON(stdout, rb); printErr != nil {
+			return printErr
+		}
+		return err
+	case "final":
+		if len(args) >= 2 && args[1] == "rollup" {
+			id := missionFlag(args[2:])
+			r, err := s.Load(id)
+			if err != nil {
+				return err
+			}
+			return printJSON(stdout, BuildFinalRollup(r))
+		}
+		return errors.New("final requires rollup --mission <id>")
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
+}
+
+func parseGlobalHome(args []string) (string, []string, error) {
+	if len(args) == 0 || args[0] != "--home" {
+		return "", args, nil
+	}
+	if len(args) < 2 || strings.TrimSpace(args[1]) == "" {
+		return "", args, errors.New("--home requires a directory")
+	}
+	return args[1], args[2:], nil
 }
 func missionFlag(args []string) string {
 	fs := flag.NewFlagSet("mission", flag.ContinueOnError)

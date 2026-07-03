@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ao.mission.final-rollup.v0.1",
+  "type": "object",
+  "required": ["schema", "mission_id", "status", "safe_to_execute", "executes_work", "approves_work", "exact_next_action"]
+}

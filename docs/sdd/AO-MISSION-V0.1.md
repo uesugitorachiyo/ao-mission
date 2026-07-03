@@ -9,3 +9,13 @@ User, CLI, Telegram, or A2A creates an intent. AO Mission records the mission an
 ## Completion
 
 Handoff generation is not completion. A mission is done only when a final rollup is recorded or it is stopped with an exact blocker.
+
+## Readback Additions
+
+The current implementation adds read-only import and validation surfaces without changing the authority model:
+
+- `validate contract` checks JSON contract shape and public-safety markers.
+- `import blueprint-authorization`, `import atlas-workgraph`, and `import foundry-run-link` record artifact refs and exact next actions.
+- `final rollup` summarizes mission evidence while keeping all execution flags false.
+- `telegram serve --config <file>` parses allowlisted public-safe config and reports intent-only readiness.
+- `a2a serve --http` exposes a local Agent Card/task handler for fixture use only.
