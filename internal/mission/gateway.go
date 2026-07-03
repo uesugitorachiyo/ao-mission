@@ -1,8 +1,11 @@
 package mission
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 )
@@ -83,6 +86,123 @@ func LoadTelegramCommandMatrix(path string) (TelegramCommandMatrix, error) {
 		return matrix, err
 	}
 	return matrix, nil
+}
+
+func ReplayTelegramCommandMatrix(path string, allowlist map[string]string) (GatewayReplayReadback, error) {
+	matrix, err := LoadTelegramCommandMatrix(path)
+	if err != nil {
+		return GatewayReplayReadback{}, err
+	}
+	readback := GatewayReplayReadback{
+		Schema:            "ao.mission.telegram-replay-readback.v0.1",
+		Gateway:           "telegram",
+		Status:            "ready",
+		Results:           []GatewayReplayResult{},
+		MutationAuthority: false,
+		ExecutesWork:      false,
+		ApprovesWork:      false,
+		GeneratedAtUTC:    now(nil),
+	}
+	for _, tc := range matrix.Commands {
+		chatID := chatIDForRole(tc.Role)
+		rb := HandleTelegramCommand(TelegramCommand{ChatID: chatID, Command: tc.Command, Role: tc.Role}, allowlist)
+		result := GatewayReplayResult{Command: tc.Command, ExpectedStatus: tc.ExpectedStatus, ActualStatus: rb.Status, MutationAuthority: rb.MutationAuthority}
+		readback.Results = append(readback.Results, result)
+		if rb.MutationAuthority {
+			readback.MutationAuthority = true
+		}
+		countGatewayStatus(&readback, rb.Status)
+		if tc.ExpectedStatus != "" && rb.Status != tc.ExpectedStatus {
+			readback.Status = "blocked"
+		}
+	}
+	readback.Total = len(readback.Results)
+	return readback, nil
+}
+
+func ReplayA2AHTTPFixture(path string) (GatewayReplayReadback, error) {
+	var fixture struct {
+		Schema   string `json:"schema"`
+		Requests []struct {
+			JSONRPC        string         `json:"jsonrpc"`
+			ID             string         `json:"id"`
+			Method         string         `json:"method"`
+			Params         map[string]any `json:"params"`
+			ExpectedStatus string         `json:"expected_status"`
+		} `json:"requests"`
+		MutationAuthority bool `json:"mutation_authority"`
+	}
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return GatewayReplayReadback{}, err
+	}
+	if err := ValidatePublicSafeText(string(body)); err != nil {
+		return GatewayReplayReadback{}, err
+	}
+	if err := json.Unmarshal(body, &fixture); err != nil {
+		return GatewayReplayReadback{}, err
+	}
+	server := httptest.NewServer(A2AHandler())
+	defer server.Close()
+	readback := GatewayReplayReadback{
+		Schema:            "ao.mission.a2a-http-replay-readback.v0.1",
+		Gateway:           "a2a",
+		Status:            "ready",
+		Results:           []GatewayReplayResult{},
+		MutationAuthority: false,
+		ExecutesWork:      false,
+		ApprovesWork:      false,
+		GeneratedAtUTC:    now(nil),
+	}
+	for _, req := range fixture.Requests {
+		payload, _ := json.Marshal(req)
+		resp, err := http.Post(server.URL+"/", "application/json", bytes.NewReader(payload))
+		if err != nil {
+			return GatewayReplayReadback{}, err
+		}
+		var rpc A2AJSONRPCResponse
+		err = json.NewDecoder(resp.Body).Decode(&rpc)
+		_ = resp.Body.Close()
+		if err != nil {
+			return GatewayReplayReadback{}, err
+		}
+		result := GatewayReplayResult{Method: req.Method, ExpectedStatus: req.ExpectedStatus, ActualStatus: rpc.Result.Status, MutationAuthority: rpc.Result.MutationAuthority}
+		readback.Results = append(readback.Results, result)
+		if rpc.Result.MutationAuthority {
+			readback.MutationAuthority = true
+		}
+		countGatewayStatus(&readback, rpc.Result.Status)
+		if req.ExpectedStatus != "" && rpc.Result.Status != req.ExpectedStatus {
+			readback.Status = "blocked"
+		}
+	}
+	if fixture.MutationAuthority {
+		return GatewayReplayReadback{}, fmt.Errorf("A2A HTTP fixture must not claim mutation authority")
+	}
+	readback.Total = len(readback.Results)
+	return readback, nil
+}
+
+func chatIDForRole(role string) string {
+	switch role {
+	case "admin":
+		return "1001"
+	case "none":
+		return "9999"
+	default:
+		return "1002"
+	}
+}
+
+func countGatewayStatus(readback *GatewayReplayReadback, status string) {
+	switch status {
+	case "intent_recorded":
+		readback.IntentRecorded++
+	case "denied":
+		readback.Denied++
+	case "invalid":
+		readback.Invalid++
+	}
 }
 
 func HandleTelegramCommand(cmd TelegramCommand, allowlist map[string]string) TelegramReadback {

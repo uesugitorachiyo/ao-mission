@@ -24,7 +24,9 @@ ao-mission stop --mission <id>
 ao-mission schedule --mission <id> --every <duration> --event-loop
 ao-mission daemon install|status|uninstall
 ao-mission telegram serve
+ao-mission telegram replay --matrix <matrix.json> --config <telegram-config.json>
 ao-mission a2a serve
+ao-mission a2a replay --fixture <a2a-http-integration.json>
 ao-mission governance snapshot --mission <id>
 ao-mission artifacts --mission <id>
 ao-mission artifacts manifest --mission <id>
@@ -47,8 +49,8 @@ The messaging surface follows the same split used by Hermes-style gateways: CLI 
 
 Telegram is disabled by default. A config file may name the environment variable that contains the real token and a chat allowlist, but ao-mission never prints or persists the token value.
 
-See [Gateway Readback Runbook](docs/gateway-readback-runbook.md) for the fixture-backed command matrix, denied command examples, A2A JSON-RPC parameter checks, and intent-only authority boundary.
+See [Gateway Readback Runbook](docs/gateway-readback-runbook.md) for the fixture-backed command matrix, denied command examples, A2A JSON-RPC parameter checks, and intent-only authority boundary. See [Operator Next Actions](docs/operator-next-actions.md) for concrete next commands after Mission emits route readback.
 
 ## Readback Surfaces
 
-`ao-mission continue` persists `ao.mission.event-loop-decision.v0.1` after each continuation step so the zero-wait event loop has durable no-authority readback. `ao-mission import atlas-workgraph` records node counts from Atlas workgraphs, `ao-mission import scheduler-readback` records codex-cron wakeup evidence without granting execution authority and rejects any scheduler readback that claims `executes_work=true`, and `ao-mission import foundry-final-rollup` marks the mission done only when completed and total node counts agree. `ao-mission command status` emits a read-only AO Command compatible status packet. `ao-mission artifacts manifest` emits a digest-bound local manifest over mission artifacts without granting execution or approval authority.
+`ao-mission continue` persists `ao.mission.event-loop-decision.v0.1` after each continuation step so the zero-wait event loop has durable no-authority readback. `ao-mission next` appends `ao.mission.route-decision.v0.1` entries to the mission route history. `ao-mission import atlas-workgraph` records node counts from Atlas workgraphs, `ao-mission import scheduler-readback` records codex-cron wakeup evidence without granting execution authority, rejects any scheduler readback that claims `executes_work=true`, and classifies evidence freshness, and `ao-mission import foundry-final-rollup` marks the mission done only when completed and total node counts agree. `ao-mission command status` emits a read-only AO Command compatible status packet. `ao-mission artifacts manifest` emits a digest-bound local manifest over mission artifacts without granting execution or approval authority.

@@ -121,11 +121,15 @@ func run(args []string, stdout io.Writer) error {
 		if err := fs.Parse(args[1:]); err != nil {
 			return err
 		}
-		r, err := s.Load(*id)
+		var d RouteDecision
+		_, err := s.Update(*id, func(r *Record) error {
+			d = NextAction(*r)
+			AppendRouteHistory(r, d)
+			return nil
+		})
 		if err != nil {
 			return err
 		}
-		d := NextAction(r)
 		if *jsonOut {
 			return printJSON(stdout, d)
 		}
@@ -182,6 +186,26 @@ func run(args []string, stdout io.Writer) error {
 		fmt.Fprintf(stdout, "daemon=%s\nstatus=readback_only\n", args[1])
 		return nil
 	case "telegram":
+		if len(args) >= 2 && args[1] == "replay" {
+			fs := flag.NewFlagSet("telegram replay", flag.ContinueOnError)
+			matrixPath := fs.String("matrix", "", "")
+			configPath := fs.String("config", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if *matrixPath == "" || *configPath == "" {
+				return errors.New("telegram replay requires --matrix and --config")
+			}
+			cfg, err := LoadTelegramConfig(*configPath)
+			if err != nil {
+				return err
+			}
+			readback, err := ReplayTelegramCommandMatrix(*matrixPath, cfg.AllowedChats)
+			if err != nil {
+				return err
+			}
+			return printJSON(stdout, readback)
+		}
 		if len(args) >= 2 && args[1] == "serve" {
 			fs := flag.NewFlagSet("telegram serve", flag.ContinueOnError)
 			configPath := fs.String("config", "", "")
@@ -197,8 +221,23 @@ func run(args []string, stdout io.Writer) error {
 			}
 			return printJSON(stdout, TelegramConfigReadback(cfg))
 		}
-		return errors.New("telegram requires serve")
+		return errors.New("telegram requires serve or replay")
 	case "a2a":
+		if len(args) >= 2 && args[1] == "replay" {
+			fs := flag.NewFlagSet("a2a replay", flag.ContinueOnError)
+			fixturePath := fs.String("fixture", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if *fixturePath == "" {
+				return errors.New("a2a replay requires --fixture")
+			}
+			readback, err := ReplayA2AHTTPFixture(*fixturePath)
+			if err != nil {
+				return err
+			}
+			return printJSON(stdout, readback)
+		}
 		if len(args) >= 2 && args[1] == "serve" {
 			fs := flag.NewFlagSet("a2a serve", flag.ContinueOnError)
 			httpMode := fs.Bool("http", false, "")
@@ -223,7 +262,7 @@ func run(args []string, stdout io.Writer) error {
 			fmt.Fprintf(stdout, "a2a_listen=%s\nmutation_authority=false\n", ln.Addr().String())
 			return server.Serve(ln)
 		}
-		return errors.New("a2a requires serve")
+		return errors.New("a2a requires serve or replay")
 	case "governance":
 		if len(args) >= 2 && args[1] == "snapshot" {
 			id := missionFlag(args[2:])

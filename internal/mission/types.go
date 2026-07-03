@@ -42,6 +42,7 @@ type Record struct {
 	ExactNextAction string             `json:"exact_next_action"`
 	ArtifactRefs    []ArtifactRef      `json:"artifact_refs"`
 	Steps           []ContinuationStep `json:"steps"`
+	RouteHistory    []RouteDecision    `json:"route_history,omitempty"`
 	Evidence        EvidenceSummary    `json:"evidence,omitempty"`
 }
 
@@ -66,10 +67,11 @@ type FoundryRollupCounts struct {
 }
 
 type SchedulerEvidenceCounts struct {
-	Status       string `json:"status"`
-	Scheduler    string `json:"scheduler"`
-	EventLoop    bool   `json:"event_loop"`
-	ExecutesWork bool   `json:"executes_work"`
+	Status          string `json:"status"`
+	Scheduler       string `json:"scheduler"`
+	EventLoop       bool   `json:"event_loop"`
+	FreshnessStatus string `json:"freshness_status"`
+	ExecutesWork    bool   `json:"executes_work"`
 }
 
 type RouteDecision struct {
@@ -81,6 +83,7 @@ type RouteDecision struct {
 	SafeToExecute   bool   `json:"safe_to_execute"`
 	SafeToPromote   bool   `json:"safe_to_promote"`
 	ExactNextAction string `json:"exact_next_action"`
+	GeneratedAtUTC  string `json:"generated_at_utc,omitempty"`
 }
 
 type ContinuationStep struct {
@@ -172,6 +175,30 @@ type TelegramCommandMatrixEntry struct {
 	Role           string `json:"role"`
 	ExpectedStatus string `json:"expected_status"`
 }
+
+type GatewayReplayResult struct {
+	Command           string `json:"command,omitempty"`
+	Method            string `json:"method,omitempty"`
+	ExpectedStatus    string `json:"expected_status"`
+	ActualStatus      string `json:"actual_status"`
+	MutationAuthority bool   `json:"mutation_authority"`
+}
+
+type GatewayReplayReadback struct {
+	Schema            string                `json:"schema"`
+	Gateway           string                `json:"gateway"`
+	Status            string                `json:"status"`
+	Total             int                   `json:"total"`
+	IntentRecorded    int                   `json:"intent_recorded"`
+	Denied            int                   `json:"denied"`
+	Invalid           int                   `json:"invalid"`
+	Results           []GatewayReplayResult `json:"results"`
+	MutationAuthority bool                  `json:"mutation_authority"`
+	ExecutesWork      bool                  `json:"executes_work"`
+	ApprovesWork      bool                  `json:"approves_work"`
+	GeneratedAtUTC    string                `json:"generated_at_utc"`
+}
+
 type A2AAgentCard struct {
 	Schema            string   `json:"schema"`
 	Name              string   `json:"name"`
