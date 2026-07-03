@@ -100,6 +100,8 @@ func requiredFieldsForContract(schema string) []string {
 		return []string{"schema", "mission_id", "status", "scheduler", "event_loop"}
 	case TelegramCommandSchema:
 		return []string{"schema", "chat_id", "command", "role"}
+	case A2AAgentCardSchema:
+		return []string{"schema", "name", "protocol_version", "description", "endpoint", "methods", "capabilities", "mutation_authority"}
 	case A2ATaskSchema:
 		return []string{"schema", "task_id", "method", "status"}
 	case ArtifactRefSchema:
@@ -122,6 +124,8 @@ func propertyTypesForContract(schema string) map[string]string {
 		return map[string]string{"schema": "string", "mission_id": "string", "status": "string", "scheduler": "string", "event_loop": "boolean"}
 	case TelegramCommandSchema:
 		return map[string]string{"schema": "string", "chat_id": "string", "command": "string", "role": "string"}
+	case A2AAgentCardSchema:
+		return map[string]string{"schema": "string", "name": "string", "protocol_version": "string", "description": "string", "endpoint": "string", "methods": "array", "capabilities": "array", "mutation_authority": "boolean"}
 	case A2ATaskSchema:
 		return map[string]string{"schema": "string", "task_id": "string", "method": "string", "status": "string", "mutation_authority": "boolean"}
 	case ArtifactRefSchema:

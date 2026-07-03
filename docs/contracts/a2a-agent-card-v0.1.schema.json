@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ao.mission.a2a-agent-card.v0.1",
+  "type": "object",
+  "required": [
+    "schema",
+    "name",
+    "protocol_version",
+    "description",
+    "endpoint",
+    "methods",
+    "capabilities",
+    "mutation_authority"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "ao.mission.a2a-agent-card.v0.1" },
+    "name": { "type": "string" },
+    "protocol_version": { "type": "string" },
+    "description": { "type": "string" },
+    "endpoint": { "type": "string" },
+    "methods": { "type": "array" },
+    "capabilities": { "type": "array" },
+    "mutation_authority": { "type": "boolean" }
+  }
+}

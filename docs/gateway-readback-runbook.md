@@ -21,9 +21,11 @@ Supported Telegram commands are represented in `examples/valid/telegram-command-
 
 Every command returns `mutation_authority=false`. Admin commands are still requests for AO Mission continuation or readback, not direct execution. Unsupported slash commands and non-slash command strings are rejected by the invalid fixtures under `examples/invalid/`; non-admin `/continue` and `/approve` remain denied intents.
 
+Use `ao-mission telegram replay-updates --fixture examples/valid/telegram-update-replay.json --config examples/valid/telegram-config.json` to replay Telegram-style update payloads. The update replay proves allowlisted chat IDs, denied admin intents, invalid non-slash text, and `mutation_authority=false` without contacting Telegram or storing a token value.
+
 ## A2A
 
-The local A2A gateway exposes an Agent Card and JSON-RPC style task readbacks for local interoperability. It follows the A2A idea of agent-to-agent communication without exposing AO Mission internals as unrestricted tools. External agents may request `mission.start`, `mission.status`, `mission.next`, `mission.continue`, `mission.pause`, `mission.resume`, `mission.cancel`, `mission.artifacts`, and `mission.governance_snapshot`.
+The local A2A gateway exposes an Agent Card and JSON-RPC style task readbacks for local interoperability. It follows the A2A idea of agent-to-agent communication without exposing AO Mission internals as unrestricted tools. The Agent Card includes local fixture metadata, `streaming=false`, `push_notifications=false`, and `mutation_authority=false`. External agents may request `mission.start`, `mission.status`, `mission.next`, `mission.continue`, `mission.pause`, `mission.resume`, `mission.cancel`, `mission.artifacts`, and `mission.governance_snapshot`.
 
 Parameter validation is intentionally strict:
 

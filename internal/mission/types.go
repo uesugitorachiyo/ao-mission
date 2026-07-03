@@ -202,7 +202,11 @@ type GatewayReplayReadback struct {
 type A2AAgentCard struct {
 	Schema            string   `json:"schema"`
 	Name              string   `json:"name"`
+	ProtocolVersion   string   `json:"protocol_version"`
+	Description       string   `json:"description"`
+	Endpoint          string   `json:"endpoint"`
 	Methods           []string `json:"methods"`
+	Capabilities      []string `json:"capabilities"`
 	MutationAuthority bool     `json:"mutation_authority"`
 }
 type A2ATask struct {
@@ -229,6 +233,18 @@ type ArtifactManifest struct {
 	ExecutesWork   bool          `json:"executes_work"`
 	ApprovesWork   bool          `json:"approves_work"`
 	GeneratedAtUTC string        `json:"generated_at_utc"`
+}
+
+type SchedulerReplayReadback struct {
+	Schema         string `json:"schema"`
+	Status         string `json:"status"`
+	Total          int    `json:"total"`
+	Fresh          int    `json:"fresh"`
+	Stale          int    `json:"stale"`
+	Unknown        int    `json:"unknown"`
+	ExecutesWork   bool   `json:"executes_work"`
+	ApprovesWork   bool   `json:"approves_work"`
+	GeneratedAtUTC string `json:"generated_at_utc"`
 }
 
 type CommandStatus struct {

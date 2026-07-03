@@ -705,3 +705,115 @@ func TestOperatorNextActionsDocsAreConcreteAndPublicSafe(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestArtifactManifestCommandWritesOutFile(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "mission artifact manifest output"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	manifestPath := filepath.Join(dir, "artifact-manifest.json")
+	out.Reset()
+	if code := Run([]string{"--home", dir, "artifacts", "manifest", "--mission", rec.MissionID, "--out", manifestPath}, &out, &errb); code != 0 {
+		t.Fatalf("artifact manifest --out: %s", errb.String())
+	}
+	if !strings.Contains(out.String(), "artifact_manifest="+manifestPath) {
+		t.Fatalf("expected output path summary, got %s", out.String())
+	}
+	var manifest ArtifactManifest
+	body, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(body, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	if manifest.MissionID != rec.MissionID || manifest.ManifestDigest == "" || manifest.ExecutesWork || manifest.ApprovesWork {
+		t.Fatalf("bad written manifest: %+v", manifest)
+	}
+}
+
+func TestMissionHistoryCommandExportsRouteHistory(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "history atlas workgraph mission"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "next", "--mission", rec.MissionID, "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("next: %s", errb.String())
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "mission", "history", "--mission", rec.MissionID, "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("mission history: %s", errb.String())
+	}
+	var history []RouteDecision
+	if err := json.Unmarshal(out.Bytes(), &history); err != nil {
+		t.Fatal(err)
+	}
+	if len(history) != 2 || history[0].Route != "ao-atlas" || history[1].SafeToExecute {
+		t.Fatalf("bad route history: %+v", history)
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "mission", "history", "--mission", rec.MissionID}, &out, &errb); code != 0 {
+		t.Fatalf("mission history text: %s", errb.String())
+	}
+	if !strings.Contains(out.String(), "route=ao-atlas") || strings.Contains(out.String(), "safe_to_execute=true") {
+		t.Fatalf("bad history text: %s", out.String())
+	}
+}
+
+func TestSchedulerReplayFixtureClassifiesFreshness(t *testing.T) {
+	readback, err := ReplaySchedulerReadbacks(filepath.Join("..", "..", "examples", "valid", "scheduler-readback-replay.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.Schema != "ao.mission.scheduler-replay-readback.v0.1" || readback.Status != "ready" {
+		t.Fatalf("bad scheduler replay readback: %+v", readback)
+	}
+	if readback.Total != 3 || readback.Fresh != 1 || readback.Stale != 1 || readback.Unknown != 1 {
+		t.Fatalf("bad scheduler freshness counts: %+v", readback)
+	}
+	if readback.ExecutesWork || readback.ApprovesWork {
+		t.Fatalf("scheduler replay widened authority: %+v", readback)
+	}
+}
+
+func TestTelegramUpdateReplayFixtureProducesIntentOnlyReadback(t *testing.T) {
+	readback, err := ReplayTelegramUpdates(filepath.Join("..", "..", "examples", "valid", "telegram-update-replay.json"), map[string]string{"1001": "admin", "1002": "user"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.Schema != "ao.mission.telegram-update-replay-readback.v0.1" || readback.Status != "ready" {
+		t.Fatalf("bad telegram update replay: %+v", readback)
+	}
+	if readback.Total != 4 || readback.IntentRecorded != 2 || readback.Denied != 1 || readback.Invalid != 1 {
+		t.Fatalf("bad telegram update counts: %+v", readback)
+	}
+	if readback.MutationAuthority || readback.ExecutesWork || readback.ApprovesWork {
+		t.Fatalf("telegram update replay widened authority: %+v", readback)
+	}
+}
+
+func TestA2AAgentCardIncludesProtocolMetadata(t *testing.T) {
+	card := AgentCard()
+	if card.ProtocolVersion == "" || card.Endpoint == "" || card.Description == "" {
+		t.Fatalf("agent card missing protocol metadata: %+v", card)
+	}
+	for _, want := range []string{"streaming=false", "push_notifications=false", "mutation_authority=false"} {
+		if !stringSliceContains(card.Capabilities, want) {
+			t.Fatalf("agent card missing capability %q: %+v", want, card.Capabilities)
+		}
+	}
+	if card.MutationAuthority {
+		t.Fatal("agent card must remain intent/readback only")
+	}
+}
