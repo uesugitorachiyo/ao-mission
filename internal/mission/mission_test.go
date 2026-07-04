@@ -2,6 +2,8 @@ package mission
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -654,6 +656,76 @@ func TestA2AHTTPFixtureReplayProducesIntentOnlyReadback(t *testing.T) {
 	}
 }
 
+func TestGatewayIntentLedgerPersistsTelegramAndA2AReplayWithoutAuthority(t *testing.T) {
+	telegram, err := ReplayTelegramUpdates(filepath.Join("..", "..", "examples", "valid", "telegram-update-replay.json"), map[string]string{"1001": "admin", "1002": "user"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a2a, err := ReplayA2AHTTPFixture(filepath.Join("..", "..", "examples", "valid", "a2a-http-integration.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ledger := BuildGatewayIntentLedger("mission-demo", telegram, a2a)
+	if ledger.Schema != "ao.mission.gateway-intent-ledger.v0.1" || ledger.Status != "ready" {
+		t.Fatalf("bad ledger: %+v", ledger)
+	}
+	if ledger.Total != len(ledger.Intents) || ledger.IntentRecorded != 4 || ledger.Denied != 1 || ledger.Invalid != 2 {
+		t.Fatalf("bad ledger counts: %+v", ledger)
+	}
+	if ledger.MutationAuthority || ledger.ExecutesWork || ledger.ApprovesWork {
+		t.Fatalf("ledger widened authority: %+v", ledger)
+	}
+	for _, intent := range ledger.Intents {
+		if intent.MissionID != "mission-demo" || intent.MutationAuthority || intent.ExecutesWork || intent.ApprovesWork {
+			t.Fatalf("unsafe intent record: %+v", intent)
+		}
+	}
+}
+
+func TestGatewayLedgerCommandWritesReplayLedger(t *testing.T) {
+	dir := t.TempDir()
+	outPath := filepath.Join(dir, "gateway-ledger.json")
+	var out, errb bytes.Buffer
+	code := Run([]string{
+		"gateway", "ledger",
+		"--mission", "mission-demo",
+		"--telegram-updates", filepath.Join("..", "..", "examples", "valid", "telegram-update-replay.json"),
+		"--telegram-config", filepath.Join("..", "..", "examples", "valid", "telegram-config.json"),
+		"--a2a-http", filepath.Join("..", "..", "examples", "valid", "a2a-http-integration.json"),
+		"--out", outPath,
+	}, &out, &errb)
+	if code != 0 {
+		t.Fatalf("gateway ledger failed: %s", errb.String())
+	}
+	if !strings.Contains(out.String(), "gateway_intent_ledger="+outPath) {
+		t.Fatalf("missing ledger path output: %s", out.String())
+	}
+	var ledger GatewayIntentLedger
+	body, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(body, &ledger); err != nil {
+		t.Fatal(err)
+	}
+	if ledger.Total != 7 || ledger.MutationAuthority || ledger.ExecutesWork || ledger.ApprovesWork {
+		t.Fatalf("bad written ledger: %+v", ledger)
+	}
+}
+
+func TestA2ATaskLifecycleFixtureRecordsCancellationAsIntentOnly(t *testing.T) {
+	readback, err := ReplayA2ATaskLifecycle(filepath.Join("..", "..", "examples", "valid", "a2a-task-lifecycle.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.Schema != "ao.mission.a2a-task-lifecycle-readback.v0.1" || readback.Status != "ready" {
+		t.Fatalf("bad lifecycle readback: %+v", readback)
+	}
+	if readback.Total != 3 || readback.Cancelled != 1 || readback.MutationAuthority || readback.ExecutesWork || readback.ApprovesWork {
+		t.Fatalf("lifecycle widened authority or bad counts: %+v", readback)
+	}
+}
+
 func TestSchedulerReadbackImportClassifiesFreshness(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)
@@ -787,6 +859,69 @@ func TestSchedulerReplayFixtureClassifiesFreshness(t *testing.T) {
 	}
 }
 
+func TestSchedulerAlertSummaryHighlightsStaleReadbacks(t *testing.T) {
+	replay, err := ReplaySchedulerReadbacks(filepath.Join("..", "..", "examples", "valid", "scheduler-readback-replay.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	alerts := BuildSchedulerAlertSummary(replay)
+	if alerts.Schema != "ao.mission.scheduler-alert-summary.v0.1" || alerts.Status != "attention_required" {
+		t.Fatalf("bad scheduler alert summary: %+v", alerts)
+	}
+	if alerts.Stale != 1 || alerts.Unknown != 1 || len(alerts.Alerts) != 2 {
+		t.Fatalf("bad scheduler alerts: %+v", alerts)
+	}
+	if alerts.ExecutesWork || alerts.ApprovesWork {
+		t.Fatalf("scheduler alerts widened authority: %+v", alerts)
+	}
+}
+
+func TestArtifactManifestSelfValidationRejectsTampering(t *testing.T) {
+	dir := t.TempDir()
+	artifactPath := filepath.Join(dir, "route.json")
+	if err := os.WriteFile(artifactPath, []byte(`{"schema":"ao.mission.route-decision.v0.1"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	digest := digestBytesForTest(t, artifactPath)
+	manifest := ArtifactManifest{
+		Schema:    "ao.mission.artifact-manifest.v0.1",
+		MissionID: "mission-demo",
+		ArtifactRefs: []ArtifactRef{{
+			Schema: "ao.mission.artifact-ref.v0.1",
+			Ref:    artifactPath,
+			Digest: digest,
+			Kind:   "route_readback",
+		}},
+		SafeToExecute: false,
+		ExecutesWork:  false,
+		ApprovesWork:  false,
+	}
+	manifest = FinalizeArtifactManifest(manifest)
+	manifestPath := filepath.Join(dir, "artifact-manifest.json")
+	body, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(manifestPath, append(body, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result, err := ValidateArtifactManifestFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != "passed" || result.ManifestDigest != manifest.ManifestDigest || result.ArtifactCount != 1 {
+		t.Fatalf("bad manifest validation: %+v", result)
+	}
+
+	if err := os.WriteFile(artifactPath, []byte(`{"schema":"tampered"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result, err = ValidateArtifactManifestFile(manifestPath)
+	if err == nil || result.Status != "failed" || !strings.Contains(err.Error(), "artifact digest mismatch") {
+		t.Fatalf("expected tamper failure, result=%+v err=%v", result, err)
+	}
+}
+
 func TestTelegramUpdateReplayFixtureProducesIntentOnlyReadback(t *testing.T) {
 	readback, err := ReplayTelegramUpdates(filepath.Join("..", "..", "examples", "valid", "telegram-update-replay.json"), map[string]string{"1001": "admin", "1002": "user"})
 	if err != nil {
@@ -816,4 +951,14 @@ func TestA2AAgentCardIncludesProtocolMetadata(t *testing.T) {
 	if card.MutationAuthority {
 		t.Fatal("agent card must remain intent/readback only")
 	}
+}
+
+func digestBytesForTest(t *testing.T, path string) string {
+	t.Helper()
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(body)
+	return "sha256:" + hex.EncodeToString(sum[:])
 }

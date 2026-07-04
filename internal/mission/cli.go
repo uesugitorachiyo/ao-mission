@@ -30,7 +30,7 @@ func printJSON(w io.Writer, v any) error {
 
 func run(args []string, stdout io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: ao-mission [--home <dir>] <init|start|mission|continue|status|next|stop|pause|resume|schedule|daemon|telegram|a2a|governance|command|artifacts|validate|import|final>")
+		return errors.New("usage: ao-mission [--home <dir>] <init|start|mission|continue|status|next|stop|pause|resume|schedule|daemon|telegram|a2a|gateway|governance|command|artifacts|validate|import|final>")
 	}
 	home, args, err := parseGlobalHome(args)
 	if err != nil {
@@ -204,6 +204,21 @@ func run(args []string, stdout io.Writer) error {
 			}
 			return printJSON(stdout, readback)
 		}
+		if len(args) >= 2 && args[1] == "alerts" {
+			fs := flag.NewFlagSet("schedule alerts", flag.ContinueOnError)
+			fixturePath := fs.String("fixture", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if *fixturePath == "" {
+				return errors.New("schedule alerts requires --fixture")
+			}
+			readback, err := ReplaySchedulerReadbacks(*fixturePath)
+			if err != nil {
+				return err
+			}
+			return printJSON(stdout, BuildSchedulerAlertSummary(readback))
+		}
 		fs := flag.NewFlagSet("schedule", flag.ContinueOnError)
 		id := fs.String("mission", "", "")
 		every := fs.String("every", "", "")
@@ -292,6 +307,21 @@ func run(args []string, stdout io.Writer) error {
 			}
 			return printJSON(stdout, readback)
 		}
+		if len(args) >= 2 && args[1] == "lifecycle" {
+			fs := flag.NewFlagSet("a2a lifecycle", flag.ContinueOnError)
+			fixturePath := fs.String("fixture", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if *fixturePath == "" {
+				return errors.New("a2a lifecycle requires --fixture")
+			}
+			readback, err := ReplayA2ATaskLifecycle(*fixturePath)
+			if err != nil {
+				return err
+			}
+			return printJSON(stdout, readback)
+		}
 		if len(args) >= 2 && args[1] == "serve" {
 			fs := flag.NewFlagSet("a2a serve", flag.ContinueOnError)
 			httpMode := fs.Bool("http", false, "")
@@ -316,7 +346,58 @@ func run(args []string, stdout io.Writer) error {
 			fmt.Fprintf(stdout, "a2a_listen=%s\nmutation_authority=false\n", ln.Addr().String())
 			return server.Serve(ln)
 		}
-		return errors.New("a2a requires serve or replay")
+		return errors.New("a2a requires serve, replay, or lifecycle")
+	case "gateway":
+		if len(args) >= 2 && args[1] == "ledger" {
+			fs := flag.NewFlagSet("gateway ledger", flag.ContinueOnError)
+			missionID := fs.String("mission", "", "")
+			telegramUpdatesPath := fs.String("telegram-updates", "", "")
+			telegramConfigPath := fs.String("telegram-config", "", "")
+			a2aHTTPPath := fs.String("a2a-http", "", "")
+			outPath := fs.String("out", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*missionID) == "" || strings.TrimSpace(*outPath) == "" {
+				return errors.New("gateway ledger requires --mission and --out")
+			}
+			readbacks := []GatewayReplayReadback{}
+			if strings.TrimSpace(*telegramUpdatesPath) != "" {
+				if strings.TrimSpace(*telegramConfigPath) == "" {
+					return errors.New("gateway ledger requires --telegram-config with --telegram-updates")
+				}
+				cfg, err := LoadTelegramConfig(*telegramConfigPath)
+				if err != nil {
+					return err
+				}
+				readback, err := ReplayTelegramUpdates(*telegramUpdatesPath, cfg.AllowedChats)
+				if err != nil {
+					return err
+				}
+				readbacks = append(readbacks, readback)
+			}
+			if strings.TrimSpace(*a2aHTTPPath) != "" {
+				readback, err := ReplayA2AHTTPFixture(*a2aHTTPPath)
+				if err != nil {
+					return err
+				}
+				readbacks = append(readbacks, readback)
+			}
+			if len(readbacks) == 0 {
+				return errors.New("gateway ledger requires at least one replay input")
+			}
+			ledger := BuildGatewayIntentLedger(*missionID, readbacks...)
+			body, err := json.MarshalIndent(ledger, "", "  ")
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+				return err
+			}
+			fmt.Fprintf(stdout, "gateway_intent_ledger=%s\nmission=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, ledger.MissionID)
+			return nil
+		}
+		return errors.New("gateway requires ledger")
 	case "governance":
 		if len(args) >= 2 && args[1] == "snapshot" {
 			id := missionFlag(args[2:])
@@ -373,6 +454,21 @@ func run(args []string, stdout io.Writer) error {
 			}
 			fmt.Fprintf(stdout, "artifact_manifest=%s\nmission=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, manifest.MissionID)
 			return nil
+		}
+		if len(args) >= 2 && args[1] == "validate-manifest" {
+			fs := flag.NewFlagSet("artifacts validate-manifest", flag.ContinueOnError)
+			path := fs.String("path", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*path) == "" {
+				return errors.New("artifacts validate-manifest requires --path")
+			}
+			result, err := ValidateArtifactManifestFile(*path)
+			if printErr := printJSON(stdout, result); printErr != nil {
+				return printErr
+			}
+			return err
 		}
 		id := missionFlag(args[1:])
 		r, err := s.Load(id)
