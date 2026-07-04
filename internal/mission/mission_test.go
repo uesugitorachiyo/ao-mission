@@ -1723,6 +1723,7 @@ func TestGatewayReadinessRollupCombinesReadbacksWithoutAuthority(t *testing.T) {
 	out.Reset()
 	if code := Run([]string{
 		"gateway", "readiness-rollup",
+		"--mission", rec.MissionID,
 		"--suite", suitePath,
 		"--a2a-compatibility", compatPath,
 		"--archive-validation", archiveValidationPath,
@@ -1741,6 +1742,9 @@ func TestGatewayReadinessRollupCombinesReadbacksWithoutAuthority(t *testing.T) {
 	}
 	if rollup["schema"] != "ao.mission.gateway-readiness-rollup.v0.1" || rollup["status"] != "ready" {
 		t.Fatalf("bad gateway readiness rollup: %#v", rollup)
+	}
+	if rollup["mission_id"] != rec.MissionID {
+		t.Fatalf("gateway readiness rollup missing mission_id: %#v", rollup)
 	}
 	if rollup["readback_count"] != float64(4) || rollup["safe_to_execute"] != false || rollup["executes_work"] != false {
 		t.Fatalf("gateway readiness rollup missing no-authority evidence: %#v", rollup)
@@ -1764,6 +1768,7 @@ func TestGatewayReadinessRollupCarriesCorrelationID(t *testing.T) {
 	var out, errb bytes.Buffer
 	code := Run([]string{
 		"gateway", "readiness-rollup",
+		"--mission", "mission-demo",
 		"--suite", readbackPath,
 		"--correlation-id", "corr-gateway-001",
 		"--out", outPath,
@@ -1781,6 +1786,9 @@ func TestGatewayReadinessRollupCarriesCorrelationID(t *testing.T) {
 	}
 	if rollup["correlation_id"] != "corr-gateway-001" {
 		t.Fatalf("rollup missing correlation_id: %#v", rollup)
+	}
+	if rollup["mission_id"] != "mission-demo" {
+		t.Fatalf("rollup missing mission_id: %#v", rollup)
 	}
 	if rollup["safe_to_execute"] != false || rollup["executes_work"] != false || rollup["approves_work"] != false {
 		t.Fatalf("correlated rollup widened authority: %#v", rollup)

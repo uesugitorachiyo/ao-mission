@@ -705,6 +705,7 @@ func run(args []string, stdout io.Writer) error {
 		}
 		if len(args) >= 2 && args[1] == "readiness-rollup" {
 			fs := flag.NewFlagSet("gateway readiness-rollup", flag.ContinueOnError)
+			missionID := fs.String("mission", "", "")
 			suitePath := fs.String("suite", "", "")
 			a2aCompatibilityPath := fs.String("a2a-compatibility", "", "")
 			archiveValidationPath := fs.String("archive-validation", "", "")
@@ -717,7 +718,10 @@ func run(args []string, stdout io.Writer) error {
 			if strings.TrimSpace(*outPath) == "" {
 				return errors.New("gateway readiness-rollup requires --out")
 			}
-			rollup, err := BuildGatewayReadinessRollupWithCorrelation(*correlationID, *suitePath, *a2aCompatibilityPath, *archiveValidationPath, *snapshotDiffPath)
+			if strings.TrimSpace(*missionID) == "" {
+				return errors.New("gateway readiness-rollup requires --mission")
+			}
+			rollup, err := BuildGatewayReadinessRollupWithMissionAndCorrelation(*missionID, *correlationID, *suitePath, *a2aCompatibilityPath, *archiveValidationPath, *snapshotDiffPath)
 			if err != nil {
 				return err
 			}

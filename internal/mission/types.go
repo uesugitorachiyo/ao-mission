@@ -525,6 +525,7 @@ type MissionArchiveImportReadback struct {
 
 type GatewayReadinessRollup struct {
 	Schema              string   `json:"schema"`
+	MissionID           string   `json:"mission_id,omitempty"`
 	Status              string   `json:"status"`
 	CorrelationID       string   `json:"correlation_id,omitempty"`
 	ReadbackCount       int      `json:"readback_count"`

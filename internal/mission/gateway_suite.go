@@ -349,8 +349,13 @@ func BuildGatewayReadinessRollup(paths ...string) (GatewayReadinessRollup, error
 }
 
 func BuildGatewayReadinessRollupWithCorrelation(correlationID string, paths ...string) (GatewayReadinessRollup, error) {
+	return BuildGatewayReadinessRollupWithMissionAndCorrelation("", correlationID, paths...)
+}
+
+func BuildGatewayReadinessRollupWithMissionAndCorrelation(missionID, correlationID string, paths ...string) (GatewayReadinessRollup, error) {
 	rollup := GatewayReadinessRollup{
 		Schema:              "ao.mission.gateway-readiness-rollup.v0.1",
+		MissionID:           strings.TrimSpace(missionID),
 		Status:              "ready",
 		CorrelationID:       strings.TrimSpace(correlationID),
 		ReadbackRefs:        []string{},
