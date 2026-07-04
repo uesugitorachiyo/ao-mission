@@ -289,6 +289,19 @@ type A2ACompatibilityReadback struct {
 	GeneratedAtUTC    string `json:"generated_at_utc"`
 }
 
+type A2AStreamingDenialReadback struct {
+	Schema             string `json:"schema"`
+	Status             string `json:"status"`
+	StreamingRequested bool   `json:"streaming_requested"`
+	PushRequested      bool   `json:"push_notifications_requested"`
+	DeniedCapability   string `json:"denied_capability"`
+	MutationAuthority  bool   `json:"mutation_authority"`
+	ExecutesWork       bool   `json:"executes_work"`
+	ApprovesWork       bool   `json:"approves_work"`
+	ExactNextAction    string `json:"exact_next_action"`
+	GeneratedAtUTC     string `json:"generated_at_utc"`
+}
+
 type A2AAgentCard struct {
 	Schema             string          `json:"schema"`
 	Name               string          `json:"name"`
@@ -442,6 +455,24 @@ type GovernanceSnapshotDiff struct {
 	GeneratedAtUTC string   `json:"generated_at_utc"`
 }
 
+type TelegramRoleEntry struct {
+	ChatID string `json:"chat_id"`
+	Role   string `json:"role"`
+}
+
+type TelegramRoleMatrixReadback struct {
+	Schema            string              `json:"schema"`
+	Status            string              `json:"status"`
+	ChatCount         int                 `json:"chat_count"`
+	AdminCount        int                 `json:"admin_count"`
+	UserCount         int                 `json:"user_count"`
+	Roles             []TelegramRoleEntry `json:"roles"`
+	MutationAuthority bool                `json:"mutation_authority"`
+	ExecutesWork      bool                `json:"executes_work"`
+	ApprovesWork      bool                `json:"approves_work"`
+	GeneratedAtUTC    string              `json:"generated_at_utc"`
+}
+
 type MissionArchive struct {
 	Schema         string             `json:"schema"`
 	MissionID      string             `json:"mission_id"`
@@ -454,6 +485,43 @@ type MissionArchive struct {
 	ExecutesWork   bool               `json:"executes_work"`
 	ApprovesWork   bool               `json:"approves_work"`
 	GeneratedAtUTC string             `json:"generated_at_utc"`
+}
+
+type MissionArchiveValidation struct {
+	Schema         string `json:"schema"`
+	Status         string `json:"status"`
+	MissionID      string `json:"mission_id"`
+	ArchiveDigest  string `json:"archive_digest"`
+	ArtifactCount  int    `json:"artifact_count"`
+	SafeToExecute  bool   `json:"safe_to_execute"`
+	ExecutesWork   bool   `json:"executes_work"`
+	ApprovesWork   bool   `json:"approves_work"`
+	GeneratedAtUTC string `json:"generated_at_utc"`
+}
+
+type MissionArchiveImportReadback struct {
+	Schema         string `json:"schema"`
+	Status         string `json:"status"`
+	MissionID      string `json:"mission_id"`
+	ArchiveDigest  string `json:"archive_digest"`
+	SafeToExecute  bool   `json:"safe_to_execute"`
+	ExecutesWork   bool   `json:"executes_work"`
+	ApprovesWork   bool   `json:"approves_work"`
+	GeneratedAtUTC string `json:"generated_at_utc"`
+}
+
+type GatewayReadinessRollup struct {
+	Schema              string   `json:"schema"`
+	Status              string   `json:"status"`
+	ReadbackCount       int      `json:"readback_count"`
+	BlockedReadbacks    int      `json:"blocked_readbacks"`
+	ReadbackRefs        []string `json:"readback_refs"`
+	SafeToExecute       bool     `json:"safe_to_execute"`
+	ExecutesWork        bool     `json:"executes_work"`
+	ApprovesWork        bool     `json:"approves_work"`
+	MutatesRepositories bool     `json:"mutates_repositories"`
+	ExactNextAction     string   `json:"exact_next_action"`
+	GeneratedAtUTC      string   `json:"generated_at_utc"`
 }
 
 func now(clock func() time.Time) string {

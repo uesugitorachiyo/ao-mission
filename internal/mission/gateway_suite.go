@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -106,6 +107,48 @@ func BuildA2ACompatibilityReadback(agentCardPath, httpFixturePath, lifecyclePath
 	}, nil
 }
 
+func BuildA2AStreamingDenialReadback(agentCardPath string) (A2AStreamingDenialReadback, error) {
+	var card A2AAgentCard
+	body, err := os.ReadFile(agentCardPath)
+	if err != nil {
+		return A2AStreamingDenialReadback{}, err
+	}
+	if err := ValidatePublicSafeText(string(body)); err != nil {
+		return A2AStreamingDenialReadback{}, err
+	}
+	if err := json.Unmarshal(body, &card); err != nil {
+		return A2AStreamingDenialReadback{}, err
+	}
+	streaming := card.CapabilitiesDetail["streaming"]
+	push := card.CapabilitiesDetail["push_notifications"]
+	denied := "none"
+	status := "ready"
+	if streaming {
+		denied = "streaming"
+		status = "denied"
+	}
+	if push {
+		if denied == "none" {
+			denied = "push_notifications"
+		} else {
+			denied += ",push_notifications"
+		}
+		status = "denied"
+	}
+	return A2AStreamingDenialReadback{
+		Schema:             "ao.mission.a2a-streaming-denial-readback.v0.1",
+		Status:             status,
+		StreamingRequested: streaming,
+		PushRequested:      push,
+		DeniedCapability:   denied,
+		MutationAuthority:  false,
+		ExecutesWork:       false,
+		ApprovesWork:       false,
+		ExactNextAction:    "keep A2A gateway in readback-only non-streaming mode",
+		GeneratedAtUTC:     now(nil),
+	}, nil
+}
+
 func DiffGovernanceSnapshots(before, after GovernanceSnapshot) GovernanceSnapshotDiff {
 	fields := []string{}
 	if before.MissionID != after.MissionID {
@@ -140,6 +183,33 @@ func DiffGovernanceSnapshots(before, after GovernanceSnapshot) GovernanceSnapsho
 	}
 }
 
+func BuildTelegramRoleMatrix(cfg TelegramConfig) TelegramRoleMatrixReadback {
+	entries := make([]TelegramRoleEntry, 0, len(cfg.AllowedChats))
+	for chatID, role := range cfg.AllowedChats {
+		entries = append(entries, TelegramRoleEntry{ChatID: chatID, Role: role})
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].ChatID < entries[j].ChatID })
+	readback := TelegramRoleMatrixReadback{
+		Schema:            "ao.mission.telegram-role-matrix-readback.v0.1",
+		Status:            "ready",
+		ChatCount:         len(entries),
+		Roles:             entries,
+		MutationAuthority: false,
+		ExecutesWork:      false,
+		ApprovesWork:      false,
+		GeneratedAtUTC:    now(nil),
+	}
+	for _, entry := range entries {
+		switch entry.Role {
+		case "admin":
+			readback.AdminCount++
+		case "user":
+			readback.UserCount++
+		}
+	}
+	return readback
+}
+
 func LoadGovernanceSnapshot(path string) (GovernanceSnapshot, error) {
 	var snapshot GovernanceSnapshot
 	body, err := os.ReadFile(path)
@@ -172,4 +242,121 @@ func BuildMissionArchive(record Record) (MissionArchive, error) {
 	sum := sha256.Sum256(body)
 	archive.ArchiveDigest = "sha256:" + hex.EncodeToString(sum[:])
 	return archive, nil
+}
+
+func LoadMissionArchive(path string) (MissionArchive, error) {
+	var archive MissionArchive
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return archive, err
+	}
+	if err := ValidatePublicSafeText(string(body)); err != nil {
+		return archive, err
+	}
+	if err := json.Unmarshal(body, &archive); err != nil {
+		return archive, err
+	}
+	if archive.Schema != "ao.mission.archive.v0.1" {
+		return archive, fmt.Errorf("mission archive schema must be ao.mission.archive.v0.1")
+	}
+	if archive.SafeToExecute || archive.ExecutesWork || archive.ApprovesWork {
+		return archive, fmt.Errorf("mission archive must not claim execution or approval authority")
+	}
+	return archive, nil
+}
+
+func ValidateMissionArchive(path string) (MissionArchiveValidation, error) {
+	archive, err := LoadMissionArchive(path)
+	if err != nil {
+		return MissionArchiveValidation{}, err
+	}
+	expected := archive.ArchiveDigest
+	archive.ArchiveDigest = ""
+	body, err := json.Marshal(archive)
+	if err != nil {
+		return MissionArchiveValidation{}, err
+	}
+	sum := sha256.Sum256(body)
+	actual := "sha256:" + hex.EncodeToString(sum[:])
+	if expected == "" || actual != expected {
+		return MissionArchiveValidation{}, fmt.Errorf("mission archive digest mismatch")
+	}
+	return MissionArchiveValidation{
+		Schema:         "ao.mission.archive-validation.v0.1",
+		Status:         "ready",
+		MissionID:      archive.MissionID,
+		ArchiveDigest:  expected,
+		ArtifactCount:  archive.ArtifactCount,
+		SafeToExecute:  false,
+		ExecutesWork:   false,
+		ApprovesWork:   false,
+		GeneratedAtUTC: now(nil),
+	}, nil
+}
+
+func ImportMissionArchive(store Store, path string) (MissionArchiveImportReadback, error) {
+	validation, err := ValidateMissionArchive(path)
+	if err != nil {
+		return MissionArchiveImportReadback{}, err
+	}
+	archive, err := LoadMissionArchive(path)
+	if err != nil {
+		return MissionArchiveImportReadback{}, err
+	}
+	if archive.Record.Schema != RecordSchema || archive.Record.MissionID != archive.MissionID {
+		return MissionArchiveImportReadback{}, fmt.Errorf("mission archive record does not match archive mission_id")
+	}
+	if err := store.Save(archive.Record); err != nil {
+		return MissionArchiveImportReadback{}, err
+	}
+	return MissionArchiveImportReadback{
+		Schema:         "ao.mission.archive-import-readback.v0.1",
+		Status:         "ready",
+		MissionID:      archive.MissionID,
+		ArchiveDigest:  validation.ArchiveDigest,
+		SafeToExecute:  false,
+		ExecutesWork:   false,
+		ApprovesWork:   false,
+		GeneratedAtUTC: now(nil),
+	}, nil
+}
+
+func BuildGatewayReadinessRollup(paths ...string) (GatewayReadinessRollup, error) {
+	rollup := GatewayReadinessRollup{
+		Schema:              "ao.mission.gateway-readiness-rollup.v0.1",
+		Status:              "ready",
+		ReadbackRefs:        []string{},
+		SafeToExecute:       false,
+		ExecutesWork:        false,
+		ApprovesWork:        false,
+		MutatesRepositories: false,
+		ExactNextAction:     "route ready gateway readbacks through AO Mission, Atlas, Foundry, and Command gates",
+		GeneratedAtUTC:      now(nil),
+	}
+	for _, path := range paths {
+		if strings.TrimSpace(path) == "" {
+			continue
+		}
+		body, err := os.ReadFile(path)
+		if err != nil {
+			return GatewayReadinessRollup{}, err
+		}
+		if err := ValidatePublicSafeText(string(body)); err != nil {
+			return GatewayReadinessRollup{}, err
+		}
+		var packet map[string]any
+		if err := json.Unmarshal(body, &packet); err != nil {
+			return GatewayReadinessRollup{}, err
+		}
+		rollup.ReadbackCount++
+		rollup.ReadbackRefs = append(rollup.ReadbackRefs, path)
+		if packet["status"] == "blocked" || packet["status"] == "denied" || packet["safe_to_execute"] == true || packet["executes_work"] == true || packet["approves_work"] == true || packet["mutation_authority"] == true {
+			rollup.BlockedReadbacks++
+			rollup.Status = "blocked"
+		}
+	}
+	if rollup.ReadbackCount == 0 {
+		return GatewayReadinessRollup{}, fmt.Errorf("gateway readiness rollup requires at least one readback")
+	}
+	return rollup, nil
 }
