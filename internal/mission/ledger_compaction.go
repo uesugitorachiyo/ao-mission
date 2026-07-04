@@ -10,6 +10,37 @@ func CompactMissionLedger(s Store, missionID string, opts LedgerCompactionOption
 		return LedgerCompactionReadback{}, fmt.Errorf("keep steps must be at least 1")
 	}
 
+	if opts.DryRun {
+		rec, err := s.Load(missionID)
+		if err != nil {
+			return LedgerCompactionReadback{}, err
+		}
+		beforeRoutes := len(rec.RouteHistory)
+		beforeSteps := len(rec.Steps)
+		afterRoutes := beforeRoutes
+		if afterRoutes > opts.KeepRouteHistory {
+			afterRoutes = opts.KeepRouteHistory
+		}
+		afterSteps := beforeSteps
+		if afterSteps > opts.KeepSteps {
+			afterSteps = opts.KeepSteps
+		}
+		return LedgerCompactionReadback{
+			Schema:              "ao.mission.ledger-compaction-readback.v0.1",
+			MissionID:           rec.MissionID,
+			Status:              "dry_run",
+			RouteHistoryBefore:  beforeRoutes,
+			RouteHistoryAfter:   afterRoutes,
+			StepsBefore:         beforeSteps,
+			StepsAfter:          afterSteps,
+			ExactNextAction:     "mission ledger compaction dry-run recorded; rerun without --dry-run to compact retained readbacks",
+			ExecutesWork:        false,
+			ApprovesWork:        false,
+			MutatesRepositories: false,
+			GeneratedAtUTC:      now(s.Clock),
+		}, nil
+	}
+
 	var readback LedgerCompactionReadback
 	rec, err := s.Update(missionID, func(r *Record) error {
 		beforeRoutes := len(r.RouteHistory)

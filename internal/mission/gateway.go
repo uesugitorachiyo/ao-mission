@@ -397,13 +397,24 @@ func HandleTelegramCommand(cmd TelegramCommand, allowlist map[string]string) Tel
 
 func AgentCard() A2AAgentCard {
 	return A2AAgentCard{
-		Schema:            A2AAgentCardSchema,
-		Name:              "ao-mission",
-		ProtocolVersion:   "a2a-local-fixture-v0.1",
-		Description:       "AO Mission local gateway for intent and readback requests only",
-		Endpoint:          "/",
-		Methods:           []string{"mission.start", "mission.status", "mission.next", "mission.continue", "mission.pause", "mission.resume", "mission.cancel", "mission.artifacts", "mission.governance_snapshot"},
-		Capabilities:      []string{"streaming=false", "push_notifications=false", "mutation_authority=false"},
+		Schema:          A2AAgentCardSchema,
+		Name:            "ao-mission",
+		ProtocolVersion: "a2a-local-fixture-v0.1",
+		Description:     "AO Mission local gateway for intent and readback requests only",
+		Endpoint:        "/",
+		Methods:         []string{"mission.start", "mission.status", "mission.next", "mission.continue", "mission.pause", "mission.resume", "mission.cancel", "mission.artifacts", "mission.governance_snapshot"},
+		Capabilities:    []string{"streaming=false", "push_notifications=false", "mutation_authority=false"},
+		CapabilitiesDetail: map[string]bool{
+			"streaming":                false,
+			"push_notifications":       false,
+			"state_transition_history": true,
+			"artifact_readbacks":       true,
+		},
+		Skills: []A2AAgentSkill{
+			{ID: "mission-readback", Name: "Mission readback", Description: "Return mission status, route, next action, and governance snapshot readbacks.", Tags: []string{"mission", "readback", "intent-only"}},
+			{ID: "mission-continuation-intent", Name: "Mission continuation intent", Description: "Record a continuation request without granting execution authority.", Tags: []string{"mission", "continuation", "intent-only"}},
+			{ID: "mission-artifact-readback", Name: "Mission artifact readback", Description: "Return artifact references and digest-bound readback pointers.", Tags: []string{"artifacts", "readback", "no-mutation"}},
+		},
 		MutationAuthority: false,
 	}
 }
@@ -425,6 +436,14 @@ func A2ATaskForParams(method string, params map[string]any) A2ATask {
 		if strings.TrimSpace(stringParam(params, "mission_id")) == "" {
 			task.Status = "invalid"
 		}
+	}
+	if task.Status == "intent_recorded" && method == "mission.artifacts" {
+		missionID := strings.TrimSpace(stringParam(params, "mission_id"))
+		task.ArtifactRefs = []ArtifactRef{{
+			Schema: ArtifactRefSchema,
+			Ref:    "missions/" + missionID + "/artifact-manifest.json",
+			Kind:   "mission_artifact_readback",
+		}}
 	}
 	return task
 }

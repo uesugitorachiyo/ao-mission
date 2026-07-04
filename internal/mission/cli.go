@@ -119,13 +119,14 @@ func run(args []string, stdout io.Writer) error {
 			id := fs.String("mission", "", "")
 			keepRouteHistory := fs.Int("keep-route-history", 25, "")
 			keepSteps := fs.Int("keep-steps", 25, "")
+			dryRun := fs.Bool("dry-run", false, "")
 			if err := fs.Parse(args[2:]); err != nil {
 				return err
 			}
 			if strings.TrimSpace(*id) == "" {
 				return errors.New("mission compact requires --mission")
 			}
-			readback, err := CompactMissionLedger(s, *id, LedgerCompactionOptions{KeepRouteHistory: *keepRouteHistory, KeepSteps: *keepSteps})
+			readback, err := CompactMissionLedger(s, *id, LedgerCompactionOptions{KeepRouteHistory: *keepRouteHistory, KeepSteps: *keepSteps, DryRun: *dryRun})
 			if err != nil {
 				return err
 			}
@@ -521,6 +522,30 @@ func run(args []string, stdout io.Writer) error {
 				return printErr
 			}
 			return err
+		}
+		if len(args) >= 2 && args[1] == "repair-manifest" {
+			fs := flag.NewFlagSet("artifacts repair-manifest", flag.ContinueOnError)
+			path := fs.String("path", "", "")
+			outPath := fs.String("out", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*path) == "" || strings.TrimSpace(*outPath) == "" {
+				return errors.New("artifacts repair-manifest requires --path and --out")
+			}
+			manifest, err := RepairArtifactManifestFile(*path)
+			if err != nil {
+				return err
+			}
+			body, err := json.MarshalIndent(manifest, "", "  ")
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+				return err
+			}
+			fmt.Fprintf(stdout, "artifact_manifest_repaired=%s\nmission=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, manifest.MissionID)
+			return nil
 		}
 		id := missionFlag(args[1:])
 		r, err := s.Load(id)

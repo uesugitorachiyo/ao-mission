@@ -930,6 +930,43 @@ func TestArtifactManifestCommandWritesOutFile(t *testing.T) {
 	}
 }
 
+func TestArtifactManifestRepairCommandRecomputesDigests(t *testing.T) {
+	dir := t.TempDir()
+	artifactPath := filepath.Join(dir, "route.json")
+	if err := os.WriteFile(artifactPath, []byte(`{"schema":"ao.mission.route-decision.v0.1"}`+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	manifest := FinalizeArtifactManifest(ArtifactManifest{
+		MissionID: "mission-demo",
+		ArtifactRefs: []ArtifactRef{{
+			Schema: ArtifactRefSchema,
+			Ref:    artifactPath,
+			Digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			Kind:   "route_readback",
+		}},
+	})
+	manifestPath := filepath.Join(dir, "artifact-manifest.json")
+	body, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(manifestPath, append(body, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	repairedPath := filepath.Join(dir, "artifact-manifest.repaired.json")
+	var out, errb bytes.Buffer
+	if code := Run([]string{"artifacts", "repair-manifest", "--path", manifestPath, "--out", repairedPath}, &out, &errb); code != 0 {
+		t.Fatalf("repair-manifest: %s", errb.String())
+	}
+	result, err := ValidateArtifactManifestFile(repairedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != "passed" || result.ArtifactCount != 1 || result.ExecutesWork || result.ApprovesWork {
+		t.Fatalf("bad repaired manifest validation: %+v", result)
+	}
+}
+
 func TestMissionHistoryCommandExportsRouteHistory(t *testing.T) {
 	dir := t.TempDir()
 	var out, errb bytes.Buffer
@@ -1106,6 +1143,38 @@ func TestMissionCompactCLIEmitsReadback(t *testing.T) {
 	}
 	if readback.Schema != "ao.mission.ledger-compaction-readback.v0.1" || readback.RouteHistoryAfter != 2 || readback.StepsAfter != 2 {
 		t.Fatalf("bad compact CLI readback: %+v", readback)
+	}
+}
+
+func TestMissionCompactDryRunDoesNotMutateRecord(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("build a long-running atlas workgraph mission")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Update(rec.MissionID, func(r *Record) error {
+		for i := 0; i < 4; i++ {
+			r.Steps = append(r.Steps, ContinuationStep{Schema: StepSchema, MissionID: r.MissionID, Iteration: i + 1, Route: "ao-atlas", Result: "handoff_required", GeneratedAtUTC: "2026-07-03T00:00:00Z"})
+			AppendRouteHistory(r, RouteDecision{Schema: RouteSchema, MissionID: r.MissionID, Route: "ao-atlas", SafeToRequest: true, SafeToExecute: false, SafeToPromote: false, GeneratedAtUTC: "2026-07-03T00:00:00Z"})
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	readback, err := CompactMissionLedger(s, rec.MissionID, LedgerCompactionOptions{KeepRouteHistory: 2, KeepSteps: 2, DryRun: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.Status != "dry_run" || readback.RouteHistoryAfter != 2 || readback.StepsAfter != 2 {
+		t.Fatalf("bad dry-run compaction readback: %+v", readback)
+	}
+	updated, err := s.Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.RouteHistory) != 5 || len(updated.Steps) != 4 || updated.Evidence.LedgerCompaction != nil {
+		t.Fatalf("dry-run compaction mutated record: route_history=%d steps=%d evidence=%+v", len(updated.RouteHistory), len(updated.Steps), updated.Evidence)
 	}
 }
 
@@ -1318,6 +1387,15 @@ func TestA2AAgentCardIncludesProtocolMetadata(t *testing.T) {
 			t.Fatalf("agent card missing capability %q: %+v", want, card.Capabilities)
 		}
 	}
+	if !card.CapabilitiesDetail["state_transition_history"] || card.CapabilitiesDetail["streaming"] || card.CapabilitiesDetail["push_notifications"] {
+		t.Fatalf("agent card capabilities detail must expose readback-only A2A capabilities: %+v", card.CapabilitiesDetail)
+	}
+	if len(card.Skills) < 3 {
+		t.Fatalf("agent card should expose mission readback skills: %+v", card.Skills)
+	}
+	if card.Skills[0].ID == "" || len(card.Skills[0].Tags) == 0 {
+		t.Fatalf("agent card skill metadata incomplete: %+v", card.Skills[0])
+	}
 	if card.MutationAuthority {
 		t.Fatal("agent card must remain intent/readback only")
 	}
@@ -1333,6 +1411,19 @@ func TestA2ALifecycleTracksArtifactAndCancelReadbacks(t *testing.T) {
 	}
 	if readback.MutationAuthority || readback.ExecutesWork || readback.ApprovesWork {
 		t.Fatalf("A2A lifecycle artifact readbacks widened authority: %+v", readback)
+	}
+}
+
+func TestA2ATaskCarriesArtifactRefsWithoutMutationAuthority(t *testing.T) {
+	task := A2ATaskForParams("mission.artifacts", map[string]any{"mission_id": "mission-demo"})
+	if task.Status != "intent_recorded" {
+		t.Fatalf("bad artifact task status: %+v", task)
+	}
+	if len(task.ArtifactRefs) != 1 || task.ArtifactRefs[0].Kind != "mission_artifact_readback" {
+		t.Fatalf("artifact task should carry readback artifact refs: %+v", task.ArtifactRefs)
+	}
+	if task.MutationAuthority {
+		t.Fatalf("artifact task widened authority: %+v", task)
 	}
 }
 

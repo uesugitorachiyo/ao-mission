@@ -27,7 +27,7 @@ Use `ao-mission telegram webhook-replay --fixture examples/valid/telegram-webhoo
 
 ## A2A
 
-The local A2A gateway exposes an Agent Card and JSON-RPC style task readbacks for local interoperability. It follows the A2A idea of agent-to-agent communication without exposing AO Mission internals as unrestricted tools. The Agent Card includes local fixture metadata, `streaming=false`, `push_notifications=false`, and `mutation_authority=false`. External agents may request `mission.start`, `mission.status`, `mission.next`, `mission.continue`, `mission.pause`, `mission.resume`, `mission.cancel`, `mission.artifacts`, and `mission.governance_snapshot`.
+The local A2A gateway exposes an Agent Card and JSON-RPC style task readbacks for local interoperability. It follows the A2A idea of agent-to-agent communication without exposing AO Mission internals as unrestricted tools. The Agent Card includes local fixture metadata, `streaming=false`, `push_notifications=false`, `mutation_authority=false`, structured capability detail, and readback-only skills for mission status, continuation intents, and artifact refs. External agents may request `mission.start`, `mission.status`, `mission.next`, `mission.continue`, `mission.pause`, `mission.resume`, `mission.cancel`, `mission.artifacts`, and `mission.governance_snapshot`.
 
 Parameter validation is intentionally strict:
 
@@ -39,7 +39,7 @@ The invalid JSON-RPC fixtures under `examples/invalid/` cover missing objective,
 
 Every A2A response remains intent/readback only and reports `mutation_authority=false`.
 
-`examples/valid/a2a-task-lifecycle-edges.json` covers resume and cancel lifecycle edges. Resume and cancellation states are readback evidence only; they do not grant mutation, scheduling, approval, or repository write authority.
+`examples/valid/a2a-task-lifecycle-edges.json` covers resume and cancel lifecycle edges. `examples/valid/a2a-task-lifecycle-artifacts.json` covers artifact readbacks and shows that artifact refs are pointers only. Resume, cancellation, and artifact states are readback evidence only; they do not grant mutation, scheduling, approval, or repository write authority.
 
 ## Operator Rule
 
