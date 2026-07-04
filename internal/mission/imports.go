@@ -34,8 +34,8 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 	if err := json.Unmarshal(body, &doc); err != nil {
 		return ImportReadback{}, err
 	}
-	if kind == "scheduler-readback" && boolFromAny(doc["executes_work"]) {
-		return ImportReadback{}, fmt.Errorf("scheduler-readback executes_work must be false")
+	if (kind == "scheduler-readback" || kind == "scheduler-recovery-readback" || kind == "ledger-compaction-readback") && boolFromAny(doc["executes_work"]) {
+		return ImportReadback{}, fmt.Errorf("%s executes_work must be false", kind)
 	}
 	ref := ArtifactRef{Schema: ArtifactRefSchema, Ref: path, Digest: digestBytes(body), Kind: kind}
 	r, err := s.Update(missionID, func(rec *Record) error {
@@ -81,6 +81,29 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 			rec.CurrentPhase = "scheduler_readback_recorded"
 			rec.ExactNextAction = "scheduler wakeup readback recorded; continue mission through AO Mission event loop"
 			AppendRouteHistory(rec, routeFromRecord(*rec, "Scheduler readback imported"))
+		case "scheduler-recovery-readback":
+			rec.Evidence.SchedulerRecovery = &SchedulerRecoveryCounts{
+				Status:        stringFromAny(doc["status"]),
+				RecoveryMode:  stringFromAny(doc["recovery_mode"]),
+				MissedWakeups: intFromAny(doc["missed_wakeups"]),
+				ExecutesWork:  false,
+			}
+			rec.CurrentPhase = "scheduler_recovery_recorded"
+			rec.ExactNextAction = stringFromAny(doc["exact_next_action"])
+			if rec.ExactNextAction == "" {
+				rec.ExactNextAction = "scheduler recovery readback recorded; continue mission through AO Mission event loop"
+			}
+			AppendRouteHistory(rec, routeFromRecord(*rec, "Scheduler recovery readback imported"))
+		case "ledger-compaction-readback":
+			rec.Evidence.LedgerCompaction = &LedgerCompactionCounts{
+				RouteHistoryBefore: intFromAny(doc["route_history_before"]),
+				RouteHistoryAfter:  intFromAny(doc["route_history_after"]),
+				StepsBefore:        intFromAny(doc["steps_before"]),
+				StepsAfter:         intFromAny(doc["steps_after"]),
+			}
+			rec.CurrentPhase = "ledger_compaction_recorded"
+			rec.ExactNextAction = "ledger compaction readback recorded; continue from retained route and step evidence"
+			AppendRouteHistory(rec, routeFromRecord(*rec, "Ledger compaction readback imported"))
 		default:
 			return fmt.Errorf("unsupported import kind %q", kind)
 		}

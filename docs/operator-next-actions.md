@@ -28,10 +28,14 @@ ao-mission final rollup --mission <mission-id>
 ```sh
 ao-mission telegram replay --matrix examples/valid/telegram-command-matrix.json --config examples/valid/telegram-config.json
 ao-mission telegram replay-updates --fixture examples/valid/telegram-update-replay.json --config examples/valid/telegram-config.json
+ao-mission telegram webhook-replay --fixture examples/valid/telegram-webhook-replay.json --config examples/valid/telegram-config.json
 ao-mission a2a replay --fixture examples/valid/a2a-http-integration.json
+ao-mission a2a lifecycle --fixture examples/valid/a2a-task-lifecycle-edges.json
 ao-mission schedule replay --fixture examples/valid/scheduler-readback-replay.json
 ao-mission schedule alerts --fixture examples/valid/scheduler-readback-replay.json
 ao-mission schedule recover --mission <mission-id> --fixture examples/valid/scheduler-readback-replay.json
+ao-mission import scheduler-recovery-readback --mission <mission-id> --path examples/valid/scheduler-recovery-readback.json
+ao-mission import ledger-compaction-readback --mission <mission-id> --path examples/valid/ledger-compaction-readback.json
 ```
 
 Telegram and A2A fixture checks record intent/readback only. They do not grant
