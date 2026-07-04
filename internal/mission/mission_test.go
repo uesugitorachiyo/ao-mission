@@ -1747,6 +1747,76 @@ func TestGatewayReadinessRollupCombinesReadbacksWithoutAuthority(t *testing.T) {
 	}
 }
 
+func TestGatewayReadinessRollupCarriesCorrelationID(t *testing.T) {
+	dir := t.TempDir()
+	readbackPath := filepath.Join(dir, "gateway-readback.json")
+	outPath := filepath.Join(dir, "gateway-readiness-rollup.json")
+	if err := os.WriteFile(readbackPath, []byte(`{
+  "schema": "ao.mission.gateway-replay-suite-readback.v0.1",
+  "status": "ready",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutation_authority": false
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out, errb bytes.Buffer
+	code := Run([]string{
+		"gateway", "readiness-rollup",
+		"--suite", readbackPath,
+		"--correlation-id", "corr-gateway-001",
+		"--out", outPath,
+	}, &out, &errb)
+	if code != 0 {
+		t.Fatalf("gateway readiness-rollup with correlation failed: %s", errb.String())
+	}
+	var rollup map[string]any
+	body, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(body, &rollup); err != nil {
+		t.Fatal(err)
+	}
+	if rollup["correlation_id"] != "corr-gateway-001" {
+		t.Fatalf("rollup missing correlation_id: %#v", rollup)
+	}
+	if rollup["safe_to_execute"] != false || rollup["executes_work"] != false || rollup["approves_work"] != false {
+		t.Fatalf("correlated rollup widened authority: %#v", rollup)
+	}
+}
+
+func TestA2ACancellationReplayRequiresRequestAndCancelWithoutAuthority(t *testing.T) {
+	outPath := filepath.Join(t.TempDir(), "a2a-cancellation-replay.json")
+	var out, errb bytes.Buffer
+	code := Run([]string{
+		"a2a", "cancellation-replay",
+		"--lifecycle", filepath.Join("..", "..", "examples", "valid", "a2a-task-lifecycle.json"),
+		"--out", outPath,
+	}, &out, &errb)
+	if code != 0 {
+		t.Fatalf("a2a cancellation-replay failed: %s", errb.String())
+	}
+	var replay map[string]any
+	body, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(body, &replay); err != nil {
+		t.Fatal(err)
+	}
+	if replay["schema"] != "ao.mission.a2a-cancellation-replay-readback.v0.1" || replay["status"] != "ready" {
+		t.Fatalf("bad cancellation replay: %#v", replay)
+	}
+	if replay["cancel_requested"] != float64(1) || replay["cancelled"] != float64(1) {
+		t.Fatalf("cancellation replay missing request/cancel counts: %#v", replay)
+	}
+	if replay["mutation_authority"] != false || replay["executes_work"] != false || replay["approves_work"] != false {
+		t.Fatalf("cancellation replay widened authority: %#v", replay)
+	}
+}
+
 func digestBytesForTest(t *testing.T, path string) string {
 	t.Helper()
 	body, err := os.ReadFile(path)

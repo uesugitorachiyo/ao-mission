@@ -527,6 +527,33 @@ func run(args []string, stdout io.Writer) error {
 			fmt.Fprintf(stdout, "a2a_streaming_denial=%s\nstatus=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, readback.Status)
 			return nil
 		}
+		if len(args) >= 2 && args[1] == "cancellation-replay" {
+			fs := flag.NewFlagSet("a2a cancellation-replay", flag.ContinueOnError)
+			lifecyclePath := fs.String("lifecycle", "", "")
+			outPath := fs.String("out", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*lifecyclePath) == "" {
+				return errors.New("a2a cancellation-replay requires --lifecycle")
+			}
+			readback, err := BuildA2ACancellationReplayReadback(*lifecyclePath)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(*outPath) == "" {
+				return printJSON(stdout, readback)
+			}
+			body, err := json.MarshalIndent(readback, "", "  ")
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+				return err
+			}
+			fmt.Fprintf(stdout, "a2a_cancellation_replay=%s\nstatus=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, readback.Status)
+			return nil
+		}
 		if len(args) >= 2 && args[1] == "serve" {
 			fs := flag.NewFlagSet("a2a serve", flag.ContinueOnError)
 			httpMode := fs.Bool("http", false, "")
@@ -551,7 +578,7 @@ func run(args []string, stdout io.Writer) error {
 			fmt.Fprintf(stdout, "a2a_listen=%s\nmutation_authority=false\n", ln.Addr().String())
 			return server.Serve(ln)
 		}
-		return errors.New("a2a requires serve, replay, lifecycle, compatibility, or streaming-denial")
+		return errors.New("a2a requires serve, replay, lifecycle, compatibility, streaming-denial, or cancellation-replay")
 	case "gateway":
 		if len(args) >= 2 && args[1] == "replay-suite" {
 			fs := flag.NewFlagSet("gateway replay-suite", flag.ContinueOnError)
@@ -682,6 +709,7 @@ func run(args []string, stdout io.Writer) error {
 			a2aCompatibilityPath := fs.String("a2a-compatibility", "", "")
 			archiveValidationPath := fs.String("archive-validation", "", "")
 			snapshotDiffPath := fs.String("snapshot-diff", "", "")
+			correlationID := fs.String("correlation-id", "", "")
 			outPath := fs.String("out", "", "")
 			if err := fs.Parse(args[2:]); err != nil {
 				return err
@@ -689,7 +717,7 @@ func run(args []string, stdout io.Writer) error {
 			if strings.TrimSpace(*outPath) == "" {
 				return errors.New("gateway readiness-rollup requires --out")
 			}
-			rollup, err := BuildGatewayReadinessRollup(*suitePath, *a2aCompatibilityPath, *archiveValidationPath, *snapshotDiffPath)
+			rollup, err := BuildGatewayReadinessRollupWithCorrelation(*correlationID, *suitePath, *a2aCompatibilityPath, *archiveValidationPath, *snapshotDiffPath)
 			if err != nil {
 				return err
 			}

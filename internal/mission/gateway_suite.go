@@ -149,6 +149,29 @@ func BuildA2AStreamingDenialReadback(agentCardPath string) (A2AStreamingDenialRe
 	}, nil
 }
 
+func BuildA2ACancellationReplayReadback(lifecyclePath string) (A2ACancellationReplayReadback, error) {
+	lifecycle, err := ReplayA2ATaskLifecycle(lifecyclePath)
+	if err != nil {
+		return A2ACancellationReplayReadback{}, err
+	}
+	status := "ready"
+	if lifecycle.CancelRequested == 0 || lifecycle.Cancelled == 0 || lifecycle.MutationAuthority || lifecycle.ExecutesWork || lifecycle.ApprovesWork {
+		status = "blocked"
+	}
+	return A2ACancellationReplayReadback{
+		Schema:            "ao.mission.a2a-cancellation-replay-readback.v0.1",
+		Status:            status,
+		Total:             lifecycle.Total,
+		CancelRequested:   lifecycle.CancelRequested,
+		Cancelled:         lifecycle.Cancelled,
+		MutationAuthority: false,
+		ExecutesWork:      false,
+		ApprovesWork:      false,
+		ExactNextAction:   "record A2A cancellation as readback only; route any continuation through AO Mission gates",
+		GeneratedAtUTC:    now(nil),
+	}, nil
+}
+
 func DiffGovernanceSnapshots(before, after GovernanceSnapshot) GovernanceSnapshotDiff {
 	fields := []string{}
 	if before.MissionID != after.MissionID {
@@ -322,9 +345,14 @@ func ImportMissionArchive(store Store, path string) (MissionArchiveImportReadbac
 }
 
 func BuildGatewayReadinessRollup(paths ...string) (GatewayReadinessRollup, error) {
+	return BuildGatewayReadinessRollupWithCorrelation("", paths...)
+}
+
+func BuildGatewayReadinessRollupWithCorrelation(correlationID string, paths ...string) (GatewayReadinessRollup, error) {
 	rollup := GatewayReadinessRollup{
 		Schema:              "ao.mission.gateway-readiness-rollup.v0.1",
 		Status:              "ready",
+		CorrelationID:       strings.TrimSpace(correlationID),
 		ReadbackRefs:        []string{},
 		SafeToExecute:       false,
 		ExecutesWork:        false,
