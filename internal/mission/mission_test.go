@@ -1427,6 +1427,139 @@ func TestA2ATaskCarriesArtifactRefsWithoutMutationAuthority(t *testing.T) {
 	}
 }
 
+func TestGatewayReplaySuiteCombinesTelegramAndA2AWithoutAuthority(t *testing.T) {
+	outPath := filepath.Join(t.TempDir(), "gateway-replay-suite.json")
+	var out, errb bytes.Buffer
+	code := Run([]string{
+		"gateway", "replay-suite",
+		"--telegram-config", filepath.Join("..", "..", "examples", "valid", "telegram-config.json"),
+		"--telegram-webhook", filepath.Join("..", "..", "examples", "valid", "telegram-webhook-replay.json"),
+		"--telegram-updates", filepath.Join("..", "..", "examples", "valid", "telegram-update-replay.json"),
+		"--a2a-http", filepath.Join("..", "..", "examples", "valid", "a2a-http-integration.json"),
+		"--a2a-lifecycle", filepath.Join("..", "..", "examples", "valid", "a2a-task-lifecycle-artifacts.json"),
+		"--out", outPath,
+	}, &out, &errb)
+	if code != 0 {
+		t.Fatalf("gateway replay-suite failed: %s", errb.String())
+	}
+	var suite map[string]any
+	body, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(body, &suite); err != nil {
+		t.Fatal(err)
+	}
+	if suite["schema"] != "ao.mission.gateway-replay-suite-readback.v0.1" || suite["status"] != "ready" {
+		t.Fatalf("bad gateway replay suite: %#v", suite)
+	}
+	if suite["telegram_replays"] != float64(2) || suite["a2a_replays"] != float64(2) {
+		t.Fatalf("gateway replay suite should bind two Telegram and two A2A replays: %#v", suite)
+	}
+	for _, key := range []string{"mutation_authority", "executes_work", "approves_work"} {
+		if suite[key] != false {
+			t.Fatalf("gateway replay suite widened %s: %#v", key, suite)
+		}
+	}
+}
+
+func TestA2ACompatibilityCommandValidatesAgentCardTasksAndArtifacts(t *testing.T) {
+	outPath := filepath.Join(t.TempDir(), "a2a-compatibility.json")
+	var out, errb bytes.Buffer
+	code := Run([]string{
+		"a2a", "compatibility",
+		"--agent-card", filepath.Join("..", "..", "examples", "valid", "a2a-agent-card.json"),
+		"--http", filepath.Join("..", "..", "examples", "valid", "a2a-http-integration.json"),
+		"--lifecycle", filepath.Join("..", "..", "examples", "valid", "a2a-task-lifecycle-artifacts.json"),
+		"--out", outPath,
+	}, &out, &errb)
+	if code != 0 {
+		t.Fatalf("a2a compatibility failed: %s", errb.String())
+	}
+	var readback map[string]any
+	body, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(body, &readback); err != nil {
+		t.Fatal(err)
+	}
+	if readback["schema"] != "ao.mission.a2a-compatibility-readback.v0.1" || readback["status"] != "ready" {
+		t.Fatalf("bad A2A compatibility readback: %#v", readback)
+	}
+	if readback["agent_card_skills"] != float64(3) || readback["artifact_readbacks"] != float64(2) {
+		t.Fatalf("A2A compatibility should bind skills and artifacts: %#v", readback)
+	}
+	if readback["mutation_authority"] != false || readback["executes_work"] != false {
+		t.Fatalf("A2A compatibility widened authority: %#v", readback)
+	}
+}
+
+func TestGovernanceSnapshotDiffCommandReportsRouteChangeWithoutAuthority(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("small mission")
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := Snapshot(rec)
+	rec.CurrentRoute = "ao-atlas"
+	rec.CurrentPhase = "atlas_import"
+	after := Snapshot(rec)
+	beforePath := filepath.Join(dir, "before.json")
+	afterPath := filepath.Join(dir, "after.json")
+	writeJSONForTest(t, beforePath, before)
+	writeJSONForTest(t, afterPath, after)
+	var out, errb bytes.Buffer
+	if code := Run([]string{"governance", "diff", "--before", beforePath, "--after", afterPath}, &out, &errb); code != 0 {
+		t.Fatalf("governance diff: %s", errb.String())
+	}
+	var diff map[string]any
+	if err := json.Unmarshal(out.Bytes(), &diff); err != nil {
+		t.Fatal(err)
+	}
+	if diff["schema"] != "ao.mission.governance-snapshot-diff.v0.1" || diff["changed_fields"] != float64(2) {
+		t.Fatalf("bad snapshot diff: %#v", diff)
+	}
+	if diff["safe_to_execute"] != false || diff["executes_work"] != false || diff["approves_work"] != false {
+		t.Fatalf("snapshot diff widened authority: %#v", diff)
+	}
+}
+
+func TestMissionArchiveExportWritesDigestBoundPublicSafeBundle(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "archive mission evidence"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	archivePath := filepath.Join(dir, "mission-archive.json")
+	if code := Run([]string{"--home", dir, "mission", "archive", "--mission", rec.MissionID, "--out", archivePath}, &out, &errb); code != 0 {
+		t.Fatalf("mission archive: %s", errb.String())
+	}
+	var archive map[string]any
+	body, err := os.ReadFile(archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(body, &archive); err != nil {
+		t.Fatal(err)
+	}
+	if archive["schema"] != "ao.mission.archive.v0.1" || archive["mission_id"] != rec.MissionID {
+		t.Fatalf("bad archive: %#v", archive)
+	}
+	if digest, _ := archive["archive_digest"].(string); !strings.HasPrefix(digest, "sha256:") {
+		t.Fatalf("archive digest missing: %#v", archive)
+	}
+	if archive["safe_to_execute"] != false || archive["executes_work"] != false || archive["approves_work"] != false {
+		t.Fatalf("archive widened authority: %#v", archive)
+	}
+}
+
 func digestBytesForTest(t *testing.T, path string) string {
 	t.Helper()
 	body, err := os.ReadFile(path)
@@ -1435,4 +1568,15 @@ func digestBytesForTest(t *testing.T, path string) string {
 	}
 	sum := sha256.Sum256(body)
 	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+func writeJSONForTest(t *testing.T, path string, value any) {
+	t.Helper()
+	body, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, append(body, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
 }

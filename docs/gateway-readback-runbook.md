@@ -25,6 +25,8 @@ Use `ao-mission telegram replay-updates --fixture examples/valid/telegram-update
 
 Use `ao-mission telegram webhook-replay --fixture examples/valid/telegram-webhook-replay.json --config examples/valid/telegram-config.json` for webhook fixture parity. Webhook replay uses the same allowlist and command rules as update replay, records intent/readback only, and never contacts Telegram.
 
+Use `ao-mission gateway replay-suite --telegram-config examples/valid/telegram-config.json --telegram-webhook examples/valid/telegram-webhook-replay.json --telegram-updates examples/valid/telegram-update-replay.json --a2a-http examples/valid/a2a-http-integration.json --a2a-lifecycle examples/valid/a2a-task-lifecycle-artifacts.json --out tmp/gateway-replay-suite.json` to bind Telegram webhook/update replay and A2A HTTP/lifecycle replay into one no-authority suite readback.
+
 ## A2A
 
 The local A2A gateway exposes an Agent Card and JSON-RPC style task readbacks for local interoperability. It follows the A2A idea of agent-to-agent communication without exposing AO Mission internals as unrestricted tools. The Agent Card includes local fixture metadata, `streaming=false`, `push_notifications=false`, `mutation_authority=false`, structured capability detail, and readback-only skills for mission status, continuation intents, and artifact refs. External agents may request `mission.start`, `mission.status`, `mission.next`, `mission.continue`, `mission.pause`, `mission.resume`, `mission.cancel`, `mission.artifacts`, and `mission.governance_snapshot`.
@@ -40,6 +42,8 @@ The invalid JSON-RPC fixtures under `examples/invalid/` cover missing objective,
 Every A2A response remains intent/readback only and reports `mutation_authority=false`.
 
 `examples/valid/a2a-task-lifecycle-edges.json` covers resume and cancel lifecycle edges. `examples/valid/a2a-task-lifecycle-artifacts.json` covers artifact readbacks and shows that artifact refs are pointers only. Resume, cancellation, and artifact states are readback evidence only; they do not grant mutation, scheduling, approval, or repository write authority.
+
+Use `ao-mission a2a compatibility --agent-card examples/valid/a2a-agent-card.json --http examples/valid/a2a-http-integration.json --lifecycle examples/valid/a2a-task-lifecycle-artifacts.json --out tmp/a2a-compatibility.json` to validate Agent Card, JSON-RPC, lifecycle, and artifact readback compatibility as one fixture-backed packet.
 
 ## Operator Rule
 

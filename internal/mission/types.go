@@ -238,6 +238,25 @@ type GatewayIntentLedger struct {
 	GeneratedAtUTC    string                `json:"generated_at_utc"`
 }
 
+type GatewayReplaySuiteReadback struct {
+	Schema            string                    `json:"schema"`
+	Status            string                    `json:"status"`
+	TelegramReplays   int                       `json:"telegram_replays"`
+	A2AReplays        int                       `json:"a2a_replays"`
+	Total             int                       `json:"total"`
+	IntentRecorded    int                       `json:"intent_recorded"`
+	Denied            int                       `json:"denied"`
+	Invalid           int                       `json:"invalid"`
+	ArtifactReadbacks int                       `json:"artifact_readbacks"`
+	ReplayRefs        []string                  `json:"replay_refs"`
+	Replays           []GatewayReplayReadback   `json:"replays"`
+	A2ALifecycle      *A2ATaskLifecycleReadback `json:"a2a_lifecycle,omitempty"`
+	MutationAuthority bool                      `json:"mutation_authority"`
+	ExecutesWork      bool                      `json:"executes_work"`
+	ApprovesWork      bool                      `json:"approves_work"`
+	GeneratedAtUTC    string                    `json:"generated_at_utc"`
+}
+
 type A2ATaskLifecycleReadback struct {
 	Schema            string    `json:"schema"`
 	Status            string    `json:"status"`
@@ -253,6 +272,21 @@ type A2ATaskLifecycleReadback struct {
 	ExecutesWork      bool      `json:"executes_work"`
 	ApprovesWork      bool      `json:"approves_work"`
 	GeneratedAtUTC    string    `json:"generated_at_utc"`
+}
+
+type A2ACompatibilityReadback struct {
+	Schema            string `json:"schema"`
+	Status            string `json:"status"`
+	ProtocolVersion   string `json:"protocol_version"`
+	AgentCardSkills   int    `json:"agent_card_skills"`
+	Methods           int    `json:"methods"`
+	HTTPRequests      int    `json:"http_requests"`
+	LifecycleTasks    int    `json:"lifecycle_tasks"`
+	ArtifactReadbacks int    `json:"artifact_readbacks"`
+	MutationAuthority bool   `json:"mutation_authority"`
+	ExecutesWork      bool   `json:"executes_work"`
+	ApprovesWork      bool   `json:"approves_work"`
+	GeneratedAtUTC    string `json:"generated_at_utc"`
 }
 
 type A2AAgentCard struct {
@@ -394,6 +428,32 @@ type CommandStatus struct {
 	MutatesRepositories bool     `json:"mutates_repositories"`
 	Blockers            []string `json:"blockers"`
 	GeneratedAtUTC      string   `json:"generated_at_utc"`
+}
+
+type GovernanceSnapshotDiff struct {
+	Schema         string   `json:"schema"`
+	Status         string   `json:"status"`
+	MissionID      string   `json:"mission_id"`
+	ChangedFields  int      `json:"changed_fields"`
+	Fields         []string `json:"fields"`
+	SafeToExecute  bool     `json:"safe_to_execute"`
+	ExecutesWork   bool     `json:"executes_work"`
+	ApprovesWork   bool     `json:"approves_work"`
+	GeneratedAtUTC string   `json:"generated_at_utc"`
+}
+
+type MissionArchive struct {
+	Schema         string             `json:"schema"`
+	MissionID      string             `json:"mission_id"`
+	Record         Record             `json:"record"`
+	Snapshot       GovernanceSnapshot `json:"snapshot"`
+	FinalRollup    FinalRollup        `json:"final_rollup"`
+	ArtifactCount  int                `json:"artifact_count"`
+	ArchiveDigest  string             `json:"archive_digest"`
+	SafeToExecute  bool               `json:"safe_to_execute"`
+	ExecutesWork   bool               `json:"executes_work"`
+	ApprovesWork   bool               `json:"approves_work"`
+	GeneratedAtUTC string             `json:"generated_at_utc"`
 }
 
 func now(clock func() time.Time) string {
