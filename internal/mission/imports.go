@@ -34,8 +34,12 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 	if err := json.Unmarshal(body, &doc); err != nil {
 		return ImportReadback{}, err
 	}
-	if (kind == "scheduler-readback" || kind == "scheduler-recovery-readback" || kind == "ledger-compaction-readback") && boolFromAny(doc["executes_work"]) {
-		return ImportReadback{}, fmt.Errorf("%s executes_work must be false", kind)
+	if isMissionEvidenceReadback(kind) {
+		for _, field := range []string{"safe_to_execute", "schedules_work", "executes_work", "approves_work", "mutates_repositories", "provider_calls", "release_or_publish", "credential_use", "direct_main_mutation", "concurrent_mutation"} {
+			if boolFromAny(doc[field]) {
+				return ImportReadback{}, fmt.Errorf("%s %s must be false", kind, field)
+			}
+		}
 	}
 	ref := ArtifactRef{Schema: ArtifactRefSchema, Ref: path, Digest: digestBytes(body), Kind: kind}
 	r, err := s.Update(missionID, func(rec *Record) error {
@@ -124,6 +128,15 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 		ApprovesWork:    false,
 		GeneratedAtUTC:  now(nil),
 	}, nil
+}
+
+func isMissionEvidenceReadback(kind string) bool {
+	switch kind {
+	case "scheduler-readback", "scheduler-recovery-readback", "ledger-compaction-readback":
+		return true
+	default:
+		return false
+	}
 }
 
 func routeFromRecord(rec Record, reason string) RouteDecision {

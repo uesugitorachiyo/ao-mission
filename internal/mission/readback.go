@@ -75,6 +75,10 @@ func ValidateArtifactManifestFile(path string) (ArtifactManifestValidation, erro
 			result.Status = "failed"
 			return result, fmt.Errorf("artifact manifest refs require ref and digest")
 		}
+		if !strings.HasPrefix(ref.Digest, "sha256:") {
+			result.Status = "failed"
+			return result, fmt.Errorf("artifact manifest ref %s digest must start with sha256:", ref.Ref)
+		}
 		actualPath := ref.Ref
 		if !filepath.IsAbs(actualPath) {
 			if _, err := os.Stat(actualPath); err != nil {

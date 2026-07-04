@@ -793,6 +793,56 @@ func TestSchedulerRecoveryReadbackImportRecordsMissedWakeupEvidence(t *testing.T
 	}
 }
 
+func TestMissionEvidenceImportRejectsAuthorityDrift(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("reject evidence authority drift")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		kind string
+		body string
+		want string
+	}{
+		{
+			name: "scheduler recovery safe to execute",
+			kind: "scheduler-recovery-readback",
+			body: `{"schema":"ao.mission.scheduler-recovery-readback.v0.1","mission_id":"mission-demo","safe_to_execute":true,"executes_work":false}`,
+			want: "safe_to_execute",
+		},
+		{
+			name: "scheduler recovery schedules work",
+			kind: "scheduler-recovery-readback",
+			body: `{"schema":"ao.mission.scheduler-recovery-readback.v0.1","mission_id":"mission-demo","schedules_work":true,"executes_work":false}`,
+			want: "schedules_work",
+		},
+		{
+			name: "ledger compaction repository mutation",
+			kind: "ledger-compaction-readback",
+			body: `{"schema":"ao.mission.ledger-compaction-readback.v0.1","mission_id":"mission-demo","mutates_repositories":true,"executes_work":false}`,
+			want: "mutates_repositories",
+		},
+		{
+			name: "scheduler readback provider call",
+			kind: "scheduler-readback",
+			body: `{"schema":"ao.mission.scheduler-readback.v0.1","mission_id":"mission-demo","provider_calls":true,"executes_work":false}`,
+			want: "provider_calls",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(dir, strings.ReplaceAll(tc.name, " ", "-")+".json")
+			if err := os.WriteFile(path, []byte(tc.body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := ImportArtifact(s, rec.MissionID, tc.kind, path); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("expected %s rejection, got %v", tc.want, err)
+			}
+		})
+	}
+}
+
 func TestArtifactManifestIncludesImportedRecoveryAndCompactionReadbacks(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)
@@ -1119,6 +1169,35 @@ func TestArtifactManifestSelfValidationRejectsTampering(t *testing.T) {
 	result, err = ValidateArtifactManifestFile(manifestPath)
 	if err == nil || result.Status != "failed" || !strings.Contains(err.Error(), "artifact digest mismatch") {
 		t.Fatalf("expected tamper failure, result=%+v err=%v", result, err)
+	}
+}
+
+func TestArtifactManifestSelfValidationRejectsInvalidDigestFormat(t *testing.T) {
+	dir := t.TempDir()
+	artifactPath := filepath.Join(dir, "route.json")
+	if err := os.WriteFile(artifactPath, []byte(`{"schema":"ao.mission.route-decision.v0.1"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	manifest := FinalizeArtifactManifest(ArtifactManifest{
+		MissionID: "mission-demo",
+		ArtifactRefs: []ArtifactRef{{
+			Schema: "ao.mission.artifact-ref.v0.1",
+			Ref:    artifactPath,
+			Digest: "not-a-sha256-digest",
+			Kind:   "route_readback",
+		}},
+	})
+	manifestPath := filepath.Join(dir, "artifact-manifest.json")
+	body, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(manifestPath, append(body, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result, err := ValidateArtifactManifestFile(manifestPath)
+	if err == nil || result.Status != "failed" || !strings.Contains(err.Error(), "digest must start with sha256:") {
+		t.Fatalf("expected digest format failure, result=%+v err=%v", result, err)
 	}
 }
 
