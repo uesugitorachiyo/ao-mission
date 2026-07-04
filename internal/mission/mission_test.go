@@ -1201,6 +1201,50 @@ func TestArtifactManifestSelfValidationRejectsInvalidDigestFormat(t *testing.T) 
 	}
 }
 
+func TestArtifactManifestValidationNormalizesTextLineEndings(t *testing.T) {
+	dir := t.TempDir()
+	artifactPath := filepath.Join(dir, "route.json")
+	lfBody := []byte("{\n  \"schema\": \"ao.mission.route-decision.v0.1\"\n}\n")
+	if err := os.WriteFile(artifactPath, []byte("{\r\n  \"schema\": \"ao.mission.route-decision.v0.1\"\r\n}\r\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(lfBody)
+	manifest := FinalizeArtifactManifest(ArtifactManifest{
+		MissionID: "mission-demo",
+		ArtifactRefs: []ArtifactRef{{
+			Schema: "ao.mission.artifact-ref.v0.1",
+			Ref:    artifactPath,
+			Digest: "sha256:" + hex.EncodeToString(sum[:]),
+			Kind:   "route_readback",
+		}},
+	})
+	manifestPath := filepath.Join(dir, "artifact-manifest.json")
+	body, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(manifestPath, append(body, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result, err := ValidateArtifactManifestFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != "passed" || result.ArtifactCount != 1 {
+		t.Fatalf("bad normalized manifest validation: %+v", result)
+	}
+}
+
+func TestArtifactManifestFixtureBindsRecoveryAndCompactionEvidence(t *testing.T) {
+	result, err := ValidateArtifactManifestFile(filepath.Join("..", "..", "examples", "valid", "artifact-manifest-recovery-compaction.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != "passed" || result.ArtifactCount != 2 || result.ExecutesWork || result.ApprovesWork {
+		t.Fatalf("bad recovery/compaction manifest validation: %+v", result)
+	}
+}
+
 func TestTelegramUpdateReplayFixtureProducesIntentOnlyReadback(t *testing.T) {
 	readback, err := ReplayTelegramUpdates(filepath.Join("..", "..", "examples", "valid", "telegram-update-replay.json"), map[string]string{"1001": "admin", "1002": "user"})
 	if err != nil {
@@ -1230,6 +1274,19 @@ func TestTelegramWebhookReplayFixtureMatchesUpdateReplayBoundary(t *testing.T) {
 	}
 	if readback.MutationAuthority || readback.ExecutesWork || readback.ApprovesWork {
 		t.Fatalf("telegram webhook replay widened authority: %+v", readback)
+	}
+}
+
+func TestTelegramWebhookReplayTracksDuplicateUpdates(t *testing.T) {
+	readback, err := ReplayTelegramWebhookFixture(filepath.Join("..", "..", "examples", "valid", "telegram-webhook-duplicate-replay.json"), map[string]string{"1001": "admin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.Total != 3 || readback.Duplicates != 1 || readback.IntentRecorded != 2 {
+		t.Fatalf("bad duplicate webhook accounting: %+v", readback)
+	}
+	if readback.MutationAuthority || readback.ExecutesWork || readback.ApprovesWork {
+		t.Fatalf("telegram webhook duplicate replay widened authority: %+v", readback)
 	}
 }
 
@@ -1263,6 +1320,19 @@ func TestA2AAgentCardIncludesProtocolMetadata(t *testing.T) {
 	}
 	if card.MutationAuthority {
 		t.Fatal("agent card must remain intent/readback only")
+	}
+}
+
+func TestA2ALifecycleTracksArtifactAndCancelReadbacks(t *testing.T) {
+	readback, err := ReplayA2ATaskLifecycle(filepath.Join("..", "..", "examples", "valid", "a2a-task-lifecycle-artifacts.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.Total != 4 || readback.CancelRequested != 1 || readback.Cancelled != 1 || readback.ArtifactReadbacks != 2 {
+		t.Fatalf("bad A2A artifact/cancel readback counts: %+v", readback)
+	}
+	if readback.MutationAuthority || readback.ExecutesWork || readback.ApprovesWork {
+		t.Fatalf("A2A lifecycle artifact readbacks widened authority: %+v", readback)
 	}
 }
 

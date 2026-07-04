@@ -154,7 +154,20 @@ func ReplayTelegramUpdates(path string, allowlist map[string]string) (GatewayRep
 		ApprovesWork:      false,
 		GeneratedAtUTC:    now(nil),
 	}
+	seenUpdates := map[int]bool{}
 	for _, update := range fixture.Updates {
+		if update.UpdateID != 0 {
+			if seenUpdates[update.UpdateID] {
+				readback.Duplicates++
+				result := GatewayReplayResult{Command: update.Text, ExpectedStatus: update.ExpectedStatus, ActualStatus: "duplicate_ignored", MutationAuthority: false}
+				readback.Results = append(readback.Results, result)
+				if update.ExpectedStatus != "" && result.ActualStatus != update.ExpectedStatus {
+					readback.Status = "blocked"
+				}
+				continue
+			}
+			seenUpdates[update.UpdateID] = true
+		}
 		role := allowlist[update.ChatID]
 		rb := HandleTelegramCommand(TelegramCommand{ChatID: update.ChatID, Command: update.Text, Role: role}, allowlist)
 		result := GatewayReplayResult{Command: update.Text, ExpectedStatus: update.ExpectedStatus, ActualStatus: rb.Status, MutationAuthority: rb.MutationAuthority}
@@ -330,6 +343,8 @@ func ReplayA2ATaskLifecycle(path string) (A2ATaskLifecycleReadback, error) {
 			readback.ResumeRequested++
 		case "resumed":
 			readback.Resumed++
+		case "artifact_readback":
+			readback.ArtifactReadbacks++
 		default:
 			return A2ATaskLifecycleReadback{}, fmt.Errorf("A2A lifecycle task %d has unsupported status %q", i, task.Status)
 		}

@@ -201,6 +201,7 @@ type GatewayReplayReadback struct {
 	IntentRecorded    int                   `json:"intent_recorded"`
 	Denied            int                   `json:"denied"`
 	Invalid           int                   `json:"invalid"`
+	Duplicates        int                   `json:"duplicates,omitempty"`
 	Results           []GatewayReplayResult `json:"results"`
 	MutationAuthority bool                  `json:"mutation_authority"`
 	ExecutesWork      bool                  `json:"executes_work"`
@@ -246,6 +247,7 @@ type A2ATaskLifecycleReadback struct {
 	Cancelled         int       `json:"cancelled"`
 	ResumeRequested   int       `json:"resume_requested"`
 	Resumed           int       `json:"resumed"`
+	ArtifactReadbacks int       `json:"artifact_readbacks"`
 	Tasks             []A2ATask `json:"tasks"`
 	MutationAuthority bool      `json:"mutation_authority"`
 	ExecutesWork      bool      `json:"executes_work"`

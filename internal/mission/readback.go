@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 )
 
 func BuildArtifactManifest(r Record) ArtifactManifest {
@@ -90,7 +91,7 @@ func ValidateArtifactManifestFile(path string) (ArtifactManifestValidation, erro
 			result.Status = "failed"
 			return result, err
 		}
-		sum := sha256.Sum256(data)
+		sum := sha256.Sum256(normalizeTextArtifactDigestData(data))
 		got := "sha256:" + hex.EncodeToString(sum[:])
 		if got != ref.Digest {
 			result.Status = "failed"
@@ -98,6 +99,13 @@ func ValidateArtifactManifestFile(path string) (ArtifactManifestValidation, erro
 		}
 	}
 	return result, nil
+}
+
+func normalizeTextArtifactDigestData(data []byte) []byte {
+	if !utf8.Valid(data) {
+		return data
+	}
+	return []byte(strings.ReplaceAll(string(data), "\r\n", "\n"))
 }
 
 func BuildCommandStatus(r Record) CommandStatus {
