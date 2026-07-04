@@ -19,6 +19,8 @@ ao-mission status --mission <mission-id>
 ao-mission continue --mission <mission-id> --until-done --max-iterations 10
 ao-mission mission history --mission <mission-id>
 ao-mission mission compact --mission <mission-id> --keep-route-history 25 --keep-steps 25
+ao-mission mission archive --mission <mission-id> --out tmp/<mission-id>-archive.json
+ao-mission mission validate-archive --path tmp/<mission-id>-archive.json --out tmp/<mission-id>-archive-validation.json
 ao-mission artifacts manifest --mission <mission-id> --out tmp/<mission-id>-artifact-manifest.json
 ao-mission final rollup --mission <mission-id>
 ```
@@ -29,10 +31,13 @@ ao-mission final rollup --mission <mission-id>
 ao-mission telegram replay --matrix examples/valid/telegram-command-matrix.json --config examples/valid/telegram-config.json
 ao-mission telegram replay-updates --fixture examples/valid/telegram-update-replay.json --config examples/valid/telegram-config.json
 ao-mission telegram webhook-replay --fixture examples/valid/telegram-webhook-replay.json --config examples/valid/telegram-config.json
+ao-mission telegram role-matrix --config examples/valid/telegram-config.json --out tmp/telegram-role-matrix.json
 ao-mission a2a replay --fixture examples/valid/a2a-http-integration.json
 ao-mission a2a lifecycle --fixture examples/valid/a2a-task-lifecycle-edges.json
 ao-mission a2a compatibility --agent-card examples/valid/a2a-agent-card.json --http examples/valid/a2a-http-integration.json --lifecycle examples/valid/a2a-task-lifecycle-artifacts.json --out tmp/a2a-compatibility.json
+ao-mission a2a streaming-denial --agent-card examples/invalid/a2a-agent-card-streaming.json --out tmp/a2a-streaming-denial.json
 ao-mission gateway replay-suite --telegram-config examples/valid/telegram-config.json --telegram-webhook examples/valid/telegram-webhook-replay.json --telegram-updates examples/valid/telegram-update-replay.json --a2a-http examples/valid/a2a-http-integration.json --a2a-lifecycle examples/valid/a2a-task-lifecycle-artifacts.json --out tmp/gateway-replay-suite.json
+ao-mission gateway readiness-rollup --suite tmp/gateway-replay-suite.json --a2a-compatibility tmp/a2a-compatibility.json --archive-validation tmp/<mission-id>-archive-validation.json --snapshot-diff <snapshot-diff.json> --out tmp/gateway-readiness-rollup.json
 ao-mission schedule replay --fixture examples/valid/scheduler-readback-replay.json
 ao-mission schedule alerts --fixture examples/valid/scheduler-readback-replay.json
 ao-mission schedule recover --mission <mission-id> --fixture examples/valid/scheduler-readback-replay.json

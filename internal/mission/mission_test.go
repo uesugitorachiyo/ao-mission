@@ -1560,6 +1560,193 @@ func TestMissionArchiveExportWritesDigestBoundPublicSafeBundle(t *testing.T) {
 	}
 }
 
+func TestMissionArchiveValidateAndImportRoundTripWithoutAuthority(t *testing.T) {
+	exportHome := t.TempDir()
+	importHome := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", exportHome, "start", "archive import round trip"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	archivePath := filepath.Join(exportHome, "mission-archive.json")
+	out.Reset()
+	if code := Run([]string{"--home", exportHome, "mission", "archive", "--mission", rec.MissionID, "--out", archivePath}, &out, &errb); code != 0 {
+		t.Fatalf("mission archive: %s", errb.String())
+	}
+	out.Reset()
+	if code := Run([]string{"mission", "validate-archive", "--path", archivePath}, &out, &errb); code != 0 {
+		t.Fatalf("mission validate-archive: %s", errb.String())
+	}
+	var validation map[string]any
+	if err := json.Unmarshal(out.Bytes(), &validation); err != nil {
+		t.Fatal(err)
+	}
+	if validation["schema"] != "ao.mission.archive-validation.v0.1" || validation["status"] != "ready" || validation["mission_id"] != rec.MissionID {
+		t.Fatalf("bad archive validation: %#v", validation)
+	}
+	if validation["safe_to_execute"] != false || validation["executes_work"] != false || validation["approves_work"] != false {
+		t.Fatalf("archive validation widened authority: %#v", validation)
+	}
+	out.Reset()
+	if code := Run([]string{"--home", importHome, "mission", "import-archive", "--path", archivePath}, &out, &errb); code != 0 {
+		t.Fatalf("mission import-archive: %s", errb.String())
+	}
+	var imported map[string]any
+	if err := json.Unmarshal(out.Bytes(), &imported); err != nil {
+		t.Fatal(err)
+	}
+	if imported["schema"] != "ao.mission.archive-import-readback.v0.1" || imported["status"] != "ready" || imported["mission_id"] != rec.MissionID {
+		t.Fatalf("bad archive import readback: %#v", imported)
+	}
+	out.Reset()
+	if code := Run([]string{"--home", importHome, "mission", "inspect", "--mission", rec.MissionID, "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("inspect imported mission: %s", errb.String())
+	}
+	var roundTrip Record
+	if err := json.Unmarshal(out.Bytes(), &roundTrip); err != nil {
+		t.Fatal(err)
+	}
+	if roundTrip.MissionID != rec.MissionID || roundTrip.Objective != rec.Objective {
+		t.Fatalf("archive import did not restore record: %#v", roundTrip)
+	}
+}
+
+func TestTelegramRoleMatrixExportListsAllowlistedRolesWithoutAuthority(t *testing.T) {
+	outPath := filepath.Join(t.TempDir(), "telegram-role-matrix.json")
+	var out, errb bytes.Buffer
+	if code := Run([]string{
+		"telegram", "role-matrix",
+		"--config", filepath.Join("..", "..", "examples", "valid", "telegram-config.json"),
+		"--out", outPath,
+	}, &out, &errb); code != 0 {
+		t.Fatalf("telegram role-matrix: %s", errb.String())
+	}
+	var matrix map[string]any
+	body, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(body, &matrix); err != nil {
+		t.Fatal(err)
+	}
+	if matrix["schema"] != "ao.mission.telegram-role-matrix-readback.v0.1" || matrix["status"] != "ready" {
+		t.Fatalf("bad Telegram role matrix: %#v", matrix)
+	}
+	if matrix["chat_count"] != float64(2) || matrix["admin_count"] != float64(1) || matrix["user_count"] != float64(1) {
+		t.Fatalf("bad Telegram role counts: %#v", matrix)
+	}
+	if matrix["mutation_authority"] != false || matrix["executes_work"] != false || matrix["approves_work"] != false {
+		t.Fatalf("Telegram role matrix widened authority: %#v", matrix)
+	}
+}
+
+func TestA2AStreamingDeniedReadbackRejectsStreamingAgentCard(t *testing.T) {
+	var out, errb bytes.Buffer
+	code := Run([]string{
+		"a2a", "streaming-denial",
+		"--agent-card", filepath.Join("..", "..", "examples", "invalid", "a2a-agent-card-streaming.json"),
+	}, &out, &errb)
+	if code != 0 {
+		t.Fatalf("a2a streaming-denial should emit denial readback, got stderr=%s", errb.String())
+	}
+	var readback map[string]any
+	if err := json.Unmarshal(out.Bytes(), &readback); err != nil {
+		t.Fatal(err)
+	}
+	if readback["schema"] != "ao.mission.a2a-streaming-denial-readback.v0.1" || readback["status"] != "denied" {
+		t.Fatalf("bad A2A streaming denial: %#v", readback)
+	}
+	if readback["streaming_requested"] != true || readback["mutation_authority"] != false || readback["executes_work"] != false {
+		t.Fatalf("A2A streaming denial missing boundary flags: %#v", readback)
+	}
+}
+
+func TestGatewayReadinessRollupCombinesReadbacksWithoutAuthority(t *testing.T) {
+	dir := t.TempDir()
+	suitePath := filepath.Join(dir, "suite.json")
+	compatPath := filepath.Join(dir, "compat.json")
+	archiveValidationPath := filepath.Join(dir, "archive-validation.json")
+	diffPath := filepath.Join(dir, "snapshot-diff.json")
+	rollupPath := filepath.Join(dir, "gateway-readiness-rollup.json")
+	var out, errb bytes.Buffer
+	if code := Run([]string{
+		"gateway", "replay-suite",
+		"--telegram-config", filepath.Join("..", "..", "examples", "valid", "telegram-config.json"),
+		"--telegram-updates", filepath.Join("..", "..", "examples", "valid", "telegram-update-replay.json"),
+		"--a2a-http", filepath.Join("..", "..", "examples", "valid", "a2a-http-integration.json"),
+		"--out", suitePath,
+	}, &out, &errb); code != 0 {
+		t.Fatalf("gateway replay-suite: %s", errb.String())
+	}
+	out.Reset()
+	if code := Run([]string{
+		"a2a", "compatibility",
+		"--agent-card", filepath.Join("..", "..", "examples", "valid", "a2a-agent-card.json"),
+		"--http", filepath.Join("..", "..", "examples", "valid", "a2a-http-integration.json"),
+		"--lifecycle", filepath.Join("..", "..", "examples", "valid", "a2a-task-lifecycle-artifacts.json"),
+		"--out", compatPath,
+	}, &out, &errb); code != 0 {
+		t.Fatalf("a2a compatibility: %s", errb.String())
+	}
+	exportHome := filepath.Join(dir, "export-home")
+	out.Reset()
+	if code := Run([]string{"--home", exportHome, "start", "gateway readiness rollup"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	archivePath := filepath.Join(dir, "archive.json")
+	out.Reset()
+	if code := Run([]string{"--home", exportHome, "mission", "archive", "--mission", rec.MissionID, "--out", archivePath}, &out, &errb); code != 0 {
+		t.Fatalf("archive: %s", errb.String())
+	}
+	out.Reset()
+	if code := Run([]string{"mission", "validate-archive", "--path", archivePath, "--out", archiveValidationPath}, &out, &errb); code != 0 {
+		t.Fatalf("validate archive: %s", errb.String())
+	}
+	beforePath := filepath.Join(dir, "before.json")
+	afterPath := filepath.Join(dir, "after.json")
+	before := Snapshot(rec)
+	rec.CurrentRoute = "ao-atlas"
+	after := Snapshot(rec)
+	writeJSONForTest(t, beforePath, before)
+	writeJSONForTest(t, afterPath, after)
+	out.Reset()
+	if code := Run([]string{"governance", "diff", "--before", beforePath, "--after", afterPath, "--out", diffPath}, &out, &errb); code != 0 {
+		t.Fatalf("governance diff: %s", errb.String())
+	}
+	out.Reset()
+	if code := Run([]string{
+		"gateway", "readiness-rollup",
+		"--suite", suitePath,
+		"--a2a-compatibility", compatPath,
+		"--archive-validation", archiveValidationPath,
+		"--snapshot-diff", diffPath,
+		"--out", rollupPath,
+	}, &out, &errb); code != 0 {
+		t.Fatalf("gateway readiness-rollup: %s", errb.String())
+	}
+	var rollup map[string]any
+	body, err := os.ReadFile(rollupPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(body, &rollup); err != nil {
+		t.Fatal(err)
+	}
+	if rollup["schema"] != "ao.mission.gateway-readiness-rollup.v0.1" || rollup["status"] != "ready" {
+		t.Fatalf("bad gateway readiness rollup: %#v", rollup)
+	}
+	if rollup["readback_count"] != float64(4) || rollup["safe_to_execute"] != false || rollup["executes_work"] != false {
+		t.Fatalf("gateway readiness rollup missing no-authority evidence: %#v", rollup)
+	}
+}
+
 func digestBytesForTest(t *testing.T, path string) string {
 	t.Helper()
 	body, err := os.ReadFile(path)
