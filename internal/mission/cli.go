@@ -121,11 +121,19 @@ func run(args []string, stdout io.Writer) error {
 			keepRouteHistory := fs.Int("keep-route-history", 25, "")
 			keepSteps := fs.Int("keep-steps", 25, "")
 			dryRun := fs.Bool("dry-run", false, "")
+			timeline := fs.Bool("timeline", false, "")
 			if err := fs.Parse(args[2:]); err != nil {
 				return err
 			}
 			if strings.TrimSpace(*id) == "" {
 				return errors.New("mission compact requires --mission")
+			}
+			if *timeline {
+				readback, err := CompactMissionTimeline(s, *id, LedgerCompactionOptions{KeepRouteHistory: *keepRouteHistory, KeepSteps: *keepSteps, DryRun: *dryRun})
+				if err != nil {
+					return err
+				}
+				return printJSON(stdout, readback)
 			}
 			readback, err := CompactMissionLedger(s, *id, LedgerCompactionOptions{KeepRouteHistory: *keepRouteHistory, KeepSteps: *keepSteps, DryRun: *dryRun})
 			if err != nil {
@@ -573,7 +581,20 @@ func run(args []string, stdout io.Writer) error {
 			if *once {
 				addr := ln.Addr().String()
 				_ = ln.Close()
-				return printJSON(stdout, GatewayReadback{Schema: "ao.mission.gateway-readback.v0.1", Gateway: "a2a", Status: "ready", Methods: AgentCard().Methods, Message: "A2A local HTTP fixture server can bind at " + addr + " and records intents only", MutationAuthority: false, GeneratedAtUTC: now(nil)})
+				return printJSON(stdout, map[string]any{
+					"schema":             "ao.mission.a2a-fixture-server-readback.v0.1",
+					"gateway":            "a2a",
+					"status":             "ready",
+					"listen":             addr,
+					"agent_card_path":    "/.well-known/agent-card.json",
+					"jsonrpc_path":       "/",
+					"methods":            AgentCard().Methods,
+					"message":            "A2A local HTTP fixture server can bind and records intents only",
+					"mutation_authority": false,
+					"executes_work":      false,
+					"approves_work":      false,
+					"generated_at_utc":   now(nil),
+				})
 			}
 			fmt.Fprintf(stdout, "a2a_listen=%s\nmutation_authority=false\n", ln.Addr().String())
 			return server.Serve(ln)
