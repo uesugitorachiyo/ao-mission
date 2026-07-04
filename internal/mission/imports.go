@@ -118,6 +118,10 @@ func routeFromRecord(rec Record, reason string) RouteDecision {
 }
 
 func classifyFreshness(generatedAt string) string {
+	return classifyFreshnessAt(generatedAt, time.Now().UTC())
+}
+
+func classifyFreshnessAt(generatedAt string, evaluatedAt time.Time) string {
 	if generatedAt == "" {
 		return "unknown"
 	}
@@ -125,7 +129,7 @@ func classifyFreshness(generatedAt string) string {
 	if err != nil {
 		return "unknown"
 	}
-	age := time.Since(stamp)
+	age := evaluatedAt.Sub(stamp)
 	if age > 24*time.Hour {
 		return "stale"
 	}

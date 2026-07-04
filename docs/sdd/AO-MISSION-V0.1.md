@@ -19,3 +19,5 @@ The current implementation adds read-only import and validation surfaces without
 - `final rollup` summarizes mission evidence while keeping all execution flags false.
 - `telegram serve --config <file>` parses allowlisted public-safe config and reports intent-only readiness.
 - `a2a serve --http` exposes a local Agent Card/task handler for fixture use only.
+- `schedule recover` converts stale or unknown codex-cron readback replay into an immediate continuation recommendation without executing work.
+- `mission compact` trims retained route and continuation-step ledger entries while recording no-authority compaction evidence in the mission record.

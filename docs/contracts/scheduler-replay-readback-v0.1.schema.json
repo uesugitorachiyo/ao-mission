@@ -11,6 +11,7 @@
     "unknown",
     "executes_work",
     "approves_work",
+    "evaluated_at_utc",
     "generated_at_utc"
   ],
   "properties": {
@@ -22,6 +23,7 @@
     "unknown": { "type": "integer" },
     "executes_work": { "type": "boolean" },
     "approves_work": { "type": "boolean" },
+    "evaluated_at_utc": { "type": "string" },
     "generated_at_utc": { "type": "string" }
   }
 }

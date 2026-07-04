@@ -854,8 +854,31 @@ func TestSchedulerReplayFixtureClassifiesFreshness(t *testing.T) {
 	if readback.Total != 3 || readback.Fresh != 1 || readback.Stale != 1 || readback.Unknown != 1 {
 		t.Fatalf("bad scheduler freshness counts: %+v", readback)
 	}
+	if readback.EvaluatedAtUTC != "2026-07-03T12:00:00Z" {
+		t.Fatalf("scheduler replay did not preserve fixture evaluation time: %+v", readback)
+	}
 	if readback.ExecutesWork || readback.ApprovesWork {
 		t.Fatalf("scheduler replay widened authority: %+v", readback)
+	}
+}
+
+func TestSchedulerRecoveryRecommendsImmediateContinuationForMissedWakeups(t *testing.T) {
+	replay, err := ReplaySchedulerReadbacks(filepath.Join("..", "..", "examples", "valid", "scheduler-readback-replay.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	recovery := BuildSchedulerRecoveryReadback("mission-demo", replay)
+	if recovery.Schema != "ao.mission.scheduler-recovery-readback.v0.1" || recovery.Status != "attention_required" {
+		t.Fatalf("bad scheduler recovery: %+v", recovery)
+	}
+	if recovery.MissedWakeups != 2 || recovery.RecoveryMode != "immediate_continue_recommended" {
+		t.Fatalf("bad scheduler recovery counts: %+v", recovery)
+	}
+	if !strings.Contains(recovery.ExactNextAction, "ao-mission continue --mission mission-demo --until-done") {
+		t.Fatalf("bad scheduler recovery next action: %+v", recovery)
+	}
+	if recovery.ExecutesWork || recovery.ApprovesWork {
+		t.Fatalf("scheduler recovery widened authority: %+v", recovery)
 	}
 }
 
@@ -873,6 +896,112 @@ func TestSchedulerAlertSummaryHighlightsStaleReadbacks(t *testing.T) {
 	}
 	if alerts.ExecutesWork || alerts.ApprovesWork {
 		t.Fatalf("scheduler alerts widened authority: %+v", alerts)
+	}
+}
+
+func TestMissionLedgerCompactionTrimsHistoryAndRecordsEvidence(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("build a long-running atlas workgraph mission")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec, err = s.Update(rec.MissionID, func(r *Record) error {
+		for i := 0; i < 5; i++ {
+			r.Steps = append(r.Steps, ContinuationStep{
+				Schema:          StepSchema,
+				MissionID:       r.MissionID,
+				Iteration:       i + 1,
+				Route:           "ao-atlas",
+				Result:          "handoff_required",
+				ExactNextAction: "continue through Atlas",
+				GeneratedAtUTC:  "2026-07-03T00:00:00Z",
+			})
+			AppendRouteHistory(r, RouteDecision{
+				Schema:          RouteSchema,
+				MissionID:       r.MissionID,
+				Route:           "ao-atlas",
+				Reason:          "test route",
+				SafeToRequest:   true,
+				SafeToExecute:   false,
+				SafeToPromote:   false,
+				ExactNextAction: "continue through Atlas",
+				GeneratedAtUTC:  "2026-07-03T00:00:00Z",
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	readback, err := CompactMissionLedger(s, rec.MissionID, LedgerCompactionOptions{KeepRouteHistory: 2, KeepSteps: 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.Schema != "ao.mission.ledger-compaction-readback.v0.1" || readback.Status != "compacted" {
+		t.Fatalf("bad compaction readback: %+v", readback)
+	}
+	if readback.RouteHistoryBefore <= readback.RouteHistoryAfter || readback.RouteHistoryAfter != 2 || readback.StepsAfter != 3 {
+		t.Fatalf("bad compaction counts: %+v", readback)
+	}
+	if readback.ExecutesWork || readback.ApprovesWork || readback.MutatesRepositories {
+		t.Fatalf("compaction widened authority: %+v", readback)
+	}
+	updated, err := s.Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.RouteHistory) != 2 || len(updated.Steps) != 3 {
+		t.Fatalf("record was not compacted: route_history=%d steps=%d", len(updated.RouteHistory), len(updated.Steps))
+	}
+	if updated.Evidence.LedgerCompaction == nil || updated.Evidence.LedgerCompaction.RouteHistoryAfter != 2 {
+		t.Fatalf("compaction evidence missing: %+v", updated.Evidence)
+	}
+}
+
+func TestMissionCompactCLIEmitsReadback(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("build a long-running atlas workgraph mission")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Update(rec.MissionID, func(r *Record) error {
+		for i := 0; i < 4; i++ {
+			r.Steps = append(r.Steps, ContinuationStep{Schema: StepSchema, MissionID: r.MissionID, Iteration: i + 1, Route: "ao-atlas", Result: "handoff_required", GeneratedAtUTC: "2026-07-03T00:00:00Z"})
+			AppendRouteHistory(r, RouteDecision{Schema: RouteSchema, MissionID: r.MissionID, Route: "ao-atlas", SafeToRequest: true, SafeToExecute: false, SafeToPromote: false, GeneratedAtUTC: "2026-07-03T00:00:00Z"})
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "mission", "compact", "--mission", rec.MissionID, "--keep-route-history", "2", "--keep-steps", "2"}, &out, &errb); code != 0 {
+		t.Fatalf("mission compact: %s", errb.String())
+	}
+	var readback LedgerCompactionReadback
+	if err := json.Unmarshal(out.Bytes(), &readback); err != nil {
+		t.Fatal(err)
+	}
+	if readback.Schema != "ao.mission.ledger-compaction-readback.v0.1" || readback.RouteHistoryAfter != 2 || readback.StepsAfter != 2 {
+		t.Fatalf("bad compact CLI readback: %+v", readback)
+	}
+}
+
+func TestScheduleRecoverCLIEmitsImmediateContinuationReadback(t *testing.T) {
+	var out, errb bytes.Buffer
+	if code := Run([]string{"schedule", "recover", "--mission", "mission-demo", "--fixture", filepath.Join("..", "..", "examples", "valid", "scheduler-readback-replay.json")}, &out, &errb); code != 0 {
+		t.Fatalf("schedule recover: %s", errb.String())
+	}
+	var readback SchedulerRecoveryReadback
+	if err := json.Unmarshal(out.Bytes(), &readback); err != nil {
+		t.Fatal(err)
+	}
+	if readback.Schema != "ao.mission.scheduler-recovery-readback.v0.1" || readback.RecoveryMode != "immediate_continue_recommended" {
+		t.Fatalf("bad schedule recovery CLI readback: %+v", readback)
+	}
+	if readback.ExecutesWork || readback.ApprovesWork {
+		t.Fatalf("schedule recovery widened authority: %+v", readback)
 	}
 }
 

@@ -18,6 +18,7 @@ ao-mission status --mission <mission-id>
 ```sh
 ao-mission continue --mission <mission-id> --until-done --max-iterations 10
 ao-mission mission history --mission <mission-id>
+ao-mission mission compact --mission <mission-id> --keep-route-history 25 --keep-steps 25
 ao-mission artifacts manifest --mission <mission-id> --out tmp/<mission-id>-artifact-manifest.json
 ao-mission final rollup --mission <mission-id>
 ```
@@ -29,6 +30,8 @@ ao-mission telegram replay --matrix examples/valid/telegram-command-matrix.json 
 ao-mission telegram replay-updates --fixture examples/valid/telegram-update-replay.json --config examples/valid/telegram-config.json
 ao-mission a2a replay --fixture examples/valid/a2a-http-integration.json
 ao-mission schedule replay --fixture examples/valid/scheduler-readback-replay.json
+ao-mission schedule alerts --fixture examples/valid/scheduler-readback-replay.json
+ao-mission schedule recover --mission <mission-id> --fixture examples/valid/scheduler-readback-replay.json
 ```
 
 Telegram and A2A fixture checks record intent/readback only. They do not grant
