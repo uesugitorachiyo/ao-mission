@@ -23,6 +23,9 @@ func BuildGatewayReplaySuite(readbacks []GatewayReplayReadback, lifecycle *A2ATa
 		GeneratedAtUTC:    now(nil),
 	}
 	for _, readback := range readbacks {
+		if suite.CorrelationID == "" && strings.TrimSpace(readback.CorrelationID) != "" {
+			suite.CorrelationID = strings.TrimSpace(readback.CorrelationID)
+		}
 		if strings.HasPrefix(readback.Gateway, "telegram") {
 			suite.TelegramReplays++
 		}
@@ -380,6 +383,11 @@ func BuildGatewayReadinessRollupWithMissionAndCorrelation(missionID, correlation
 		var packet map[string]any
 		if err := json.Unmarshal(body, &packet); err != nil {
 			return GatewayReadinessRollup{}, err
+		}
+		if rollup.CorrelationID == "" {
+			if value, ok := packet["correlation_id"].(string); ok {
+				rollup.CorrelationID = strings.TrimSpace(value)
+			}
 		}
 		rollup.ReadbackCount++
 		rollup.ReadbackRefs = append(rollup.ReadbackRefs, path)

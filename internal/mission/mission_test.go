@@ -654,6 +654,37 @@ func TestA2AHTTPFixtureReplayProducesIntentOnlyReadback(t *testing.T) {
 	if readback.MutationAuthority || readback.ExecutesWork || readback.ApprovesWork {
 		t.Fatalf("A2A replay widened authority: %+v", readback)
 	}
+	for _, result := range readback.Results {
+		if result.RequestID == "" || result.ResponseID != result.RequestID {
+			t.Fatalf("A2A HTTP replay did not bind request/response pair IDs: %+v", result)
+		}
+	}
+}
+
+func TestA2AHTTPFixtureReplayRecordsRequestResponsePairIDs(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "a2a-http-mismatch.json")
+	if err := os.WriteFile(path, []byte(`{
+  "schema": "ao.mission.a2a-http-integration-fixture.v0.1",
+  "requests": [
+    {
+      "jsonrpc": "2.0",
+      "id": "req-status",
+      "method": "mission.status",
+      "params": {"mission_id": "mission-demo"},
+      "expected_status": "intent_recorded"
+    }
+  ],
+  "mutation_authority": false
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	readback, err := ReplayA2AHTTPFixture(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.Status != "ready" || len(readback.Results) != 1 || readback.Results[0].ResponseID != "req-status" {
+		t.Fatalf("A2A HTTP replay should validate matching request/response IDs: %+v", readback)
+	}
 }
 
 func TestGatewayIntentLedgerPersistsTelegramAndA2AReplayWithoutAuthority(t *testing.T) {
@@ -1877,6 +1908,56 @@ func TestGatewayReadinessRollupCarriesCorrelationID(t *testing.T) {
 	}
 	if rollup["safe_to_execute"] != false || rollup["executes_work"] != false || rollup["approves_work"] != false {
 		t.Fatalf("correlated rollup widened authority: %#v", rollup)
+	}
+}
+
+func TestGatewayReadinessRollupDerivesCorrelationIDFromTelegramReplaySuite(t *testing.T) {
+	dir := t.TempDir()
+	suitePath := filepath.Join(dir, "gateway-replay-suite.json")
+	rollupPath := filepath.Join(dir, "gateway-readiness-rollup.json")
+	telegramPath := filepath.Join("..", "..", "examples", "valid", "telegram-update-replay.json")
+	var out, errb bytes.Buffer
+	if code := Run([]string{
+		"gateway", "replay-suite",
+		"--telegram-config", filepath.Join("..", "..", "examples", "valid", "telegram-config.json"),
+		"--telegram-updates", telegramPath,
+		"--out", suitePath,
+	}, &out, &errb); code != 0 {
+		t.Fatalf("gateway replay-suite: %s", errb.String())
+	}
+	var suite map[string]any
+	body, err := os.ReadFile(suitePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(body, &suite); err != nil {
+		t.Fatal(err)
+	}
+	if suite["correlation_id"] != "corr-telegram-replay-001" {
+		t.Fatalf("replay suite did not carry Telegram correlation ID: %#v", suite)
+	}
+	out.Reset()
+	if code := Run([]string{
+		"gateway", "readiness-rollup",
+		"--mission", "mission-demo",
+		"--suite", suitePath,
+		"--out", rollupPath,
+	}, &out, &errb); code != 0 {
+		t.Fatalf("gateway readiness-rollup: %s", errb.String())
+	}
+	var rollup map[string]any
+	body, err = os.ReadFile(rollupPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(body, &rollup); err != nil {
+		t.Fatal(err)
+	}
+	if rollup["correlation_id"] != "corr-telegram-replay-001" {
+		t.Fatalf("rollup did not derive correlation ID from replay suite: %#v", rollup)
+	}
+	if rollup["safe_to_execute"] != false || rollup["executes_work"] != false || rollup["approves_work"] != false {
+		t.Fatalf("derived correlation rollup widened authority: %#v", rollup)
 	}
 }
 
