@@ -580,6 +580,9 @@ type MissionEvent struct {
 type MissionEventIndex struct {
 	Schema              string         `json:"schema"`
 	Status              string         `json:"status"`
+	IndexVersion        string         `json:"index_version"`
+	IndexDigest         string         `json:"index_digest"`
+	SourceDigest        string         `json:"source_digest"`
 	Root                string         `json:"root"`
 	MissionCount        int            `json:"mission_count"`
 	TotalEvents         int            `json:"total_events"`
@@ -619,6 +622,82 @@ type MissionDoctorReadback struct {
 	ApprovesWork        bool     `json:"approves_work"`
 	MutatesRepositories bool     `json:"mutates_repositories"`
 	GeneratedAtUTC      string   `json:"generated_at_utc"`
+}
+
+type MissionReadinessBundleInput struct {
+	Repo string
+	Path string
+}
+
+type MissionReadinessRepoReadback struct {
+	Repo   string `json:"repo"`
+	Path   string `json:"path"`
+	Status string `json:"status"`
+	Score  string `json:"score,omitempty"`
+	SHA256 string `json:"sha256"`
+}
+
+type MissionReadinessBundleReadback struct {
+	Schema              string                         `json:"schema"`
+	Status              string                         `json:"status"`
+	RepoCount           int                            `json:"repo_count"`
+	ReadyRepos          int                            `json:"ready_repos"`
+	BlockedRepos        int                            `json:"blocked_repos"`
+	Repos               []MissionReadinessRepoReadback `json:"repos"`
+	SafeToExecute       bool                           `json:"safe_to_execute"`
+	ExecutesWork        bool                           `json:"executes_work"`
+	ApprovesWork        bool                           `json:"approves_work"`
+	MutatesRepositories bool                           `json:"mutates_repositories"`
+	ExactNextAction     string                         `json:"exact_next_action"`
+	GeneratedAtUTC      string                         `json:"generated_at_utc"`
+}
+
+type GatewayReplayBundleInputs struct {
+	TelegramConfigPath  string
+	TelegramMatrixPath  string
+	TelegramUpdatesPath string
+	TelegramWebhookPath string
+	A2AHTTPPath         string
+	A2ALifecyclePath    string
+	SchedulerPath       string
+}
+
+type GatewayReplayBundleReadback struct {
+	Schema              string   `json:"schema"`
+	Status              string   `json:"status"`
+	TelegramReadbacks   int      `json:"telegram_readbacks"`
+	A2AReadbacks        int      `json:"a2a_readbacks"`
+	SchedulerReadbacks  int      `json:"scheduler_readbacks"`
+	TotalIntents        int      `json:"total_intents"`
+	Denied              int      `json:"denied"`
+	Invalid             int      `json:"invalid"`
+	ReplayRefs          []string `json:"replay_refs"`
+	SafeToExecute       bool     `json:"safe_to_execute"`
+	ExecutesWork        bool     `json:"executes_work"`
+	ApprovesWork        bool     `json:"approves_work"`
+	MutatesRepositories bool     `json:"mutates_repositories"`
+	ExactNextAction     string   `json:"exact_next_action"`
+	GeneratedAtUTC      string   `json:"generated_at_utc"`
+}
+
+type MissionDashboardReadback struct {
+	Schema              string         `json:"schema"`
+	Status              string         `json:"status"`
+	MissionID           string         `json:"mission_id"`
+	MissionStatus       string         `json:"mission_status"`
+	CurrentPhase        string         `json:"current_phase"`
+	CurrentRoute        string         `json:"current_route"`
+	LatestRoute         string         `json:"latest_route"`
+	EventCount          int            `json:"event_count"`
+	EventIndexDigest    string         `json:"event_index_digest"`
+	Compact             bool           `json:"compact"`
+	RecentEvents        []MissionEvent `json:"recent_events"`
+	SafeToExecute       bool           `json:"safe_to_execute"`
+	ExecutesWork        bool           `json:"executes_work"`
+	ApprovesWork        bool           `json:"approves_work"`
+	MutatesRepositories bool           `json:"mutates_repositories"`
+	ExactNextAction     string         `json:"exact_next_action"`
+	GeneratedAtUTC      string         `json:"generated_at_utc"`
 }
 
 func now(clock func() time.Time) string {

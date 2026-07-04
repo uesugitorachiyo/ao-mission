@@ -252,6 +252,9 @@ func run(args []string, stdout io.Writer) error {
 					if err := json.Unmarshal(body, &index); err != nil {
 						return err
 					}
+					if err := ValidateMissionEventIndexDigest(index); err != nil {
+						return err
+					}
 				} else {
 					var err error
 					index, err = BuildMissionEventIndex(s)
@@ -280,8 +283,69 @@ func run(args []string, stdout io.Writer) error {
 			default:
 				return errors.New("mission events requires index or search")
 			}
+		case "readiness-bundle":
+			fs := flag.NewFlagSet("mission readiness-bundle", flag.ContinueOnError)
+			var repos readinessRepoFlags
+			outPath := fs.String("out", "", "")
+			jsonOut := fs.Bool("json", false, "")
+			fs.Var(&repos, "repo", "repo=path readiness summary input")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			inputs, err := repos.inputs()
+			if err != nil {
+				return err
+			}
+			readback, err := BuildMissionReadinessBundleReadback(inputs)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(*outPath) != "" {
+				body, err := json.MarshalIndent(readback, "", "  ")
+				if err != nil {
+					return err
+				}
+				if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+					return err
+				}
+			}
+			if *jsonOut || strings.TrimSpace(*outPath) == "" {
+				return printJSON(stdout, readback)
+			}
+			fmt.Fprintf(stdout, "mission_readiness_bundle=%s\nstatus=%s\nready_repos=%d\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, readback.Status, readback.ReadyRepos)
+			return nil
+		case "dashboard":
+			fs := flag.NewFlagSet("mission dashboard", flag.ContinueOnError)
+			id := fs.String("mission", "", "")
+			compact := fs.Bool("compact", false, "")
+			jsonOut := fs.Bool("json", false, "")
+			outPath := fs.String("out", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*id) == "" {
+				return errors.New("mission dashboard requires --mission")
+			}
+			readback, err := BuildMissionDashboardReadback(s, *id, *compact)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(*outPath) != "" {
+				body, err := json.MarshalIndent(readback, "", "  ")
+				if err != nil {
+					return err
+				}
+				if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+					return err
+				}
+			}
+			if *jsonOut || strings.TrimSpace(*outPath) == "" {
+				return printJSON(stdout, readback)
+			}
+			fmt.Fprintf(stdout, "mission_dashboard=%s\nmission=%s\nstatus=%s\nlatest_route=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, readback.MissionID, readback.Status, readback.LatestRoute)
+			return nil
 		default:
-			return errors.New("mission requires list, inspect, history, compact, archive, validate-archive, import-archive, or events")
+			return errors.New("mission requires list, inspect, history, compact, archive, validate-archive, import-archive, events, readiness-bundle, or dashboard")
 		}
 	case "doctor":
 		fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
@@ -686,6 +750,47 @@ func run(args []string, stdout io.Writer) error {
 		}
 		return errors.New("a2a requires serve, replay, lifecycle, compatibility, streaming-denial, or cancellation-replay")
 	case "gateway":
+		if len(args) >= 2 && args[1] == "replay-bundle" {
+			fs := flag.NewFlagSet("gateway replay-bundle", flag.ContinueOnError)
+			telegramConfigPath := fs.String("telegram-config", "", "")
+			telegramMatrixPath := fs.String("telegram-matrix", "", "")
+			telegramUpdatesPath := fs.String("telegram-updates", "", "")
+			telegramWebhookPath := fs.String("telegram-webhook", "", "")
+			a2aHTTPPath := fs.String("a2a-http", "", "")
+			a2aLifecyclePath := fs.String("a2a-lifecycle", "", "")
+			schedulerPath := fs.String("scheduler", "", "")
+			outPath := fs.String("out", "", "")
+			jsonOut := fs.Bool("json", false, "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			readback, err := BuildGatewayReplayBundleReadback(GatewayReplayBundleInputs{
+				TelegramConfigPath:  *telegramConfigPath,
+				TelegramMatrixPath:  *telegramMatrixPath,
+				TelegramUpdatesPath: *telegramUpdatesPath,
+				TelegramWebhookPath: *telegramWebhookPath,
+				A2AHTTPPath:         *a2aHTTPPath,
+				A2ALifecyclePath:    *a2aLifecyclePath,
+				SchedulerPath:       *schedulerPath,
+			})
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(*outPath) != "" {
+				body, err := json.MarshalIndent(readback, "", "  ")
+				if err != nil {
+					return err
+				}
+				if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+					return err
+				}
+			}
+			if *jsonOut || strings.TrimSpace(*outPath) == "" {
+				return printJSON(stdout, readback)
+			}
+			fmt.Fprintf(stdout, "gateway_replay_bundle=%s\nstatus=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, readback.Status)
+			return nil
+		}
 		if len(args) >= 2 && args[1] == "replay-suite" {
 			fs := flag.NewFlagSet("gateway replay-suite", flag.ContinueOnError)
 			telegramConfigPath := fs.String("telegram-config", "", "")
@@ -841,7 +946,7 @@ func run(args []string, stdout io.Writer) error {
 			fmt.Fprintf(stdout, "gateway_readiness_rollup=%s\nstatus=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, rollup.Status)
 			return nil
 		}
-		return errors.New("gateway requires ledger, replay-suite, or readiness-rollup")
+		return errors.New("gateway requires ledger, replay-suite, replay-bundle, or readiness-rollup")
 	case "governance":
 		if len(args) >= 2 && args[1] == "snapshot" {
 			id := missionFlag(args[2:])
@@ -1035,4 +1140,31 @@ func missionFlag(args []string) string {
 	id := fs.String("mission", "", "")
 	_ = fs.Parse(args)
 	return *id
+}
+
+type readinessRepoFlags []string
+
+func (f *readinessRepoFlags) String() string {
+	return strings.Join(*f, ",")
+}
+
+func (f *readinessRepoFlags) Set(value string) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return errors.New("--repo requires repo=path")
+	}
+	*f = append(*f, value)
+	return nil
+}
+
+func (f readinessRepoFlags) inputs() ([]MissionReadinessBundleInput, error) {
+	inputs := []MissionReadinessBundleInput{}
+	for _, value := range f {
+		repo, path, ok := strings.Cut(value, "=")
+		if !ok || strings.TrimSpace(repo) == "" || strings.TrimSpace(path) == "" {
+			return nil, fmt.Errorf("--repo must be repo=path")
+		}
+		inputs = append(inputs, MissionReadinessBundleInput{Repo: strings.TrimSpace(repo), Path: strings.TrimSpace(path)})
+	}
+	return inputs, nil
 }

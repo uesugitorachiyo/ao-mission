@@ -1826,7 +1826,7 @@ func TestMissionEventIndexSearchAndCLIReadback(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &index); err != nil {
 		t.Fatal(err)
 	}
-	if index.Schema != "ao.mission.event-index.v0.1" || index.TotalEvents < 2 || index.ExecutesWork || index.ApprovesWork || index.MutatesRepositories {
+	if index.Schema != "ao.mission.event-index.v0.2" || index.IndexVersion != "v0.2" || index.TotalEvents < 2 || index.ExecutesWork || index.ApprovesWork || index.MutatesRepositories {
 		t.Fatalf("bad event index: %+v", index)
 	}
 	out.Reset()
@@ -1922,6 +1922,160 @@ func TestTelegramCommandReplayMatrixCoversAllAllowedCommandsAndDeniedRoles(t *te
 	}
 	if readback.MutationAuthority || readback.ExecutesWork || readback.ApprovesWork {
 		t.Fatalf("telegram replay matrix widened authority: %+v", readback)
+	}
+}
+
+func TestMissionEventIndexCarriesVersionAndDigest(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("event index digest proof")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Continue(s, rec.MissionID, ContinueOptions{UntilDone: true, MaxIterations: 1}); err != nil {
+		t.Fatal(err)
+	}
+	index, err := BuildMissionEventIndex(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if index.Schema != "ao.mission.event-index.v0.2" || index.IndexVersion != "v0.2" {
+		t.Fatalf("event index should be versioned as v0.2: %+v", index)
+	}
+	if !strings.HasPrefix(index.IndexDigest, "sha256:") || index.IndexDigest == "sha256:" {
+		t.Fatalf("event index missing digest: %+v", index)
+	}
+	if !strings.HasPrefix(index.SourceDigest, "sha256:") || index.SourceDigest == "sha256:" {
+		t.Fatalf("event index missing source digest: %+v", index)
+	}
+	if err := ValidateMissionEventIndexDigest(index); err != nil {
+		t.Fatalf("event index digest did not validate: %v", err)
+	}
+	index.Events[0].Summary = "tampered"
+	if err := ValidateMissionEventIndexDigest(index); err == nil {
+		t.Fatal("tampered event index digest should fail validation")
+	}
+}
+
+func TestMissionReadinessBundleVerifierBindsLocalRepoSummaries(t *testing.T) {
+	dir := t.TempDir()
+	missionReady := filepath.Join(dir, "mission-readiness.txt")
+	atlasReady := filepath.Join(dir, "atlas-readiness.txt")
+	if err := os.WriteFile(missionReady, []byte("AO Mission production readiness: 100/100 status=ready\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(atlasReady, []byte("status=ready\nscore=100/100\nsummary=target/production-readiness/summary.json\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	readback, err := BuildMissionReadinessBundleReadback([]MissionReadinessBundleInput{
+		{Repo: "ao-mission", Path: missionReady},
+		{Repo: "ao-atlas", Path: atlasReady},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.Schema != "ao.mission.readiness-bundle-readback.v0.1" || readback.Status != "ready" || readback.ReadyRepos != 2 {
+		t.Fatalf("bad readiness bundle: %+v", readback)
+	}
+	if len(readback.Repos) != 2 || !strings.HasPrefix(readback.Repos[0].SHA256, "sha256:") {
+		t.Fatalf("readiness bundle missing repo digest evidence: %+v", readback)
+	}
+	if readback.SafeToExecute || readback.ExecutesWork || readback.ApprovesWork || readback.MutatesRepositories {
+		t.Fatalf("readiness bundle widened authority: %+v", readback)
+	}
+	outPath := filepath.Join(dir, "readiness-bundle.json")
+	var out, errb bytes.Buffer
+	if code := Run([]string{
+		"mission", "readiness-bundle",
+		"--repo", "ao-mission=" + missionReady,
+		"--repo", "ao-atlas=" + atlasReady,
+		"--out", outPath,
+	}, &out, &errb); code != 0 {
+		t.Fatalf("mission readiness-bundle CLI: %s", errb.String())
+	}
+	body, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), `"schema": "ao.mission.readiness-bundle-readback.v0.1"`) {
+		t.Fatalf("readiness bundle CLI did not write expected readback: %s", string(body))
+	}
+}
+
+func TestGatewayReplayBundleBindsSchedulerTelegramAndA2A(t *testing.T) {
+	readback, err := BuildGatewayReplayBundleReadback(GatewayReplayBundleInputs{
+		TelegramConfigPath:  filepath.Join("..", "..", "examples", "valid", "telegram-config.json"),
+		TelegramMatrixPath:  filepath.Join("..", "..", "examples", "valid", "telegram-command-matrix.json"),
+		TelegramUpdatesPath: filepath.Join("..", "..", "examples", "valid", "telegram-update-replay.json"),
+		TelegramWebhookPath: filepath.Join("..", "..", "examples", "valid", "telegram-webhook-replay.json"),
+		A2AHTTPPath:         filepath.Join("..", "..", "examples", "valid", "a2a-http-integration.json"),
+		A2ALifecyclePath:    filepath.Join("..", "..", "examples", "valid", "a2a-task-lifecycle-artifacts.json"),
+		SchedulerPath:       filepath.Join("..", "..", "examples", "valid", "scheduler-readback-replay.json"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.Schema != "ao.mission.gateway-replay-bundle-readback.v0.1" || readback.Status != "ready" {
+		t.Fatalf("bad replay bundle: %+v", readback)
+	}
+	if readback.TelegramReadbacks != 3 || readback.A2AReadbacks != 2 || readback.SchedulerReadbacks != 1 {
+		t.Fatalf("replay bundle missing expected readback families: %+v", readback)
+	}
+	if readback.SafeToExecute || readback.ExecutesWork || readback.ApprovesWork || readback.MutatesRepositories {
+		t.Fatalf("replay bundle widened authority: %+v", readback)
+	}
+	outPath := filepath.Join(t.TempDir(), "gateway-replay-bundle.json")
+	var out, errb bytes.Buffer
+	if code := Run([]string{
+		"gateway", "replay-bundle",
+		"--telegram-config", filepath.Join("..", "..", "examples", "valid", "telegram-config.json"),
+		"--telegram-matrix", filepath.Join("..", "..", "examples", "valid", "telegram-command-matrix.json"),
+		"--telegram-updates", filepath.Join("..", "..", "examples", "valid", "telegram-update-replay.json"),
+		"--a2a-http", filepath.Join("..", "..", "examples", "valid", "a2a-http-integration.json"),
+		"--scheduler", filepath.Join("..", "..", "examples", "valid", "scheduler-readback-replay.json"),
+		"--out", outPath,
+	}, &out, &errb); code != 0 {
+		t.Fatalf("gateway replay-bundle CLI: %s", errb.String())
+	}
+	body, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), `"schema": "ao.mission.gateway-replay-bundle-readback.v0.1"`) {
+		t.Fatalf("replay bundle CLI did not write expected readback: %s", string(body))
+	}
+}
+
+func TestMissionDashboardReadbackSummarizesCompactOperatorLoop(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "dashboard readback atlas loop"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "next", "--mission", rec.MissionID, "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("next: %s", errb.String())
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "mission", "dashboard", "--mission", rec.MissionID, "--compact", "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("mission dashboard: %s", errb.String())
+	}
+	var dashboard MissionDashboardReadback
+	if err := json.Unmarshal(out.Bytes(), &dashboard); err != nil {
+		t.Fatal(err)
+	}
+	if dashboard.Schema != "ao.mission.dashboard-readback.v0.1" || dashboard.MissionID != rec.MissionID || dashboard.EventCount == 0 {
+		t.Fatalf("bad dashboard readback: %+v", dashboard)
+	}
+	if !dashboard.Compact || dashboard.LatestRoute == "" || dashboard.EventIndexDigest == "" {
+		t.Fatalf("dashboard missing compact route/index evidence: %+v", dashboard)
+	}
+	if dashboard.SafeToExecute || dashboard.ExecutesWork || dashboard.ApprovesWork || dashboard.MutatesRepositories {
+		t.Fatalf("dashboard widened authority: %+v", dashboard)
 	}
 }
 

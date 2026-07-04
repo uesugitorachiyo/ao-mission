@@ -1,7 +1,9 @@
 package mission
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -17,8 +19,9 @@ func BuildMissionEventIndex(s Store) (MissionEventIndex, error) {
 		return MissionEventIndex{}, err
 	}
 	index := MissionEventIndex{
-		Schema:              "ao.mission.event-index.v0.1",
+		Schema:              "ao.mission.event-index.v0.2",
 		Status:              "ready",
+		IndexVersion:        "v0.2",
 		Root:                s.Root,
 		MissionCount:        len(records),
 		Events:              []MissionEvent{},
@@ -32,7 +35,46 @@ func BuildMissionEventIndex(s Store) (MissionEventIndex, error) {
 		index.Events = append(index.Events, missionEventsForRecord(record)...)
 	}
 	index.TotalEvents = len(index.Events)
+	sourceBody, err := json.Marshal(records)
+	if err != nil {
+		return MissionEventIndex{}, err
+	}
+	index.SourceDigest = digestBytes(sourceBody)
+	index.IndexDigest, err = digestMissionEventIndex(index)
+	if err != nil {
+		return MissionEventIndex{}, err
+	}
 	return index, nil
+}
+
+func ValidateMissionEventIndexDigest(index MissionEventIndex) error {
+	if index.Schema != "ao.mission.event-index.v0.2" {
+		return fmt.Errorf("mission event index schema must be ao.mission.event-index.v0.2")
+	}
+	if index.IndexVersion != "v0.2" {
+		return fmt.Errorf("mission event index version must be v0.2")
+	}
+	if !strings.HasPrefix(index.IndexDigest, "sha256:") {
+		return fmt.Errorf("mission event index digest must start with sha256:")
+	}
+	expected, err := digestMissionEventIndex(index)
+	if err != nil {
+		return err
+	}
+	if index.IndexDigest != expected {
+		return fmt.Errorf("mission event index digest mismatch")
+	}
+	return nil
+}
+
+func digestMissionEventIndex(index MissionEventIndex) (string, error) {
+	copy := index
+	copy.IndexDigest = ""
+	body, err := json.Marshal(copy)
+	if err != nil {
+		return "", err
+	}
+	return digestBytes(body), nil
 }
 
 func SearchMissionEvents(index MissionEventIndex, filters MissionEventSearchFilters) MissionEventSearchReadback {
@@ -97,6 +139,112 @@ func BuildMissionDoctorReadback(s Store) MissionDoctorReadback {
 	readback.EventCount = index.TotalEvents
 	readback.Checks = append(readback.Checks, "mission_records_readable", "mission_event_index_readable", "authority_flags_false")
 	return readback
+}
+
+func BuildMissionReadinessBundleReadback(inputs []MissionReadinessBundleInput) (MissionReadinessBundleReadback, error) {
+	readback := MissionReadinessBundleReadback{
+		Schema:              "ao.mission.readiness-bundle-readback.v0.1",
+		Status:              "ready",
+		Repos:               []MissionReadinessRepoReadback{},
+		SafeToExecute:       false,
+		ExecutesWork:        false,
+		ApprovesWork:        false,
+		MutatesRepositories: false,
+		ExactNextAction:     "review blocked repo readiness summaries before PR lifecycle work",
+		GeneratedAtUTC:      now(nil),
+	}
+	for _, input := range inputs {
+		repo := strings.TrimSpace(input.Repo)
+		path := strings.TrimSpace(input.Path)
+		if repo == "" || path == "" {
+			return MissionReadinessBundleReadback{}, fmt.Errorf("readiness bundle inputs require repo and path")
+		}
+		body, err := os.ReadFile(path)
+		if err != nil {
+			return MissionReadinessBundleReadback{}, err
+		}
+		text := string(body)
+		if err := ValidatePublicSafeText(text); err != nil {
+			return MissionReadinessBundleReadback{}, err
+		}
+		repoStatus := "blocked"
+		if strings.Contains(text, "status=ready") && (strings.Contains(text, "100/100") || strings.Contains(text, "score=100/100")) {
+			repoStatus = "ready"
+			readback.ReadyRepos++
+		} else {
+			readback.BlockedRepos++
+			readback.Status = "blocked"
+		}
+		readback.Repos = append(readback.Repos, MissionReadinessRepoReadback{
+			Repo:   repo,
+			Path:   path,
+			Status: repoStatus,
+			Score:  readinessScoreLabel(text),
+			SHA256: digestBytes(body),
+		})
+	}
+	readback.RepoCount = len(readback.Repos)
+	if readback.RepoCount == 0 {
+		readback.Status = "blocked"
+		readback.ExactNextAction = "provide at least one local readiness summary"
+	}
+	if readback.Status == "ready" {
+		readback.ExactNextAction = "readiness bundle verified locally; remote PR lifecycle remains operator-controlled"
+	}
+	return readback, nil
+}
+
+func readinessScoreLabel(text string) string {
+	if strings.Contains(text, "score=100/100") {
+		return "100/100"
+	}
+	if strings.Contains(text, "100/100") {
+		return "100/100"
+	}
+	return ""
+}
+
+func BuildMissionDashboardReadback(s Store, missionID string, compact bool) (MissionDashboardReadback, error) {
+	record, err := s.Load(missionID)
+	if err != nil {
+		return MissionDashboardReadback{}, err
+	}
+	index, err := BuildMissionEventIndex(s)
+	if err != nil {
+		return MissionDashboardReadback{}, err
+	}
+	events := []MissionEvent{}
+	for _, event := range index.Events {
+		if event.MissionID == record.MissionID {
+			events = append(events, event)
+		}
+	}
+	if compact && len(events) > 5 {
+		events = events[len(events)-5:]
+	}
+	latestRoute := record.CurrentRoute
+	if n := len(record.RouteHistory); n > 0 && strings.TrimSpace(record.RouteHistory[n-1].Route) != "" {
+		latestRoute = record.RouteHistory[n-1].Route
+	}
+	return MissionDashboardReadback{
+		Schema:              "ao.mission.dashboard-readback.v0.1",
+		Status:              "ready",
+		MissionID:           record.MissionID,
+		MissionStatus:       record.Status,
+		CurrentPhase:        record.CurrentPhase,
+		CurrentRoute:        record.CurrentRoute,
+		LatestRoute:         latestRoute,
+		EventCount:          len(events),
+		EventIndexDigest:    index.IndexDigest,
+		Compact:             compact,
+		RecentEvents:        events,
+		SafeToExecute:       false,
+		ExecutesWork:        false,
+		ApprovesWork:        false,
+		MutatesRepositories: false,
+		ExactNextAction:     record.ExactNextAction,
+		GeneratedAtUTC:      now(s.Clock),
+	}, nil
 }
 
 func missionEventsForRecord(record Record) []MissionEvent {
