@@ -1117,6 +1117,46 @@ func TestMissionLedgerCompactionTrimsHistoryAndRecordsEvidence(t *testing.T) {
 	}
 }
 
+func TestMissionTimelineCompactionEmitsDigestBoundReadback(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "timeline compaction"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	s := NewStore(dir)
+	_, err := s.Update(rec.MissionID, func(r *Record) error {
+		for i := 0; i < 4; i++ {
+			AppendRouteHistory(r, RouteDecision{Schema: RouteSchema, MissionID: r.MissionID, Route: "ao-atlas", SafeToRequest: true, SafeToExecute: false, SafeToPromote: false, GeneratedAtUTC: "2026-07-03T00:00:00Z"})
+			r.Steps = append(r.Steps, ContinuationStep{Schema: StepSchema, MissionID: r.MissionID, Iteration: i + 1, Route: "ao-atlas", Result: "recorded", ExactNextAction: "continue", GeneratedAtUTC: "2026-07-03T00:00:00Z"})
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "mission", "compact", "--mission", rec.MissionID, "--keep-route-history", "2", "--keep-steps", "2", "--timeline"}, &out, &errb); code != 0 {
+		t.Fatalf("mission compact timeline: %s", errb.String())
+	}
+	var readback map[string]any
+	if err := json.Unmarshal(out.Bytes(), &readback); err != nil {
+		t.Fatal(err)
+	}
+	if readback["schema"] != "ao.mission.timeline-compaction-readback.v0.1" || readback["status"] != "compacted" {
+		t.Fatalf("bad timeline compaction readback: %#v", readback)
+	}
+	if digest, _ := readback["timeline_digest"].(string); !strings.HasPrefix(digest, "sha256:") {
+		t.Fatalf("timeline compaction missing digest: %#v", readback)
+	}
+	if readback["executes_work"] != false || readback["approves_work"] != false || readback["mutates_repositories"] != false {
+		t.Fatalf("timeline compaction widened authority: %#v", readback)
+	}
+}
+
 func TestMissionCompactCLIEmitsReadback(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)
@@ -1359,6 +1399,31 @@ func TestTelegramWebhookReplayTracksDuplicateUpdates(t *testing.T) {
 	}
 }
 
+func TestTelegramWebhookReplayClassifiesFreshness(t *testing.T) {
+	dir := t.TempDir()
+	fixturePath := filepath.Join(dir, "telegram-webhook-freshness.json")
+	if err := os.WriteFile(fixturePath, []byte(`{
+  "schema": "ao.mission.telegram-webhook-fixture.v0.1",
+  "updates": [
+    {"update_id": 3001, "chat_id": "1001", "text": "/status", "expected_status": "intent_recorded", "generated_at_utc": "2099-01-01T00:00:00Z"},
+    {"update_id": 3002, "chat_id": "1001", "text": "/next", "expected_status": "intent_recorded", "generated_at_utc": "2000-01-01T00:00:00Z"},
+    {"update_id": 3003, "chat_id": "1001", "text": "/where", "expected_status": "intent_recorded"}
+  ]
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	readback, err := ReplayTelegramWebhookFixture(fixturePath, map[string]string{"1001": "admin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.Fresh != 1 || readback.Stale != 1 || readback.UnknownFreshness != 1 || readback.FreshnessStatus != "stale" {
+		t.Fatalf("telegram webhook freshness was not classified: %+v", readback)
+	}
+	if readback.MutationAuthority || readback.ExecutesWork || readback.ApprovesWork {
+		t.Fatalf("telegram webhook freshness widened authority: %+v", readback)
+	}
+}
+
 func TestTelegramWebhookReplayCLIEmitsIntentOnlyReadback(t *testing.T) {
 	var out, errb bytes.Buffer
 	if code := Run([]string{
@@ -1374,6 +1439,26 @@ func TestTelegramWebhookReplayCLIEmitsIntentOnlyReadback(t *testing.T) {
 	}
 	if readback.Schema != "ao.mission.telegram-webhook-replay-readback.v0.1" || readback.ExecutesWork || readback.ApprovesWork {
 		t.Fatalf("bad webhook CLI readback: %+v", readback)
+	}
+}
+
+func TestA2AServeOnceEmitsReplayableFixtureServerReadback(t *testing.T) {
+	var out, errb bytes.Buffer
+	if code := Run([]string{"a2a", "serve", "--http", "--once"}, &out, &errb); code != 0 {
+		t.Fatalf("a2a serve once: %s", errb.String())
+	}
+	var readback map[string]any
+	if err := json.Unmarshal(out.Bytes(), &readback); err != nil {
+		t.Fatal(err)
+	}
+	if readback["schema"] != "ao.mission.a2a-fixture-server-readback.v0.1" || readback["status"] != "ready" {
+		t.Fatalf("bad A2A fixture server readback: %#v", readback)
+	}
+	if readback["agent_card_path"] != "/.well-known/agent-card.json" || readback["jsonrpc_path"] != "/" {
+		t.Fatalf("A2A fixture server readback missing replay paths: %#v", readback)
+	}
+	if readback["mutation_authority"] != false || readback["executes_work"] != false || readback["approves_work"] != false {
+		t.Fatalf("A2A fixture server widened authority: %#v", readback)
 	}
 }
 

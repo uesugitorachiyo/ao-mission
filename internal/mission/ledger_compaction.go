@@ -1,6 +1,11 @@
 package mission
 
-import "fmt"
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+)
 
 func CompactMissionLedger(s Store, missionID string, opts LedgerCompactionOptions) (LedgerCompactionReadback, error) {
 	if opts.KeepRouteHistory < 1 {
@@ -82,4 +87,44 @@ func CompactMissionLedger(s Store, missionID string, opts LedgerCompactionOption
 		return LedgerCompactionReadback{}, fmt.Errorf("ledger compaction failed for mission %s", rec.MissionID)
 	}
 	return readback, nil
+}
+
+func CompactMissionTimeline(s Store, missionID string, opts LedgerCompactionOptions) (TimelineCompactionReadback, error) {
+	ledger, err := CompactMissionLedger(s, missionID, opts)
+	if err != nil {
+		return TimelineCompactionReadback{}, err
+	}
+	rec, err := s.Load(missionID)
+	if err != nil {
+		return TimelineCompactionReadback{}, err
+	}
+	timeline := struct {
+		MissionID    string             `json:"mission_id"`
+		RouteHistory []RouteDecision    `json:"route_history"`
+		Steps        []ContinuationStep `json:"steps"`
+	}{
+		MissionID:    rec.MissionID,
+		RouteHistory: rec.RouteHistory,
+		Steps:        rec.Steps,
+	}
+	body, err := json.Marshal(timeline)
+	if err != nil {
+		return TimelineCompactionReadback{}, err
+	}
+	sum := sha256.Sum256(body)
+	return TimelineCompactionReadback{
+		Schema:              "ao.mission.timeline-compaction-readback.v0.1",
+		MissionID:           ledger.MissionID,
+		Status:              ledger.Status,
+		RouteHistoryBefore:  ledger.RouteHistoryBefore,
+		RouteHistoryAfter:   ledger.RouteHistoryAfter,
+		StepsBefore:         ledger.StepsBefore,
+		StepsAfter:          ledger.StepsAfter,
+		TimelineDigest:      "sha256:" + hex.EncodeToString(sum[:]),
+		ExactNextAction:     "mission timeline compacted and digest-bound; continue from retained route and step readbacks",
+		ExecutesWork:        false,
+		ApprovesWork:        false,
+		MutatesRepositories: false,
+		GeneratedAtUTC:      now(s.Clock),
+	}, nil
 }

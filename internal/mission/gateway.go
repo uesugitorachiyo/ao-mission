@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"time"
 )
 
 type TelegramConfig struct {
@@ -26,6 +27,7 @@ type TelegramUpdateFixture struct {
 	ChatID         string `json:"chat_id"`
 	Text           string `json:"text"`
 	ExpectedStatus string `json:"expected_status"`
+	GeneratedAtUTC string `json:"generated_at_utc,omitempty"`
 }
 
 type GatewayReadback struct {
@@ -172,6 +174,7 @@ func ReplayTelegramUpdates(path string, allowlist map[string]string) (GatewayRep
 		rb := HandleTelegramCommand(TelegramCommand{ChatID: update.ChatID, Command: update.Text, Role: role}, allowlist)
 		result := GatewayReplayResult{Command: update.Text, ExpectedStatus: update.ExpectedStatus, ActualStatus: rb.Status, MutationAuthority: rb.MutationAuthority}
 		readback.Results = append(readback.Results, result)
+		countReplayFreshness(&readback, update.GeneratedAtUTC)
 		if rb.MutationAuthority {
 			readback.MutationAuthority = true
 		}
@@ -181,6 +184,7 @@ func ReplayTelegramUpdates(path string, allowlist map[string]string) (GatewayRep
 		}
 	}
 	readback.Total = len(readback.Results)
+	finalizeReplayFreshness(&readback)
 	return readback, nil
 }
 
@@ -372,6 +376,37 @@ func countGatewayStatus(readback *GatewayReplayReadback, status string) {
 		readback.Denied++
 	case "invalid":
 		readback.Invalid++
+	}
+}
+
+func countReplayFreshness(readback *GatewayReplayReadback, generatedAtUTC string) {
+	if strings.TrimSpace(generatedAtUTC) == "" {
+		readback.UnknownFreshness++
+		return
+	}
+	generated, err := time.Parse(time.RFC3339, generatedAtUTC)
+	if err != nil {
+		readback.UnknownFreshness++
+		return
+	}
+	if generated.Before(time.Now().UTC().Add(-24 * time.Hour)) {
+		readback.Stale++
+		return
+	}
+	readback.Fresh++
+}
+
+func finalizeReplayFreshness(readback *GatewayReplayReadback) {
+	if readback.Fresh == 0 && readback.Stale == 0 && readback.UnknownFreshness == 0 {
+		return
+	}
+	switch {
+	case readback.Stale > 0:
+		readback.FreshnessStatus = "stale"
+	case readback.UnknownFreshness > 0:
+		readback.FreshnessStatus = "unknown"
+	default:
+		readback.FreshnessStatus = "fresh"
 	}
 }
 

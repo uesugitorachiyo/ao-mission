@@ -202,6 +202,10 @@ type GatewayReplayReadback struct {
 	Denied            int                   `json:"denied"`
 	Invalid           int                   `json:"invalid"`
 	Duplicates        int                   `json:"duplicates,omitempty"`
+	Fresh             int                   `json:"fresh,omitempty"`
+	Stale             int                   `json:"stale,omitempty"`
+	UnknownFreshness  int                   `json:"unknown_freshness,omitempty"`
+	FreshnessStatus   string                `json:"freshness_status,omitempty"`
 	Results           []GatewayReplayResult `json:"results"`
 	MutationAuthority bool                  `json:"mutation_authority"`
 	ExecutesWork      bool                  `json:"executes_work"`
@@ -433,6 +437,22 @@ type LedgerCompactionReadback struct {
 	RouteHistoryAfter   int    `json:"route_history_after"`
 	StepsBefore         int    `json:"steps_before"`
 	StepsAfter          int    `json:"steps_after"`
+	ExactNextAction     string `json:"exact_next_action"`
+	ExecutesWork        bool   `json:"executes_work"`
+	ApprovesWork        bool   `json:"approves_work"`
+	MutatesRepositories bool   `json:"mutates_repositories"`
+	GeneratedAtUTC      string `json:"generated_at_utc"`
+}
+
+type TimelineCompactionReadback struct {
+	Schema              string `json:"schema"`
+	MissionID           string `json:"mission_id"`
+	Status              string `json:"status"`
+	RouteHistoryBefore  int    `json:"route_history_before"`
+	RouteHistoryAfter   int    `json:"route_history_after"`
+	StepsBefore         int    `json:"steps_before"`
+	StepsAfter          int    `json:"steps_after"`
+	TimelineDigest      string `json:"timeline_digest"`
 	ExactNextAction     string `json:"exact_next_action"`
 	ExecutesWork        bool   `json:"executes_work"`
 	ApprovesWork        bool   `json:"approves_work"`

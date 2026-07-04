@@ -19,6 +19,7 @@ ao-mission status --mission <mission-id>
 ao-mission continue --mission <mission-id> --until-done --max-iterations 10
 ao-mission mission history --mission <mission-id>
 ao-mission mission compact --mission <mission-id> --keep-route-history 25 --keep-steps 25
+ao-mission mission compact --mission <mission-id> --keep-route-history 25 --keep-steps 25 --timeline
 ao-mission mission archive --mission <mission-id> --out tmp/<mission-id>-archive.json
 ao-mission mission validate-archive --path tmp/<mission-id>-archive.json --out tmp/<mission-id>-archive-validation.json
 ao-mission artifacts manifest --mission <mission-id> --out tmp/<mission-id>-artifact-manifest.json
@@ -32,6 +33,7 @@ ao-mission telegram replay --matrix examples/valid/telegram-command-matrix.json 
 ao-mission telegram replay-updates --fixture examples/valid/telegram-update-replay.json --config examples/valid/telegram-config.json
 ao-mission telegram webhook-replay --fixture examples/valid/telegram-webhook-replay.json --config examples/valid/telegram-config.json
 ao-mission telegram role-matrix --config examples/valid/telegram-config.json --out tmp/telegram-role-matrix.json
+ao-mission a2a serve --http --once
 ao-mission a2a replay --fixture examples/valid/a2a-http-integration.json
 ao-mission a2a lifecycle --fixture examples/valid/a2a-task-lifecycle-edges.json
 ao-mission a2a compatibility --agent-card examples/valid/a2a-agent-card.json --http examples/valid/a2a-http-integration.json --lifecycle examples/valid/a2a-task-lifecycle-artifacts.json --out tmp/a2a-compatibility.json
@@ -43,6 +45,7 @@ ao-mission schedule alerts --fixture examples/valid/scheduler-readback-replay.js
 ao-mission schedule recover --mission <mission-id> --fixture examples/valid/scheduler-readback-replay.json
 ao-mission import scheduler-recovery-readback --mission <mission-id> --path examples/valid/scheduler-recovery-readback.json
 ao-mission import ledger-compaction-readback --mission <mission-id> --path examples/valid/ledger-compaction-readback.json
+ao-mission validate contract --path examples/valid/timeline-compaction-readback.json
 ao-mission mission compact --mission <mission-id> --keep-route-history 25 --keep-steps 25 --dry-run
 ao-mission artifacts repair-manifest --path <artifact-manifest.json> --out <artifact-manifest.repaired.json>
 ao-mission governance diff --before <snapshot-before.json> --after <snapshot-after.json>
