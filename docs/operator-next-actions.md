@@ -22,6 +22,7 @@ ao-mission mission history --mission <mission-id>
 ao-mission mission events index --out tmp/mission-event-index.json
 ao-mission mission events search --mission <mission-id> --query "AO Atlas" --index tmp/mission-event-index.json --json
 ao-mission mission dashboard --mission <mission-id> --compact --out tmp/<mission-id>-dashboard.json
+ao-mission mission verification-bundle --mission <mission-id> --readiness-bundle tmp/ao-mission-readiness-bundle.json --gateway-replay-bundle tmp/gateway-replay-bundle.json --out tmp/<mission-id>-verification-bundle.json
 ao-mission mission compact --mission <mission-id> --keep-route-history 25 --keep-steps 25
 ao-mission mission compact --mission <mission-id> --keep-route-history 25 --keep-steps 25 --timeline
 ao-mission mission archive --mission <mission-id> --out tmp/<mission-id>-archive.json
@@ -67,6 +68,11 @@ ao-mission mission readiness-bundle --repo ao-mission=tmp/ao-mission-readiness.t
 Use local readiness summaries only. The bundle records status and SHA-256
 digests for operator review; it does not push branches, open PRs, wait for
 hosted CI, merge, sync main, or delete branches.
+
+The verification bundle is the final local handoff packet for this loop. It
+binds the event index, dashboard, artifact manifest, readiness bundle, and
+gateway replay bundle with SHA-256 digests, but it still does not perform
+credentialed remote lifecycle work.
 
 Telegram and A2A fixture checks record intent/readback only. They do not grant
 execution authority, approval authority, repository mutation, provider calls,

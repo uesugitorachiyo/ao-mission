@@ -344,8 +344,42 @@ func run(args []string, stdout io.Writer) error {
 			}
 			fmt.Fprintf(stdout, "mission_dashboard=%s\nmission=%s\nstatus=%s\nlatest_route=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, readback.MissionID, readback.Status, readback.LatestRoute)
 			return nil
+		case "verification-bundle":
+			fs := flag.NewFlagSet("mission verification-bundle", flag.ContinueOnError)
+			id := fs.String("mission", "", "")
+			readinessBundlePath := fs.String("readiness-bundle", "", "")
+			gatewayReplayBundlePath := fs.String("gateway-replay-bundle", "", "")
+			outPath := fs.String("out", "", "")
+			jsonOut := fs.Bool("json", false, "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*id) == "" {
+				return errors.New("mission verification-bundle requires --mission")
+			}
+			readback, err := BuildMissionVerificationBundleReadback(s, *id, MissionVerificationBundleOptions{
+				ReadinessBundlePath:     *readinessBundlePath,
+				GatewayReplayBundlePath: *gatewayReplayBundlePath,
+			})
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(*outPath) != "" {
+				body, err := json.MarshalIndent(readback, "", "  ")
+				if err != nil {
+					return err
+				}
+				if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+					return err
+				}
+			}
+			if *jsonOut || strings.TrimSpace(*outPath) == "" {
+				return printJSON(stdout, readback)
+			}
+			fmt.Fprintf(stdout, "mission_verification_bundle=%s\nmission=%s\nstatus=%s\ncomponent_count=%d\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, readback.MissionID, readback.Status, readback.ComponentCount)
+			return nil
 		default:
-			return errors.New("mission requires list, inspect, history, compact, archive, validate-archive, import-archive, events, readiness-bundle, or dashboard")
+			return errors.New("mission requires list, inspect, history, compact, archive, validate-archive, import-archive, events, readiness-bundle, dashboard, or verification-bundle")
 		}
 	case "doctor":
 		fs := flag.NewFlagSet("doctor", flag.ContinueOnError)

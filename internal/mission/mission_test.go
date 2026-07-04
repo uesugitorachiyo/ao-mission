@@ -2290,6 +2290,148 @@ func TestA2ACancellationReplayRequiresRequestAndCancelWithoutAuthority(t *testin
 	}
 }
 
+func TestMissionV02ReadbackContractFixturesValidate(t *testing.T) {
+	for _, path := range []string{
+		filepath.Join("..", "..", "examples", "valid", "mission-event-index-v0.2.json"),
+		filepath.Join("..", "..", "examples", "valid", "mission-readiness-bundle-readback.json"),
+		filepath.Join("..", "..", "examples", "valid", "gateway-replay-bundle-readback.json"),
+		filepath.Join("..", "..", "examples", "valid", "mission-dashboard-readback.json"),
+		filepath.Join("..", "..", "examples", "valid", "mission-verification-bundle-readback.json"),
+	} {
+		t.Run(filepath.Base(path), func(t *testing.T) {
+			result, err := ValidateContractFile(path)
+			if err != nil {
+				t.Fatalf("valid fixture rejected: result=%+v err=%v", result, err)
+			}
+			if result.Status != "ready" || result.Executes || result.Approves || result.Mutates {
+				t.Fatalf("bad contract validation result: %+v", result)
+			}
+		})
+	}
+}
+
+func TestMissionV02ReadbackContractFixturesRejectAuthorityDrift(t *testing.T) {
+	for _, path := range []string{
+		filepath.Join("..", "..", "examples", "invalid", "mission-readiness-bundle-authority.json"),
+		filepath.Join("..", "..", "examples", "invalid", "gateway-replay-bundle-authority.json"),
+		filepath.Join("..", "..", "examples", "invalid", "mission-dashboard-authority.json"),
+		filepath.Join("..", "..", "examples", "invalid", "mission-verification-bundle-authority.json"),
+	} {
+		t.Run(filepath.Base(path), func(t *testing.T) {
+			result, err := ValidateContractFile(path)
+			if err == nil || result.Status != "blocked" {
+				t.Fatalf("invalid fixture accepted: result=%+v err=%v", result, err)
+			}
+		})
+	}
+}
+
+func TestMissionVerificationBundleBindsReadbacksAndRejectsAuthorityDrift(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(filepath.Join(dir, "home"))
+	rec, err := s.Start("verification bundle operator handoff")
+	if err != nil {
+		t.Fatal(err)
+	}
+	readyPath := filepath.Join(dir, "readiness.txt")
+	if err := os.WriteFile(readyPath, []byte("status=ready\nscore=100/100\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	readiness, err := BuildMissionReadinessBundleReadback([]MissionReadinessBundleInput{{Repo: "ao-mission", Path: readyPath}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	readinessPath := filepath.Join(dir, "readiness-bundle.json")
+	writeJSONForTest(t, readinessPath, readiness)
+	replay, err := BuildGatewayReplayBundleReadback(GatewayReplayBundleInputs{
+		TelegramConfigPath: filepath.Join("..", "..", "examples", "valid", "telegram-config.json"),
+		TelegramMatrixPath: filepath.Join("..", "..", "examples", "valid", "telegram-command-matrix.json"),
+		A2AHTTPPath:        filepath.Join("..", "..", "examples", "valid", "a2a-http-integration.json"),
+		SchedulerPath:      filepath.Join("..", "..", "examples", "valid", "scheduler-readback-replay.json"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	replayPath := filepath.Join(dir, "gateway-replay-bundle.json")
+	writeJSONForTest(t, replayPath, replay)
+	bundle, err := BuildMissionVerificationBundleReadback(s, rec.MissionID, MissionVerificationBundleOptions{
+		ReadinessBundlePath:     readinessPath,
+		GatewayReplayBundlePath: replayPath,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bundle.Schema != "ao.mission.verification-bundle-readback.v0.1" || bundle.Status != "ready" || bundle.ComponentCount < 5 {
+		t.Fatalf("bad verification bundle: %+v", bundle)
+	}
+	if !strings.HasPrefix(bundle.BundleDigest, "sha256:") {
+		t.Fatalf("verification bundle missing digest: %+v", bundle)
+	}
+	if bundle.SafeToExecute || bundle.ExecutesWork || bundle.ApprovesWork || bundle.MutatesRepositories {
+		t.Fatalf("verification bundle widened authority: %+v", bundle)
+	}
+
+	var unsafe map[string]any
+	body, err := os.ReadFile(readinessPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(body, &unsafe); err != nil {
+		t.Fatal(err)
+	}
+	unsafe["safe_to_execute"] = true
+	unsafePath := filepath.Join(dir, "unsafe-readiness-bundle.json")
+	writeJSONForTest(t, unsafePath, unsafe)
+	if _, err := BuildMissionVerificationBundleReadback(s, rec.MissionID, MissionVerificationBundleOptions{ReadinessBundlePath: unsafePath}); err == nil {
+		t.Fatal("verification bundle accepted authority drift")
+	}
+}
+
+func TestMissionVerificationBundleCLIWritesDigestManifest(t *testing.T) {
+	dir := t.TempDir()
+	home := filepath.Join(dir, "home")
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", home, "start", "verification bundle cli"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	readyPath := filepath.Join(dir, "readiness.txt")
+	if err := os.WriteFile(readyPath, []byte("AO Mission production readiness: 100/100 status=ready\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	readiness, err := BuildMissionReadinessBundleReadback([]MissionReadinessBundleInput{{Repo: "ao-mission", Path: readyPath}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	readinessPath := filepath.Join(dir, "readiness-bundle.json")
+	writeJSONForTest(t, readinessPath, readiness)
+	outPath := filepath.Join(dir, "verification-bundle.json")
+	out.Reset()
+	if code := Run([]string{
+		"--home", home,
+		"mission", "verification-bundle",
+		"--mission", rec.MissionID,
+		"--readiness-bundle", readinessPath,
+		"--out", outPath,
+	}, &out, &errb); code != 0 {
+		t.Fatalf("mission verification-bundle: %s", errb.String())
+	}
+	body, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var bundle MissionVerificationBundleReadback
+	if err := json.Unmarshal(body, &bundle); err != nil {
+		t.Fatal(err)
+	}
+	if bundle.MissionID != rec.MissionID || bundle.ComponentCount == 0 || !strings.HasPrefix(bundle.BundleDigest, "sha256:") {
+		t.Fatalf("bad CLI verification bundle: %+v", bundle)
+	}
+}
+
 func digestBytesForTest(t *testing.T, path string) string {
 	t.Helper()
 	body, err := os.ReadFile(path)

@@ -700,6 +700,34 @@ type MissionDashboardReadback struct {
 	GeneratedAtUTC      string         `json:"generated_at_utc"`
 }
 
+type MissionVerificationBundleOptions struct {
+	ReadinessBundlePath     string
+	GatewayReplayBundlePath string
+}
+
+type MissionVerificationBundleComponent struct {
+	Name   string `json:"name"`
+	Schema string `json:"schema"`
+	Path   string `json:"path,omitempty"`
+	Status string `json:"status"`
+	SHA256 string `json:"sha256"`
+}
+
+type MissionVerificationBundleReadback struct {
+	Schema              string                               `json:"schema"`
+	Status              string                               `json:"status"`
+	MissionID           string                               `json:"mission_id"`
+	ComponentCount      int                                  `json:"component_count"`
+	Components          []MissionVerificationBundleComponent `json:"components"`
+	BundleDigest        string                               `json:"bundle_digest"`
+	SafeToExecute       bool                                 `json:"safe_to_execute"`
+	ExecutesWork        bool                                 `json:"executes_work"`
+	ApprovesWork        bool                                 `json:"approves_work"`
+	MutatesRepositories bool                                 `json:"mutates_repositories"`
+	ExactNextAction     string                               `json:"exact_next_action"`
+	GeneratedAtUTC      string                               `json:"generated_at_utc"`
+}
+
 func now(clock func() time.Time) string {
 	if clock == nil {
 		clock = time.Now
