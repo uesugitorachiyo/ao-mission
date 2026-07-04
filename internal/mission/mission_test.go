@@ -27,8 +27,14 @@ func TestMissionLifecycleAndSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(r.Steps) != 1 {
+	if len(r.Steps) != 10 {
 		t.Fatalf("steps=%d", len(r.Steps))
+	}
+	if r.GoalLease == nil || r.GoalLease.MinNodes != 10 || r.GoalLease.ReturnOnlyWhen == "" {
+		t.Fatalf("missing long-run lease: %+v", r.GoalLease)
+	}
+	if len(r.Checkpoints) != len(r.Steps) {
+		t.Fatalf("checkpoints=%d steps=%d", len(r.Checkpoints), len(r.Steps))
 	}
 	snap := Snapshot(r)
 	if snap.SafeToExecute {
@@ -56,11 +62,62 @@ func TestContinuePersistsEventLoopDecision(t *testing.T) {
 	if decision.Schema != EventLoopDecisionSchema || decision.MissionID != rec.MissionID {
 		t.Fatalf("bad event loop decision: %+v", decision)
 	}
-	if decision.Status != "handoff_required" || decision.Route != "ao-atlas" || decision.Iteration != 1 {
+	if decision.Status != "handoff_required" || decision.Route != "ao-atlas" || decision.Iteration != 3 {
 		t.Fatalf("unexpected event loop decision: %+v", decision)
 	}
 	if decision.ExecutesWork || decision.ApprovesWork || decision.MutatesRepositories {
 		t.Fatalf("event loop widened authority: %+v", decision)
+	}
+}
+
+func TestContinueUntilDoneDoesNotStopAfterOneHandoff(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("supervise long-running atlas workgraph mission")
+	if err != nil {
+		t.Fatal(err)
+	}
+	continued, err := Continue(s, rec.MissionID, ContinueOptions{UntilDone: true, MaxIterations: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(continued.Steps) != 4 {
+		t.Fatalf("until-done stopped early after %d steps", len(continued.Steps))
+	}
+	if continued.ReturnGate == nil || continued.ReturnGate.FinalResponseAllowed {
+		t.Fatalf("premature final return should be denied: %+v", continued.ReturnGate)
+	}
+}
+
+func TestContinueWritesCheckpointBundleAndDoctorSupervisorHealth(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("supervise checkpointed atlas workgraph mission")
+	if err != nil {
+		t.Fatal(err)
+	}
+	continued, err := Continue(s, rec.MissionID, ContinueOptions{UntilDone: true, MaxIterations: 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := s.LoadCheckpointBundle(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bundle.Schema != CheckpointBundleSchema || bundle.CheckpointCount != 3 || bundle.ExecutesWork || bundle.ApprovesWork || bundle.MutatesRepositories {
+		t.Fatalf("bad checkpoint bundle: %+v", bundle)
+	}
+	if bundle.ReturnGate == nil || bundle.ReturnGate.FinalResponseAllowed {
+		t.Fatalf("checkpoint bundle should carry early-return denial: %+v", bundle.ReturnGate)
+	}
+	doctor := BuildMissionDoctorReadback(s)
+	if doctor.Schema != "ao.mission.doctor-readback.v0.1" || doctor.LeaseCount != 1 || doctor.FreshCheckpoints != 1 || doctor.EarlyReturnRisks != 1 {
+		t.Fatalf("doctor missing supervisor health: %+v continued=%+v", doctor, continued)
+	}
+	for _, want := range []string{"lease_health_checked", "checkpoint_freshness_checked", "stale_route_reconciliation_checked", "early_return_risk_checked"} {
+		if !stringSliceContains(doctor.Checks, want) {
+			t.Fatalf("doctor missing check %q: %+v", want, doctor)
+		}
 	}
 }
 
@@ -125,6 +182,17 @@ func TestSchedulerReadbackImportRejectsExecutionAuthority(t *testing.T) {
 	}
 	if updated.Evidence.SchedulerReadback != nil {
 		t.Fatalf("unsafe scheduler readback was recorded: %+v", updated.Evidence.SchedulerReadback)
+	}
+}
+
+func TestRouterSendsConcreteBatchSupervisionToAtlasNotBlueprint(t *testing.T) {
+	decision := DecideRoute("mission-route", "supervise twenty bounded implementation and evidence nodes", nil)
+	if decision.Route != "ao-atlas" {
+		t.Fatalf("concrete long-run batch should route to Atlas, got %+v", decision)
+	}
+	underspecified := DecideRoute("mission-route", "figure out", nil)
+	if underspecified.Route != "ao-blueprint" {
+		t.Fatalf("underspecified objective should still route to Blueprint, got %+v", underspecified)
 	}
 }
 
@@ -258,6 +326,77 @@ func TestContractValidationRejectsSchemaTypeMismatch(t *testing.T) {
 	}
 }
 
+func TestSupervisorV03ContractsValidate(t *testing.T) {
+	dir := t.TempDir()
+	fixtures := map[string]any{
+		"goal-lease.json": GoalLease{
+			Schema:           GoalLeaseSchema,
+			MinNodes:         10,
+			MinMinutes:       120,
+			MaxMinutes:       180,
+			MaxIterations:    20,
+			ReturnOnlyWhen:   defaultReturnOnlyWhen,
+			CheckpointPolicy: defaultCheckpointPolicy,
+		},
+		"checkpoint.json": MissionCheckpoint{
+			Schema:          MissionCheckpointSchema,
+			MissionID:       "mission-contract",
+			Sequence:        1,
+			Iteration:       1,
+			Route:           "ao-atlas",
+			Phase:           "handoff_required",
+			Result:          "handoff_required",
+			ExactNextAction: "send objective to AO Atlas for workgraph sequencing",
+			ResumeCommand:   "ao-mission continue --mission mission-contract --until-done --max-iterations 10",
+			GeneratedAtUTC:  "2026-07-04T00:00:00Z",
+		},
+		"return-gate.json": ReturnGate{
+			Schema:               ReturnGateSchema,
+			MissionID:            "mission-contract",
+			Status:               "early_return_denied",
+			FinalResponseAllowed: false,
+			Reason:               "lease minimum unmet",
+			CompletedNodes:       1,
+			MinNodes:             10,
+			ReadyNodesRemaining:  1,
+			HardBlocker:          false,
+			ExactNextAction:      "continue mission",
+			GeneratedAtUTC:       "2026-07-04T00:00:00Z",
+		},
+		"route-reconciliation.json": RouteReconciliation{
+			Schema:                RouteReconciliationSchema,
+			MissionID:             "mission-contract",
+			Status:                "ready",
+			CurrentRoute:          "ao-atlas",
+			LatestRoute:           "ao-atlas",
+			AtlasReadyNodes:       1,
+			CommandReadbackBound:  false,
+			PromoterReadbackBound: false,
+			ExactNextAction:       "continue from latest exact next action",
+			GeneratedAtUTC:        "2026-07-04T00:00:00Z",
+		},
+		"checkpoint-bundle.json": MissionCheckpointBundle{
+			Schema:              CheckpointBundleSchema,
+			MissionID:           "mission-contract",
+			Status:              "ready",
+			CheckpointCount:     1,
+			ResumePrompt:        "ao-mission continue --mission mission-contract --until-done --max-iterations 10",
+			SafeToExecute:       false,
+			ExecutesWork:        false,
+			ApprovesWork:        false,
+			MutatesRepositories: false,
+			GeneratedAtUTC:      "2026-07-04T00:00:00Z",
+		},
+	}
+	for name, fixture := range fixtures {
+		path := filepath.Join(dir, name)
+		writeJSONForTest(t, path, fixture)
+		if result, err := ValidateContractFile(path); err != nil {
+			t.Fatalf("%s failed contract validation: %v %+v", name, err, result)
+		}
+	}
+}
+
 func TestMissionListInspectCommandStatusAndArtifactManifest(t *testing.T) {
 	dir := t.TempDir()
 	var out, errb bytes.Buffer
@@ -379,6 +518,135 @@ func TestImportAtlasWorkgraphCountsAndFoundryFinalRollupCompletion(t *testing.T)
 	}
 	if done.Evidence.FoundryRollup == nil || done.Evidence.FoundryRollup.CompletedNodes != 3 {
 		t.Fatalf("bad rollup evidence: %+v", done.Evidence.FoundryRollup)
+	}
+}
+
+func TestPromotedFoundryRollupClosesMission(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("build atlas workgraph for promoted rollup")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rollupPath := filepath.Join(dir, "foundry-final-rollup.json")
+	rollup := `{"schema":"ao.foundry.final-rollup.v0.1","status":"promoted","completed_nodes":2,"total_nodes":2}`
+	if err := os.WriteFile(rollupPath, []byte(rollup), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(s, rec.MissionID, "foundry-final-rollup", rollupPath); err != nil {
+		t.Fatal(err)
+	}
+	done, err := s.Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if done.Status != "done" || done.CurrentRoute != "complete" || done.Evidence.FoundryRollup.Status != "promoted" {
+		t.Fatalf("promoted rollup should close mission: %+v", done)
+	}
+}
+
+func TestDeniedFoundryRollupBlocksMissionWithExactNextAction(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("build atlas workgraph for denied rollup")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rollupPath := filepath.Join(dir, "foundry-final-rollup.json")
+	rollup := `{"schema":"ao.foundry.final-rollup.v0.1","status":"denied","completed_nodes":1,"total_nodes":2}`
+	if err := os.WriteFile(rollupPath, []byte(rollup), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(s, rec.MissionID, "foundry-final-rollup", rollupPath); err != nil {
+		t.Fatal(err)
+	}
+	blocked, err := s.Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if blocked.Status != "blocked" || !strings.Contains(blocked.ExactNextAction, "Foundry rollup denied") {
+		t.Fatalf("denied rollup should block with exact next action: %+v", blocked)
+	}
+}
+
+func TestEventIndexSearchesSupervisorEvidence(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("index supervisor checkpoint and rollup evidence")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Continue(s, rec.MissionID, ContinueOptions{UntilDone: true, MaxIterations: 2}); err != nil {
+		t.Fatal(err)
+	}
+	index, err := BuildMissionEventIndex(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preTerminalResults := SearchMissionEvents(index, MissionEventSearchFilters{MissionID: rec.MissionID, Query: "early_return_denied"})
+	if preTerminalResults.TotalMatches == 0 {
+		t.Fatalf("event index did not expose early-return risk before terminal rollup: %+v", index)
+	}
+	rollupPath := filepath.Join(dir, "foundry-final-rollup.json")
+	rollup := `{"schema":"ao.foundry.final-rollup.v0.1","status":"blocked","completed_nodes":1,"total_nodes":2}`
+	if err := os.WriteFile(rollupPath, []byte(rollup), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(s, rec.MissionID, "foundry-final-rollup", rollupPath); err != nil {
+		t.Fatal(err)
+	}
+	index, err = BuildMissionEventIndex(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, query := range []string{"checkpoint", "foundry rollup", "blocked"} {
+		results := SearchMissionEvents(index, MissionEventSearchFilters{MissionID: rec.MissionID, Query: query})
+		if results.TotalMatches == 0 {
+			t.Fatalf("event index did not find %q: %+v", query, index)
+		}
+		if results.ExecutesWork || results.ApprovesWork || results.MutatesRepositories {
+			t.Fatalf("event search widened authority: %+v", results)
+		}
+	}
+}
+
+func TestFeatureDepthRecommendationsReturnAtLeastTenActionableTasks(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("long-running atlas workgraph mission")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec.Evidence.AtlasWorkgraph = &NodeCounts{Total: 12, Ready: 3, Blocked: 2, Completed: 7}
+	rollup := BuildFinalRollup(rec)
+	if len(rollup.FeatureDepthRecommendations) < 10 {
+		t.Fatalf("recommendations too shallow: %d", len(rollup.FeatureDepthRecommendations))
+	}
+	for _, item := range rollup.FeatureDepthRecommendations {
+		if item.ID == "" || item.Task == "" || item.Owner == "" || item.ExactNextAction == "" {
+			t.Fatalf("recommendation is not actionable: %+v", item)
+		}
+	}
+}
+
+func TestFinalRollupDeniesFinalResponseWhenReadyNodesRemain(t *testing.T) {
+	rec := Record{
+		Schema:          RecordSchema,
+		MissionID:       "mission-ready-remains",
+		Status:          "active",
+		CurrentRoute:    "ao-foundry",
+		CurrentPhase:    "atlas_workgraph_ready",
+		ExactNextAction: "send first safe Atlas node to AO Foundry",
+		Evidence: EvidenceSummary{
+			AtlasWorkgraph: &NodeCounts{Total: 4, Ready: 2, Blocked: 0, Completed: 2},
+		},
+	}
+	rollup := BuildFinalRollup(rec)
+	if rollup.FinalResponseAllowed || rollup.ReturnGateStatus != "early_return_denied" {
+		t.Fatalf("final response should be denied while ready nodes remain: %+v", rollup)
+	}
+	if !strings.Contains(rollup.ExactNextAction, "continue") {
+		t.Fatalf("rollup did not preserve executable next action: %+v", rollup)
 	}
 }
 
@@ -1780,6 +2048,305 @@ func TestA2AStreamingDeniedReadbackRejectsStreamingAgentCard(t *testing.T) {
 	}
 }
 
+func TestA2AStreamingDeniedReadbackRejectsSSEFixture(t *testing.T) {
+	var out, errb bytes.Buffer
+	code := Run([]string{
+		"a2a", "streaming-denial",
+		"--agent-card", filepath.Join("..", "..", "examples", "invalid", "a2a-agent-card-streaming-sse.json"),
+	}, &out, &errb)
+	if code != 0 {
+		t.Fatalf("a2a streaming-denial should emit SSE denial readback, got stderr=%s", errb.String())
+	}
+	var readback map[string]any
+	if err := json.Unmarshal(out.Bytes(), &readback); err != nil {
+		t.Fatal(err)
+	}
+	if readback["schema"] != "ao.mission.a2a-streaming-denial-readback.v0.1" || readback["status"] != "denied" {
+		t.Fatalf("bad A2A SSE denial: %#v", readback)
+	}
+	if readback["sse_requested"] != true || readback["streaming_requested"] != true || readback["denied_capability"] != "streaming_or_push" {
+		t.Fatalf("A2A SSE denial missing requested capability flags: %#v", readback)
+	}
+	if readback["mutation_authority"] != false || readback["executes_work"] != false || readback["approves_work"] != false {
+		t.Fatalf("A2A SSE denial widened authority: %#v", readback)
+	}
+}
+
+func TestMissionEventIndexSearchAndCLIReadback(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "event search atlas mission"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "next", "--mission", rec.MissionID, "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("next: %s", errb.String())
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "mission", "events", "index", "--out", filepath.Join(dir, "mission-event-index.json")}, &out, &errb); code != 0 {
+		t.Fatalf("mission events index: %s", errb.String())
+	}
+	var index MissionEventIndex
+	if err := json.Unmarshal(out.Bytes(), &index); err != nil {
+		t.Fatal(err)
+	}
+	if index.Schema != "ao.mission.event-index.v0.2" || index.IndexVersion != "v0.2" || index.TotalEvents < 2 || index.ExecutesWork || index.ApprovesWork || index.MutatesRepositories {
+		t.Fatalf("bad event index: %+v", index)
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "mission", "events", "search", "--mission", rec.MissionID, "--kind", "route_decision", "--query", "AO Atlas", "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("mission events search: %s", errb.String())
+	}
+	var results MissionEventSearchReadback
+	if err := json.Unmarshal(out.Bytes(), &results); err != nil {
+		t.Fatal(err)
+	}
+	if results.Schema != "ao.mission.event-search-readback.v0.1" || results.TotalMatches == 0 {
+		t.Fatalf("bad event search results: %+v", results)
+	}
+	if results.ExecutesWork || results.ApprovesWork || results.MutatesRepositories {
+		t.Fatalf("event search widened authority: %+v", results)
+	}
+}
+
+func TestDoctorCommandReportsLocalStoreHealthWithoutAuthority(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "doctor mission loop"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "doctor", "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("doctor: %s", errb.String())
+	}
+	var readback MissionDoctorReadback
+	if err := json.Unmarshal(out.Bytes(), &readback); err != nil {
+		t.Fatal(err)
+	}
+	if readback.Schema != "ao.mission.doctor-readback.v0.1" || readback.Status != "ready" || readback.MissionCount != 1 {
+		t.Fatalf("bad doctor readback: %+v", readback)
+	}
+	if readback.SafeToExecute || readback.ExecutesWork || readback.ApprovesWork || readback.MutatesRepositories {
+		t.Fatalf("doctor widened authority: %+v", readback)
+	}
+}
+
+func TestSchedulerRecoveryDoesNotRecommendContinuationWhenReplayFresh(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "scheduler-fresh-replay.json")
+	if err := os.WriteFile(path, []byte(`{
+  "schema": "ao.mission.scheduler-replay-fixture.v0.1",
+  "evaluated_at_utc": "2026-07-03T12:00:00Z",
+  "readbacks": [
+    {
+      "schema": "ao.mission.scheduler-readback.v0.1",
+      "mission_id": "mission-demo",
+      "status": "ready",
+      "scheduler": "codex-cron",
+      "event_loop": true,
+      "generated_at_utc": "2026-07-03T11:55:00Z",
+      "executes_work": false,
+      "approves_work": false
+    }
+  ]
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	replay, err := ReplaySchedulerReadbacks(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recovery := BuildSchedulerRecoveryReadback("mission-demo", replay)
+	if recovery.Status != "ready" || recovery.RecoveryMode != "none_required" || strings.Contains(recovery.ExactNextAction, "continue --mission") {
+		t.Fatalf("fresh scheduler replay should not request recovery continuation: %+v", recovery)
+	}
+	if recovery.ExecutesWork || recovery.ApprovesWork {
+		t.Fatalf("fresh scheduler recovery widened authority: %+v", recovery)
+	}
+}
+
+func TestTelegramCommandReplayMatrixCoversAllAllowedCommandsAndDeniedRoles(t *testing.T) {
+	readback, err := ReplayTelegramCommandMatrix(
+		filepath.Join("..", "..", "examples", "valid", "telegram-command-matrix.json"),
+		map[string]string{"1001": "admin", "1002": "user"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	covered := map[string]bool{}
+	for _, result := range readback.Results {
+		covered[result.Command] = true
+	}
+	for command := range allowedTelegramCommands {
+		if !covered[command] {
+			t.Fatalf("telegram replay matrix missing allowed command %s", command)
+		}
+	}
+	if readback.Total < len(allowedTelegramCommands)+2 || readback.Denied < 2 {
+		t.Fatalf("telegram replay matrix should cover allowed and denied role cases: %+v", readback)
+	}
+	if readback.MutationAuthority || readback.ExecutesWork || readback.ApprovesWork {
+		t.Fatalf("telegram replay matrix widened authority: %+v", readback)
+	}
+}
+
+func TestMissionEventIndexCarriesVersionAndDigest(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("event index digest proof")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Continue(s, rec.MissionID, ContinueOptions{UntilDone: true, MaxIterations: 1}); err != nil {
+		t.Fatal(err)
+	}
+	index, err := BuildMissionEventIndex(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if index.Schema != "ao.mission.event-index.v0.2" || index.IndexVersion != "v0.2" {
+		t.Fatalf("event index should be versioned as v0.2: %+v", index)
+	}
+	if !strings.HasPrefix(index.IndexDigest, "sha256:") || index.IndexDigest == "sha256:" {
+		t.Fatalf("event index missing digest: %+v", index)
+	}
+	if !strings.HasPrefix(index.SourceDigest, "sha256:") || index.SourceDigest == "sha256:" {
+		t.Fatalf("event index missing source digest: %+v", index)
+	}
+	if err := ValidateMissionEventIndexDigest(index); err != nil {
+		t.Fatalf("event index digest did not validate: %v", err)
+	}
+	index.Events[0].Summary = "tampered"
+	if err := ValidateMissionEventIndexDigest(index); err == nil {
+		t.Fatal("tampered event index digest should fail validation")
+	}
+}
+
+func TestMissionReadinessBundleVerifierBindsLocalRepoSummaries(t *testing.T) {
+	dir := t.TempDir()
+	missionReady := filepath.Join(dir, "mission-readiness.txt")
+	atlasReady := filepath.Join(dir, "atlas-readiness.txt")
+	if err := os.WriteFile(missionReady, []byte("AO Mission production readiness: 100/100 status=ready\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(atlasReady, []byte("status=ready\nscore=100/100\nsummary=target/production-readiness/summary.json\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	readback, err := BuildMissionReadinessBundleReadback([]MissionReadinessBundleInput{
+		{Repo: "ao-mission", Path: missionReady},
+		{Repo: "ao-atlas", Path: atlasReady},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.Schema != "ao.mission.readiness-bundle-readback.v0.1" || readback.Status != "ready" || readback.ReadyRepos != 2 {
+		t.Fatalf("bad readiness bundle: %+v", readback)
+	}
+	if len(readback.Repos) != 2 || !strings.HasPrefix(readback.Repos[0].SHA256, "sha256:") {
+		t.Fatalf("readiness bundle missing repo digest evidence: %+v", readback)
+	}
+	if readback.SafeToExecute || readback.ExecutesWork || readback.ApprovesWork || readback.MutatesRepositories {
+		t.Fatalf("readiness bundle widened authority: %+v", readback)
+	}
+	outPath := filepath.Join(dir, "readiness-bundle.json")
+	var out, errb bytes.Buffer
+	if code := Run([]string{
+		"mission", "readiness-bundle",
+		"--repo", "ao-mission=" + missionReady,
+		"--repo", "ao-atlas=" + atlasReady,
+		"--out", outPath,
+	}, &out, &errb); code != 0 {
+		t.Fatalf("mission readiness-bundle CLI: %s", errb.String())
+	}
+	body, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), `"schema": "ao.mission.readiness-bundle-readback.v0.1"`) {
+		t.Fatalf("readiness bundle CLI did not write expected readback: %s", string(body))
+	}
+}
+
+func TestGatewayReplayBundleBindsSchedulerTelegramAndA2A(t *testing.T) {
+	readback, err := BuildGatewayReplayBundleReadback(GatewayReplayBundleInputs{
+		TelegramConfigPath:  filepath.Join("..", "..", "examples", "valid", "telegram-config.json"),
+		TelegramMatrixPath:  filepath.Join("..", "..", "examples", "valid", "telegram-command-matrix.json"),
+		TelegramUpdatesPath: filepath.Join("..", "..", "examples", "valid", "telegram-update-replay.json"),
+		TelegramWebhookPath: filepath.Join("..", "..", "examples", "valid", "telegram-webhook-replay.json"),
+		A2AHTTPPath:         filepath.Join("..", "..", "examples", "valid", "a2a-http-integration.json"),
+		A2ALifecyclePath:    filepath.Join("..", "..", "examples", "valid", "a2a-task-lifecycle-artifacts.json"),
+		SchedulerPath:       filepath.Join("..", "..", "examples", "valid", "scheduler-readback-replay.json"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.Schema != "ao.mission.gateway-replay-bundle-readback.v0.1" || readback.Status != "ready" {
+		t.Fatalf("bad replay bundle: %+v", readback)
+	}
+	if readback.TelegramReadbacks != 3 || readback.A2AReadbacks != 2 || readback.SchedulerReadbacks != 1 {
+		t.Fatalf("replay bundle missing expected readback families: %+v", readback)
+	}
+	if readback.SafeToExecute || readback.ExecutesWork || readback.ApprovesWork || readback.MutatesRepositories {
+		t.Fatalf("replay bundle widened authority: %+v", readback)
+	}
+	outPath := filepath.Join(t.TempDir(), "gateway-replay-bundle.json")
+	var out, errb bytes.Buffer
+	if code := Run([]string{
+		"gateway", "replay-bundle",
+		"--telegram-config", filepath.Join("..", "..", "examples", "valid", "telegram-config.json"),
+		"--telegram-matrix", filepath.Join("..", "..", "examples", "valid", "telegram-command-matrix.json"),
+		"--telegram-updates", filepath.Join("..", "..", "examples", "valid", "telegram-update-replay.json"),
+		"--a2a-http", filepath.Join("..", "..", "examples", "valid", "a2a-http-integration.json"),
+		"--scheduler", filepath.Join("..", "..", "examples", "valid", "scheduler-readback-replay.json"),
+		"--out", outPath,
+	}, &out, &errb); code != 0 {
+		t.Fatalf("gateway replay-bundle CLI: %s", errb.String())
+	}
+	body, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), `"schema": "ao.mission.gateway-replay-bundle-readback.v0.1"`) {
+		t.Fatalf("replay bundle CLI did not write expected readback: %s", string(body))
+	}
+}
+
+func TestMissionDashboardReadbackSummarizesCompactOperatorLoop(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "dashboard readback atlas loop"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "next", "--mission", rec.MissionID, "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("next: %s", errb.String())
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "mission", "dashboard", "--mission", rec.MissionID, "--compact", "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("mission dashboard: %s", errb.String())
+	}
+	var dashboard MissionDashboardReadback
+	if err := json.Unmarshal(out.Bytes(), &dashboard); err != nil {
+		t.Fatal(err)
+	}
+	if dashboard.Schema != "ao.mission.dashboard-readback.v0.1" || dashboard.MissionID != rec.MissionID || dashboard.EventCount == 0 {
+		t.Fatalf("bad dashboard readback: %+v", dashboard)
+	}
+	if !dashboard.Compact || dashboard.LatestRoute == "" || dashboard.EventIndexDigest == "" {
+		t.Fatalf("dashboard missing compact route/index evidence: %+v", dashboard)
+	}
+	if dashboard.SafeToExecute || dashboard.ExecutesWork || dashboard.ApprovesWork || dashboard.MutatesRepositories {
+		t.Fatalf("dashboard widened authority: %+v", dashboard)
+	}
+}
+
 func TestGatewayReadinessRollupCombinesReadbacksWithoutAuthority(t *testing.T) {
 	dir := t.TempDir()
 	suitePath := filepath.Join(dir, "suite.json")
@@ -1988,6 +2555,148 @@ func TestA2ACancellationReplayRequiresRequestAndCancelWithoutAuthority(t *testin
 	}
 	if replay["mutation_authority"] != false || replay["executes_work"] != false || replay["approves_work"] != false {
 		t.Fatalf("cancellation replay widened authority: %#v", replay)
+	}
+}
+
+func TestMissionV02ReadbackContractFixturesValidate(t *testing.T) {
+	for _, path := range []string{
+		filepath.Join("..", "..", "examples", "valid", "mission-event-index-v0.2.json"),
+		filepath.Join("..", "..", "examples", "valid", "mission-readiness-bundle-readback.json"),
+		filepath.Join("..", "..", "examples", "valid", "gateway-replay-bundle-readback.json"),
+		filepath.Join("..", "..", "examples", "valid", "mission-dashboard-readback.json"),
+		filepath.Join("..", "..", "examples", "valid", "mission-verification-bundle-readback.json"),
+	} {
+		t.Run(filepath.Base(path), func(t *testing.T) {
+			result, err := ValidateContractFile(path)
+			if err != nil {
+				t.Fatalf("valid fixture rejected: result=%+v err=%v", result, err)
+			}
+			if result.Status != "ready" || result.Executes || result.Approves || result.Mutates {
+				t.Fatalf("bad contract validation result: %+v", result)
+			}
+		})
+	}
+}
+
+func TestMissionV02ReadbackContractFixturesRejectAuthorityDrift(t *testing.T) {
+	for _, path := range []string{
+		filepath.Join("..", "..", "examples", "invalid", "mission-readiness-bundle-authority.json"),
+		filepath.Join("..", "..", "examples", "invalid", "gateway-replay-bundle-authority.json"),
+		filepath.Join("..", "..", "examples", "invalid", "mission-dashboard-authority.json"),
+		filepath.Join("..", "..", "examples", "invalid", "mission-verification-bundle-authority.json"),
+	} {
+		t.Run(filepath.Base(path), func(t *testing.T) {
+			result, err := ValidateContractFile(path)
+			if err == nil || result.Status != "blocked" {
+				t.Fatalf("invalid fixture accepted: result=%+v err=%v", result, err)
+			}
+		})
+	}
+}
+
+func TestMissionVerificationBundleBindsReadbacksAndRejectsAuthorityDrift(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(filepath.Join(dir, "home"))
+	rec, err := s.Start("verification bundle operator handoff")
+	if err != nil {
+		t.Fatal(err)
+	}
+	readyPath := filepath.Join(dir, "readiness.txt")
+	if err := os.WriteFile(readyPath, []byte("status=ready\nscore=100/100\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	readiness, err := BuildMissionReadinessBundleReadback([]MissionReadinessBundleInput{{Repo: "ao-mission", Path: readyPath}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	readinessPath := filepath.Join(dir, "readiness-bundle.json")
+	writeJSONForTest(t, readinessPath, readiness)
+	replay, err := BuildGatewayReplayBundleReadback(GatewayReplayBundleInputs{
+		TelegramConfigPath: filepath.Join("..", "..", "examples", "valid", "telegram-config.json"),
+		TelegramMatrixPath: filepath.Join("..", "..", "examples", "valid", "telegram-command-matrix.json"),
+		A2AHTTPPath:        filepath.Join("..", "..", "examples", "valid", "a2a-http-integration.json"),
+		SchedulerPath:      filepath.Join("..", "..", "examples", "valid", "scheduler-readback-replay.json"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	replayPath := filepath.Join(dir, "gateway-replay-bundle.json")
+	writeJSONForTest(t, replayPath, replay)
+	bundle, err := BuildMissionVerificationBundleReadback(s, rec.MissionID, MissionVerificationBundleOptions{
+		ReadinessBundlePath:     readinessPath,
+		GatewayReplayBundlePath: replayPath,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bundle.Schema != "ao.mission.verification-bundle-readback.v0.1" || bundle.Status != "ready" || bundle.ComponentCount < 5 {
+		t.Fatalf("bad verification bundle: %+v", bundle)
+	}
+	if !strings.HasPrefix(bundle.BundleDigest, "sha256:") {
+		t.Fatalf("verification bundle missing digest: %+v", bundle)
+	}
+	if bundle.SafeToExecute || bundle.ExecutesWork || bundle.ApprovesWork || bundle.MutatesRepositories {
+		t.Fatalf("verification bundle widened authority: %+v", bundle)
+	}
+
+	var unsafe map[string]any
+	body, err := os.ReadFile(readinessPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(body, &unsafe); err != nil {
+		t.Fatal(err)
+	}
+	unsafe["safe_to_execute"] = true
+	unsafePath := filepath.Join(dir, "unsafe-readiness-bundle.json")
+	writeJSONForTest(t, unsafePath, unsafe)
+	if _, err := BuildMissionVerificationBundleReadback(s, rec.MissionID, MissionVerificationBundleOptions{ReadinessBundlePath: unsafePath}); err == nil {
+		t.Fatal("verification bundle accepted authority drift")
+	}
+}
+
+func TestMissionVerificationBundleCLIWritesDigestManifest(t *testing.T) {
+	dir := t.TempDir()
+	home := filepath.Join(dir, "home")
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", home, "start", "verification bundle cli"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	readyPath := filepath.Join(dir, "readiness.txt")
+	if err := os.WriteFile(readyPath, []byte("AO Mission production readiness: 100/100 status=ready\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	readiness, err := BuildMissionReadinessBundleReadback([]MissionReadinessBundleInput{{Repo: "ao-mission", Path: readyPath}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	readinessPath := filepath.Join(dir, "readiness-bundle.json")
+	writeJSONForTest(t, readinessPath, readiness)
+	outPath := filepath.Join(dir, "verification-bundle.json")
+	out.Reset()
+	if code := Run([]string{
+		"--home", home,
+		"mission", "verification-bundle",
+		"--mission", rec.MissionID,
+		"--readiness-bundle", readinessPath,
+		"--out", outPath,
+	}, &out, &errb); code != 0 {
+		t.Fatalf("mission verification-bundle: %s", errb.String())
+	}
+	body, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var bundle MissionVerificationBundleReadback
+	if err := json.Unmarshal(body, &bundle); err != nil {
+		t.Fatal(err)
+	}
+	if bundle.MissionID != rec.MissionID || bundle.ComponentCount == 0 || !strings.HasPrefix(bundle.BundleDigest, "sha256:") {
+		t.Fatalf("bad CLI verification bundle: %+v", bundle)
 	}
 }
 

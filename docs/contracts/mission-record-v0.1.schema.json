@@ -24,6 +24,10 @@
     "exact_next_action": { "type": "string" },
     "artifact_refs": { "type": "array" },
     "steps": { "type": "array" },
-    "evidence": { "type": "object" }
+    "evidence": { "type": "object" },
+    "goal_lease": { "type": "object" },
+    "checkpoints": { "type": "array" },
+    "return_gate": { "type": "object" },
+    "route_reconciliation": { "type": "object" }
   }
 }

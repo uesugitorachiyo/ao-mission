@@ -8,6 +8,7 @@ mission.
 
 ```sh
 ao-mission start "<objective>"
+ao-mission doctor
 ao-mission mission list --json
 ao-mission next --mission <mission-id>
 ao-mission status --mission <mission-id>
@@ -16,8 +17,14 @@ ao-mission status --mission <mission-id>
 ## Continue Locally
 
 ```sh
-ao-mission continue --mission <mission-id> --until-done --max-iterations 10
+ao-mission continue --mission <mission-id> --until-done --max-iterations 20 --min-nodes 15 --min-minutes 120 --max-minutes 180
 ao-mission mission history --mission <mission-id>
+ao-mission mission events index --out tmp/mission-event-index.json
+ao-mission mission events search --mission <mission-id> --query "AO Atlas" --index tmp/mission-event-index.json --json
+ao-mission mission events search --mission <mission-id> --query "checkpoint" --index tmp/mission-event-index.json --json
+ao-mission mission events search --mission <mission-id> --query "return_gate" --index tmp/mission-event-index.json --json
+ao-mission mission dashboard --mission <mission-id> --compact --out tmp/<mission-id>-dashboard.json
+ao-mission mission verification-bundle --mission <mission-id> --readiness-bundle tmp/ao-mission-readiness-bundle.json --gateway-replay-bundle tmp/gateway-replay-bundle.json --out tmp/<mission-id>-verification-bundle.json
 ao-mission mission compact --mission <mission-id> --keep-route-history 25 --keep-steps 25
 ao-mission mission compact --mission <mission-id> --keep-route-history 25 --keep-steps 25 --timeline
 ao-mission mission archive --mission <mission-id> --out tmp/<mission-id>-archive.json
@@ -25,6 +32,18 @@ ao-mission mission validate-archive --path tmp/<mission-id>-archive.json --out t
 ao-mission artifacts manifest --mission <mission-id> --out tmp/<mission-id>-artifact-manifest.json
 ao-mission final rollup --mission <mission-id>
 ```
+
+For 2-3 hour work, AO Mission owns the long-run supervisor lease and checkpoint
+ledger. Atlas owns workgraph and context-heavy sequencing. Foundry owns exactly
+one bounded implementation node at a time. Blueprint is used only when Mission
+or Atlas lacks requirements, authorization, or a safe class boundary. Do not
+route ready Atlas nodes through Blueprint for batching.
+
+The final rollup is not a final response unless `final_response_allowed=true`.
+If it is false, use `exact_next_action`, the latest checkpoint bundle, and the
+Feature Depth Recommendations to continue. A true terminal hard blocker is a
+blocked or denied rollup, stopped mission, explicit blocker list, or safety
+boundary mismatch after repair/repack/support work has already been attempted.
 
 ## Gateway Fixture Checks
 
@@ -38,6 +57,8 @@ ao-mission a2a replay --fixture examples/valid/a2a-http-integration.json
 ao-mission a2a lifecycle --fixture examples/valid/a2a-task-lifecycle-edges.json
 ao-mission a2a compatibility --agent-card examples/valid/a2a-agent-card.json --http examples/valid/a2a-http-integration.json --lifecycle examples/valid/a2a-task-lifecycle-artifacts.json --out tmp/a2a-compatibility.json
 ao-mission a2a streaming-denial --agent-card examples/invalid/a2a-agent-card-streaming.json --out tmp/a2a-streaming-denial.json
+ao-mission a2a streaming-denial --agent-card examples/invalid/a2a-agent-card-streaming-sse.json --out tmp/a2a-streaming-sse-denial.json
+ao-mission gateway replay-bundle --telegram-config examples/valid/telegram-config.json --telegram-matrix examples/valid/telegram-command-matrix.json --telegram-webhook examples/valid/telegram-webhook-replay.json --telegram-updates examples/valid/telegram-update-replay.json --a2a-http examples/valid/a2a-http-integration.json --a2a-lifecycle examples/valid/a2a-task-lifecycle-artifacts.json --scheduler examples/valid/scheduler-readback-replay.json --out tmp/gateway-replay-bundle.json
 ao-mission gateway replay-suite --telegram-config examples/valid/telegram-config.json --telegram-webhook examples/valid/telegram-webhook-replay.json --telegram-updates examples/valid/telegram-update-replay.json --a2a-http examples/valid/a2a-http-integration.json --a2a-lifecycle examples/valid/a2a-task-lifecycle-artifacts.json --out tmp/gateway-replay-suite.json
 ao-mission gateway readiness-rollup --mission <mission-id> --suite tmp/gateway-replay-suite.json --a2a-compatibility tmp/a2a-compatibility.json --archive-validation tmp/<mission-id>-archive-validation.json --snapshot-diff <snapshot-diff.json> --out tmp/gateway-readiness-rollup.json
 ao-mission schedule replay --fixture examples/valid/scheduler-readback-replay.json
@@ -51,6 +72,21 @@ ao-mission artifacts repair-manifest --path <artifact-manifest.json> --out <arti
 ao-mission governance diff --before <snapshot-before.json> --after <snapshot-after.json>
 ao-mission mission archive --mission <mission-id> --out tmp/<mission-id>-archive.json
 ```
+
+## Cross-Repo Readiness Bundle
+
+```sh
+ao-mission mission readiness-bundle --repo ao-mission=tmp/ao-mission-readiness.txt --repo ao-atlas=tmp/ao-atlas-readiness.txt --out tmp/ao-mission-readiness-bundle.json
+```
+
+Use local readiness summaries only. The bundle records status and SHA-256
+digests for operator review; it does not push branches, open PRs, wait for
+hosted CI, merge, sync main, or delete branches.
+
+The verification bundle is the final local handoff packet for this loop. It
+binds the event index, dashboard, artifact manifest, readiness bundle, and
+gateway replay bundle with SHA-256 digests, but it still does not perform
+credentialed remote lifecycle work.
 
 Telegram and A2A fixture checks record intent/readback only. They do not grant
 execution authority, approval authority, repository mutation, provider calls,
@@ -71,3 +107,20 @@ Atlas node through Foundry gates.
 
 If it returns `complete`, read the final rollup and recommended next tasks. Do
 not treat a generated handoff file alone as completion.
+
+## Long-Run Role Routing
+
+Use AO Mission when the operator asks for a 2-3 hour run, minimum node budget,
+checkpoint/resume behavior, final-response gating, or cross-repo readback
+reconciliation.
+
+Use AO Atlas when the work needs an ordered workgraph, context pack, exact next
+ready node, repair plan, or Feature Depth Recommendation wave.
+
+Use AO Foundry when Atlas has produced a ready bounded node and the next action
+is implementation evidence, tests, rollback evidence, or a run-link/final
+rollup.
+
+Use AO Blueprint only for missing requirements, missing authorization, or an
+underspecified objective. Blueprint should not be used to split ordinary ready
+implementation batches.

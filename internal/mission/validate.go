@@ -185,7 +185,7 @@ func validateAgainstSchemaFile(path string, doc map[string]any, schema string) [
 
 func contractFileName(schema string) string {
 	name := strings.TrimPrefix(schema, "ao.mission.")
-	name = strings.ReplaceAll(name, ".", "-")
+	name = strings.ReplaceAll(name, ".v", "-v")
 	return name + ".schema.json"
 }
 

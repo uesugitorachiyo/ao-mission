@@ -61,6 +61,109 @@ func BuildGatewayReplaySuite(readbacks []GatewayReplayReadback, lifecycle *A2ATa
 	return suite
 }
 
+func BuildGatewayReplayBundleReadback(inputs GatewayReplayBundleInputs) (GatewayReplayBundleReadback, error) {
+	readback := GatewayReplayBundleReadback{
+		Schema:              "ao.mission.gateway-replay-bundle-readback.v0.1",
+		Status:              "ready",
+		ReplayRefs:          []string{},
+		SafeToExecute:       false,
+		ExecutesWork:        false,
+		ApprovesWork:        false,
+		MutatesRepositories: false,
+		ExactNextAction:     "gateway replay bundle verified as local readback only",
+		GeneratedAtUTC:      now(nil),
+	}
+	var allowedChats map[string]string
+	if strings.TrimSpace(inputs.TelegramMatrixPath) != "" || strings.TrimSpace(inputs.TelegramUpdatesPath) != "" || strings.TrimSpace(inputs.TelegramWebhookPath) != "" {
+		if strings.TrimSpace(inputs.TelegramConfigPath) == "" {
+			return GatewayReplayBundleReadback{}, fmt.Errorf("gateway replay-bundle requires Telegram config with Telegram fixtures")
+		}
+		cfg, err := LoadTelegramConfig(inputs.TelegramConfigPath)
+		if err != nil {
+			return GatewayReplayBundleReadback{}, err
+		}
+		allowedChats = cfg.AllowedChats
+	}
+	if strings.TrimSpace(inputs.TelegramMatrixPath) != "" {
+		replay, err := ReplayTelegramCommandMatrix(inputs.TelegramMatrixPath, allowedChats)
+		if err != nil {
+			return GatewayReplayBundleReadback{}, err
+		}
+		applyGatewayReplayToBundle(&readback, replay)
+		readback.TelegramReadbacks++
+		readback.ReplayRefs = append(readback.ReplayRefs, filepathSlash(inputs.TelegramMatrixPath))
+	}
+	if strings.TrimSpace(inputs.TelegramUpdatesPath) != "" {
+		replay, err := ReplayTelegramUpdates(inputs.TelegramUpdatesPath, allowedChats)
+		if err != nil {
+			return GatewayReplayBundleReadback{}, err
+		}
+		applyGatewayReplayToBundle(&readback, replay)
+		readback.TelegramReadbacks++
+		readback.ReplayRefs = append(readback.ReplayRefs, filepathSlash(inputs.TelegramUpdatesPath))
+	}
+	if strings.TrimSpace(inputs.TelegramWebhookPath) != "" {
+		replay, err := ReplayTelegramWebhookFixture(inputs.TelegramWebhookPath, allowedChats)
+		if err != nil {
+			return GatewayReplayBundleReadback{}, err
+		}
+		applyGatewayReplayToBundle(&readback, replay)
+		readback.TelegramReadbacks++
+		readback.ReplayRefs = append(readback.ReplayRefs, filepathSlash(inputs.TelegramWebhookPath))
+	}
+	if strings.TrimSpace(inputs.A2AHTTPPath) != "" {
+		replay, err := ReplayA2AHTTPFixture(inputs.A2AHTTPPath)
+		if err != nil {
+			return GatewayReplayBundleReadback{}, err
+		}
+		applyGatewayReplayToBundle(&readback, replay)
+		readback.A2AReadbacks++
+		readback.ReplayRefs = append(readback.ReplayRefs, filepathSlash(inputs.A2AHTTPPath))
+	}
+	if strings.TrimSpace(inputs.A2ALifecyclePath) != "" {
+		replay, err := ReplayA2ATaskLifecycle(inputs.A2ALifecyclePath)
+		if err != nil {
+			return GatewayReplayBundleReadback{}, err
+		}
+		readback.TotalIntents += replay.IntentRecorded + replay.ResumeRequested + replay.Resumed + replay.CancelRequested + replay.Cancelled
+		readback.A2AReadbacks++
+		readback.ReplayRefs = append(readback.ReplayRefs, filepathSlash(inputs.A2ALifecyclePath))
+		if replay.Status == "blocked" || replay.MutationAuthority || replay.ExecutesWork || replay.ApprovesWork {
+			readback.Status = "blocked"
+		}
+	}
+	if strings.TrimSpace(inputs.SchedulerPath) != "" {
+		replay, err := ReplaySchedulerReadbacks(inputs.SchedulerPath)
+		if err != nil {
+			return GatewayReplayBundleReadback{}, err
+		}
+		readback.SchedulerReadbacks++
+		readback.TotalIntents += replay.Total
+		readback.ReplayRefs = append(readback.ReplayRefs, filepathSlash(inputs.SchedulerPath))
+		if replay.Status == "blocked" || replay.ExecutesWork || replay.ApprovesWork {
+			readback.Status = "blocked"
+		}
+	}
+	if len(readback.ReplayRefs) == 0 {
+		readback.Status = "blocked"
+		readback.ExactNextAction = "provide at least one replay fixture"
+	}
+	return readback, nil
+}
+
+func applyGatewayReplayToBundle(bundle *GatewayReplayBundleReadback, replay GatewayReplayReadback) {
+	bundle.TotalIntents += replay.IntentRecorded
+	bundle.Denied += replay.Denied
+	bundle.Invalid += replay.Invalid
+	if replay.Status == "blocked" || replay.MutationAuthority || replay.ExecutesWork || replay.ApprovesWork {
+		bundle.Status = "blocked"
+	}
+}
+
+func filepathSlash(path string) string {
+	return strings.ReplaceAll(path, "\\", "/")
+}
+
 func BuildA2ACompatibilityReadback(agentCardPath, httpFixturePath, lifecyclePath string) (A2ACompatibilityReadback, error) {
 	var card A2AAgentCard
 	body, err := os.ReadFile(agentCardPath)
@@ -122,26 +225,20 @@ func BuildA2AStreamingDenialReadback(agentCardPath string) (A2AStreamingDenialRe
 	if err := json.Unmarshal(body, &card); err != nil {
 		return A2AStreamingDenialReadback{}, err
 	}
-	streaming := card.CapabilitiesDetail["streaming"]
+	sse := card.CapabilitiesDetail["sse"]
+	streaming := card.CapabilitiesDetail["streaming"] || sse || stringSliceContains(card.Capabilities, "sse=true")
 	push := card.CapabilitiesDetail["push_notifications"]
 	denied := "none"
 	status := "ready"
-	if streaming {
-		denied = "streaming"
-		status = "denied"
-	}
-	if push {
-		if denied == "none" {
-			denied = "push_notifications"
-		} else {
-			denied += ",push_notifications"
-		}
+	if streaming || push {
+		denied = "streaming_or_push"
 		status = "denied"
 	}
 	return A2AStreamingDenialReadback{
 		Schema:             "ao.mission.a2a-streaming-denial-readback.v0.1",
 		Status:             status,
 		StreamingRequested: streaming,
+		SSERequested:       sse,
 		PushRequested:      push,
 		DeniedCapability:   denied,
 		MutationAuthority:  false,

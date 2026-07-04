@@ -49,7 +49,7 @@ Use `ao-mission a2a serve --http --once` to emit a local fixture-server readback
 
 Use `ao-mission a2a compatibility --agent-card examples/valid/a2a-agent-card.json --http examples/valid/a2a-http-integration.json --lifecycle examples/valid/a2a-task-lifecycle-artifacts.json --out tmp/a2a-compatibility.json` to validate Agent Card, JSON-RPC, lifecycle, and artifact readback compatibility as one fixture-backed packet.
 
-Use `ao-mission a2a streaming-denial --agent-card examples/invalid/a2a-agent-card-streaming.json --out tmp/a2a-streaming-denial.json` to prove streaming and push-style capability requests stay denied unless separately gated.
+Use `ao-mission a2a streaming-denial --agent-card examples/invalid/a2a-agent-card-streaming.json --out tmp/a2a-streaming-denial.json` and `ao-mission a2a streaming-denial --agent-card examples/invalid/a2a-agent-card-streaming-sse.json --out tmp/a2a-streaming-sse-denial.json` to prove streaming, push-style, and SSE capability requests stay denied unless separately gated.
 
 Use `ao-mission a2a cancellation-replay --lifecycle examples/valid/a2a-task-lifecycle.json --out tmp/a2a-cancellation-replay.json` to prove A2A cancellation requests and cancelled states remain lifecycle readbacks, not execution authority.
 

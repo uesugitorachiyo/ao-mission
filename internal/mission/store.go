@@ -36,6 +36,9 @@ func (s Store) path(id string) string { return filepath.Join(s.Root, "missions",
 func (s Store) eventLoopPath(id string) string {
 	return filepath.Join(s.Root, "missions", id+".event-loop-decision.json")
 }
+func (s Store) checkpointPath(id string) string {
+	return filepath.Join(s.Root, "missions", id+".checkpoint-resume-bundle.json")
+}
 
 func DigestObjective(objective string) string {
 	sum := sha256.Sum256([]byte(strings.TrimSpace(objective)))
@@ -153,6 +156,27 @@ func (s Store) LoadEventLoopDecision(id string) (EventLoopDecision, error) {
 		return decision, err
 	}
 	return decision, json.Unmarshal(b, &decision)
+}
+
+func (s Store) SaveCheckpointBundle(bundle MissionCheckpointBundle) error {
+	if err := s.Init(); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(bundle, "", "  ")
+	if err != nil {
+		return err
+	}
+	b = append(b, '\n')
+	return os.WriteFile(s.checkpointPath(bundle.MissionID), b, 0o644)
+}
+
+func (s Store) LoadCheckpointBundle(id string) (MissionCheckpointBundle, error) {
+	var bundle MissionCheckpointBundle
+	b, err := os.ReadFile(s.checkpointPath(id))
+	if err != nil {
+		return bundle, err
+	}
+	return bundle, json.Unmarshal(b, &bundle)
 }
 func (s Store) Update(id string, fn func(*Record) error) (Record, error) {
 	r, err := s.Load(id)

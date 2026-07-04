@@ -1,0 +1,13 @@
+{
+  "schema": "ao.foundry.ao-mission-final-rollup-smoke.v0.1",
+  "status": "ready",
+  "mission_id": "ao-mission-long-run-supervisor-v03",
+  "completed_nodes": 20,
+  "total_nodes": 20,
+  "foundry_terminal_status": "promoted",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false,
+  "exact_next_action": "AO Mission and AO Foundry final rollups agree; no execution authority is granted"
+}

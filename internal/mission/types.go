@@ -29,21 +29,25 @@ type ArtifactRef struct {
 }
 
 type Record struct {
-	Schema          string             `json:"schema"`
-	MissionID       string             `json:"mission_id"`
-	Objective       string             `json:"objective"`
-	ObjectiveDigest string             `json:"objective_digest"`
-	Status          string             `json:"status"`
-	CreatedAtUTC    string             `json:"created_at_utc"`
-	UpdatedAtUTC    string             `json:"updated_at_utc"`
-	CurrentRoute    string             `json:"current_route"`
-	CurrentPhase    string             `json:"current_phase"`
-	Blockers        []string           `json:"blockers"`
-	ExactNextAction string             `json:"exact_next_action"`
-	ArtifactRefs    []ArtifactRef      `json:"artifact_refs"`
-	Steps           []ContinuationStep `json:"steps"`
-	RouteHistory    []RouteDecision    `json:"route_history,omitempty"`
-	Evidence        EvidenceSummary    `json:"evidence,omitempty"`
+	Schema          string               `json:"schema"`
+	MissionID       string               `json:"mission_id"`
+	Objective       string               `json:"objective"`
+	ObjectiveDigest string               `json:"objective_digest"`
+	Status          string               `json:"status"`
+	CreatedAtUTC    string               `json:"created_at_utc"`
+	UpdatedAtUTC    string               `json:"updated_at_utc"`
+	CurrentRoute    string               `json:"current_route"`
+	CurrentPhase    string               `json:"current_phase"`
+	Blockers        []string             `json:"blockers"`
+	ExactNextAction string               `json:"exact_next_action"`
+	ArtifactRefs    []ArtifactRef        `json:"artifact_refs"`
+	Steps           []ContinuationStep   `json:"steps"`
+	RouteHistory    []RouteDecision      `json:"route_history,omitempty"`
+	Evidence        EvidenceSummary      `json:"evidence,omitempty"`
+	GoalLease       *GoalLease           `json:"goal_lease,omitempty"`
+	Checkpoints     []MissionCheckpoint  `json:"checkpoints,omitempty"`
+	ReturnGate      *ReturnGate          `json:"return_gate,omitempty"`
+	Reconciliation  *RouteReconciliation `json:"route_reconciliation,omitempty"`
 }
 
 type EvidenceSummary struct {
@@ -66,6 +70,82 @@ type FoundryRollupCounts struct {
 	Status         string `json:"status"`
 	CompletedNodes int    `json:"completed_nodes"`
 	TotalNodes     int    `json:"total_nodes"`
+}
+
+type GoalLease struct {
+	Schema           string `json:"schema"`
+	MinNodes         int    `json:"min_nodes"`
+	MinMinutes       int    `json:"min_minutes"`
+	MaxMinutes       int    `json:"max_minutes"`
+	MaxIterations    int    `json:"max_iterations"`
+	ReturnOnlyWhen   string `json:"return_only_when"`
+	CheckpointPolicy string `json:"checkpoint_policy"`
+	CreatedAtUTC     string `json:"created_at_utc"`
+	UpdatedAtUTC     string `json:"updated_at_utc"`
+}
+
+type MissionCheckpoint struct {
+	Schema          string `json:"schema"`
+	MissionID       string `json:"mission_id"`
+	Sequence        int    `json:"sequence"`
+	Iteration       int    `json:"iteration"`
+	Route           string `json:"route"`
+	Phase           string `json:"phase"`
+	Result          string `json:"result"`
+	ExactNextAction string `json:"exact_next_action"`
+	ResumeCommand   string `json:"resume_command"`
+	GeneratedAtUTC  string `json:"generated_at_utc"`
+}
+
+type ReturnGate struct {
+	Schema               string   `json:"schema"`
+	MissionID            string   `json:"mission_id"`
+	Status               string   `json:"status"`
+	FinalResponseAllowed bool     `json:"final_response_allowed"`
+	Reason               string   `json:"reason"`
+	CompletedNodes       int      `json:"completed_nodes"`
+	MinNodes             int      `json:"min_nodes"`
+	ReadyNodesRemaining  int      `json:"ready_nodes_remaining"`
+	HardBlocker          bool     `json:"hard_blocker"`
+	ExactNextAction      string   `json:"exact_next_action"`
+	Blockers             []string `json:"blockers,omitempty"`
+	GeneratedAtUTC       string   `json:"generated_at_utc"`
+}
+
+type RouteReconciliation struct {
+	Schema                string `json:"schema"`
+	MissionID             string `json:"mission_id"`
+	Status                string `json:"status"`
+	CurrentRoute          string `json:"current_route"`
+	LatestRoute           string `json:"latest_route"`
+	FoundryTerminalStatus string `json:"foundry_terminal_status,omitempty"`
+	AtlasReadyNodes       int    `json:"atlas_ready_nodes"`
+	CommandReadbackBound  bool   `json:"command_readback_bound"`
+	PromoterReadbackBound bool   `json:"promoter_readback_bound"`
+	ExactNextAction       string `json:"exact_next_action"`
+	GeneratedAtUTC        string `json:"generated_at_utc"`
+}
+
+type FeatureDepthRecommendation struct {
+	ID              string `json:"id"`
+	Owner           string `json:"owner"`
+	Task            string `json:"task"`
+	ExactNextAction string `json:"exact_next_action"`
+}
+
+type MissionCheckpointBundle struct {
+	Schema              string             `json:"schema"`
+	MissionID           string             `json:"mission_id"`
+	Status              string             `json:"status"`
+	CheckpointCount     int                `json:"checkpoint_count"`
+	LatestCheckpoint    *MissionCheckpoint `json:"latest_checkpoint,omitempty"`
+	ReturnGate          *ReturnGate        `json:"return_gate,omitempty"`
+	ResumePrompt        string             `json:"resume_prompt"`
+	SafeToExecute       bool               `json:"safe_to_execute"`
+	ExecutesWork        bool               `json:"executes_work"`
+	ApprovesWork        bool               `json:"approves_work"`
+	MutatesRepositories bool               `json:"mutates_repositories"`
+	GeneratedAtUTC      string             `json:"generated_at_utc"`
 }
 
 type SchedulerEvidenceCounts struct {
@@ -301,6 +381,7 @@ type A2AStreamingDenialReadback struct {
 	Schema             string `json:"schema"`
 	Status             string `json:"status"`
 	StreamingRequested bool   `json:"streaming_requested"`
+	SSERequested       bool   `json:"sse_requested,omitempty"`
 	PushRequested      bool   `json:"push_notifications_requested"`
 	DeniedCapability   string `json:"denied_capability"`
 	MutationAuthority  bool   `json:"mutation_authority"`
@@ -561,6 +642,174 @@ type GatewayReadinessRollup struct {
 	MutatesRepositories bool     `json:"mutates_repositories"`
 	ExactNextAction     string   `json:"exact_next_action"`
 	GeneratedAtUTC      string   `json:"generated_at_utc"`
+}
+
+type MissionEvent struct {
+	Schema         string `json:"schema"`
+	MissionID      string `json:"mission_id"`
+	Kind           string `json:"kind"`
+	Sequence       int    `json:"sequence"`
+	Status         string `json:"status,omitempty"`
+	Route          string `json:"route,omitempty"`
+	Phase          string `json:"phase,omitempty"`
+	ArtifactKind   string `json:"artifact_kind,omitempty"`
+	Summary        string `json:"summary"`
+	GeneratedAtUTC string `json:"generated_at_utc,omitempty"`
+}
+
+type MissionEventIndex struct {
+	Schema              string         `json:"schema"`
+	Status              string         `json:"status"`
+	IndexVersion        string         `json:"index_version"`
+	IndexDigest         string         `json:"index_digest"`
+	SourceDigest        string         `json:"source_digest"`
+	Root                string         `json:"root"`
+	MissionCount        int            `json:"mission_count"`
+	TotalEvents         int            `json:"total_events"`
+	Events              []MissionEvent `json:"events"`
+	SafeToExecute       bool           `json:"safe_to_execute"`
+	ExecutesWork        bool           `json:"executes_work"`
+	ApprovesWork        bool           `json:"approves_work"`
+	MutatesRepositories bool           `json:"mutates_repositories"`
+	GeneratedAtUTC      string         `json:"generated_at_utc"`
+}
+
+type MissionEventSearchReadback struct {
+	Schema              string         `json:"schema"`
+	Status              string         `json:"status"`
+	Query               string         `json:"query,omitempty"`
+	MissionID           string         `json:"mission_id,omitempty"`
+	Kind                string         `json:"kind,omitempty"`
+	TotalMatches        int            `json:"total_matches"`
+	Events              []MissionEvent `json:"events"`
+	SafeToExecute       bool           `json:"safe_to_execute"`
+	ExecutesWork        bool           `json:"executes_work"`
+	ApprovesWork        bool           `json:"approves_work"`
+	MutatesRepositories bool           `json:"mutates_repositories"`
+	GeneratedAtUTC      string         `json:"generated_at_utc"`
+}
+
+type MissionDoctorReadback struct {
+	Schema              string   `json:"schema"`
+	Status              string   `json:"status"`
+	Root                string   `json:"root"`
+	MissionCount        int      `json:"mission_count"`
+	EventCount          int      `json:"event_count"`
+	LeaseCount          int      `json:"lease_count"`
+	FreshCheckpoints    int      `json:"fresh_checkpoints"`
+	EarlyReturnRisks    int      `json:"early_return_risks"`
+	StaleRoutes         int      `json:"stale_routes"`
+	Checks              []string `json:"checks"`
+	Blockers            []string `json:"blockers"`
+	SafeToExecute       bool     `json:"safe_to_execute"`
+	ExecutesWork        bool     `json:"executes_work"`
+	ApprovesWork        bool     `json:"approves_work"`
+	MutatesRepositories bool     `json:"mutates_repositories"`
+	GeneratedAtUTC      string   `json:"generated_at_utc"`
+}
+
+type MissionReadinessBundleInput struct {
+	Repo string
+	Path string
+}
+
+type MissionReadinessRepoReadback struct {
+	Repo   string `json:"repo"`
+	Path   string `json:"path"`
+	Status string `json:"status"`
+	Score  string `json:"score,omitempty"`
+	SHA256 string `json:"sha256"`
+}
+
+type MissionReadinessBundleReadback struct {
+	Schema              string                         `json:"schema"`
+	Status              string                         `json:"status"`
+	RepoCount           int                            `json:"repo_count"`
+	ReadyRepos          int                            `json:"ready_repos"`
+	BlockedRepos        int                            `json:"blocked_repos"`
+	Repos               []MissionReadinessRepoReadback `json:"repos"`
+	SafeToExecute       bool                           `json:"safe_to_execute"`
+	ExecutesWork        bool                           `json:"executes_work"`
+	ApprovesWork        bool                           `json:"approves_work"`
+	MutatesRepositories bool                           `json:"mutates_repositories"`
+	ExactNextAction     string                         `json:"exact_next_action"`
+	GeneratedAtUTC      string                         `json:"generated_at_utc"`
+}
+
+type GatewayReplayBundleInputs struct {
+	TelegramConfigPath  string
+	TelegramMatrixPath  string
+	TelegramUpdatesPath string
+	TelegramWebhookPath string
+	A2AHTTPPath         string
+	A2ALifecyclePath    string
+	SchedulerPath       string
+}
+
+type GatewayReplayBundleReadback struct {
+	Schema              string   `json:"schema"`
+	Status              string   `json:"status"`
+	TelegramReadbacks   int      `json:"telegram_readbacks"`
+	A2AReadbacks        int      `json:"a2a_readbacks"`
+	SchedulerReadbacks  int      `json:"scheduler_readbacks"`
+	TotalIntents        int      `json:"total_intents"`
+	Denied              int      `json:"denied"`
+	Invalid             int      `json:"invalid"`
+	ReplayRefs          []string `json:"replay_refs"`
+	SafeToExecute       bool     `json:"safe_to_execute"`
+	ExecutesWork        bool     `json:"executes_work"`
+	ApprovesWork        bool     `json:"approves_work"`
+	MutatesRepositories bool     `json:"mutates_repositories"`
+	ExactNextAction     string   `json:"exact_next_action"`
+	GeneratedAtUTC      string   `json:"generated_at_utc"`
+}
+
+type MissionDashboardReadback struct {
+	Schema              string         `json:"schema"`
+	Status              string         `json:"status"`
+	MissionID           string         `json:"mission_id"`
+	MissionStatus       string         `json:"mission_status"`
+	CurrentPhase        string         `json:"current_phase"`
+	CurrentRoute        string         `json:"current_route"`
+	LatestRoute         string         `json:"latest_route"`
+	EventCount          int            `json:"event_count"`
+	EventIndexDigest    string         `json:"event_index_digest"`
+	Compact             bool           `json:"compact"`
+	RecentEvents        []MissionEvent `json:"recent_events"`
+	SafeToExecute       bool           `json:"safe_to_execute"`
+	ExecutesWork        bool           `json:"executes_work"`
+	ApprovesWork        bool           `json:"approves_work"`
+	MutatesRepositories bool           `json:"mutates_repositories"`
+	ExactNextAction     string         `json:"exact_next_action"`
+	GeneratedAtUTC      string         `json:"generated_at_utc"`
+}
+
+type MissionVerificationBundleOptions struct {
+	ReadinessBundlePath     string
+	GatewayReplayBundlePath string
+}
+
+type MissionVerificationBundleComponent struct {
+	Name   string `json:"name"`
+	Schema string `json:"schema"`
+	Path   string `json:"path,omitempty"`
+	Status string `json:"status"`
+	SHA256 string `json:"sha256"`
+}
+
+type MissionVerificationBundleReadback struct {
+	Schema              string                               `json:"schema"`
+	Status              string                               `json:"status"`
+	MissionID           string                               `json:"mission_id"`
+	ComponentCount      int                                  `json:"component_count"`
+	Components          []MissionVerificationBundleComponent `json:"components"`
+	BundleDigest        string                               `json:"bundle_digest"`
+	SafeToExecute       bool                                 `json:"safe_to_execute"`
+	ExecutesWork        bool                                 `json:"executes_work"`
+	ApprovesWork        bool                                 `json:"approves_work"`
+	MutatesRepositories bool                                 `json:"mutates_repositories"`
+	ExactNextAction     string                               `json:"exact_next_action"`
+	GeneratedAtUTC      string                               `json:"generated_at_utc"`
 }
 
 func now(clock func() time.Time) string {
