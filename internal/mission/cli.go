@@ -267,6 +267,26 @@ func run(args []string, stdout io.Writer) error {
 		fmt.Fprintf(stdout, "daemon=%s\nstatus=readback_only\n", args[1])
 		return nil
 	case "telegram":
+		if len(args) >= 2 && args[1] == "webhook-replay" {
+			fs := flag.NewFlagSet("telegram webhook-replay", flag.ContinueOnError)
+			fixturePath := fs.String("fixture", "", "")
+			configPath := fs.String("config", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if *fixturePath == "" || *configPath == "" {
+				return errors.New("telegram webhook-replay requires --fixture and --config")
+			}
+			cfg, err := LoadTelegramConfig(*configPath)
+			if err != nil {
+				return err
+			}
+			readback, err := ReplayTelegramWebhookFixture(*fixturePath, cfg.AllowedChats)
+			if err != nil {
+				return err
+			}
+			return printJSON(stdout, readback)
+		}
 		if len(args) >= 2 && args[1] == "replay-updates" {
 			fs := flag.NewFlagSet("telegram replay-updates", flag.ContinueOnError)
 			fixturePath := fs.String("fixture", "", "")
@@ -322,7 +342,7 @@ func run(args []string, stdout io.Writer) error {
 			}
 			return printJSON(stdout, TelegramConfigReadback(cfg))
 		}
-		return errors.New("telegram requires serve or replay")
+		return errors.New("telegram requires serve, replay, replay-updates, or webhook-replay")
 	case "a2a":
 		if len(args) >= 2 && args[1] == "replay" {
 			fs := flag.NewFlagSet("a2a replay", flag.ContinueOnError)
@@ -524,7 +544,7 @@ func run(args []string, stdout io.Writer) error {
 		return errors.New("validate requires contract --path <file>")
 	case "import":
 		if len(args) < 2 {
-			return errors.New("import requires blueprint-authorization, atlas-workgraph, foundry-run-link, foundry-final-rollup, or scheduler-readback")
+			return errors.New("import requires blueprint-authorization, atlas-workgraph, foundry-run-link, foundry-final-rollup, scheduler-readback, scheduler-recovery-readback, or ledger-compaction-readback")
 		}
 		fs := flag.NewFlagSet("import "+args[1], flag.ContinueOnError)
 		id := fs.String("mission", "", "")

@@ -50,6 +50,7 @@ type EvidenceSummary struct {
 	AtlasWorkgraph    *NodeCounts              `json:"atlas_workgraph,omitempty"`
 	FoundryRollup     *FoundryRollupCounts     `json:"foundry_rollup,omitempty"`
 	SchedulerReadback *SchedulerEvidenceCounts `json:"scheduler_readback,omitempty"`
+	SchedulerRecovery *SchedulerRecoveryCounts `json:"scheduler_recovery,omitempty"`
 	LedgerCompaction  *LedgerCompactionCounts  `json:"ledger_compaction,omitempty"`
 }
 
@@ -73,6 +74,13 @@ type SchedulerEvidenceCounts struct {
 	EventLoop       bool   `json:"event_loop"`
 	FreshnessStatus string `json:"freshness_status"`
 	ExecutesWork    bool   `json:"executes_work"`
+}
+
+type SchedulerRecoveryCounts struct {
+	Status        string `json:"status"`
+	RecoveryMode  string `json:"recovery_mode"`
+	MissedWakeups int    `json:"missed_wakeups"`
+	ExecutesWork  bool   `json:"executes_work"`
 }
 
 type RouteDecision struct {
@@ -236,6 +244,8 @@ type A2ATaskLifecycleReadback struct {
 	IntentRecorded    int       `json:"intent_recorded"`
 	CancelRequested   int       `json:"cancel_requested"`
 	Cancelled         int       `json:"cancelled"`
+	ResumeRequested   int       `json:"resume_requested"`
+	Resumed           int       `json:"resumed"`
 	Tasks             []A2ATask `json:"tasks"`
 	MutationAuthority bool      `json:"mutation_authority"`
 	ExecutesWork      bool      `json:"executes_work"`

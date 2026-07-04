@@ -171,6 +171,16 @@ func ReplayTelegramUpdates(path string, allowlist map[string]string) (GatewayRep
 	return readback, nil
 }
 
+func ReplayTelegramWebhookFixture(path string, allowlist map[string]string) (GatewayReplayReadback, error) {
+	readback, err := ReplayTelegramUpdates(path, allowlist)
+	if err != nil {
+		return GatewayReplayReadback{}, err
+	}
+	readback.Schema = "ao.mission.telegram-webhook-replay-readback.v0.1"
+	readback.Gateway = "telegram_webhook"
+	return readback, nil
+}
+
 func ReplayA2AHTTPFixture(path string) (GatewayReplayReadback, error) {
 	var fixture struct {
 		Schema   string `json:"schema"`
@@ -316,6 +326,10 @@ func ReplayA2ATaskLifecycle(path string) (A2ATaskLifecycleReadback, error) {
 			readback.CancelRequested++
 		case "cancelled":
 			readback.Cancelled++
+		case "resume_requested":
+			readback.ResumeRequested++
+		case "resumed":
+			readback.Resumed++
 		default:
 			return A2ATaskLifecycleReadback{}, fmt.Errorf("A2A lifecycle task %d has unsupported status %q", i, task.Status)
 		}

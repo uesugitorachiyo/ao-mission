@@ -726,6 +726,22 @@ func TestA2ATaskLifecycleFixtureRecordsCancellationAsIntentOnly(t *testing.T) {
 	}
 }
 
+func TestA2ATaskLifecycleFixtureRecordsResumeAndCancelEdges(t *testing.T) {
+	readback, err := ReplayA2ATaskLifecycle(filepath.Join("..", "..", "examples", "valid", "a2a-task-lifecycle-edges.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.Schema != "ao.mission.a2a-task-lifecycle-readback.v0.1" || readback.Status != "ready" {
+		t.Fatalf("bad lifecycle edge readback: %+v", readback)
+	}
+	if readback.Total != 5 || readback.CancelRequested != 1 || readback.Cancelled != 1 || readback.ResumeRequested != 1 || readback.Resumed != 1 {
+		t.Fatalf("bad lifecycle edge counts: %+v", readback)
+	}
+	if readback.MutationAuthority || readback.ExecutesWork || readback.ApprovesWork {
+		t.Fatalf("lifecycle edge replay widened authority: %+v", readback)
+	}
+}
+
 func TestSchedulerReadbackImportClassifiesFreshness(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)
@@ -751,6 +767,61 @@ func TestSchedulerReadbackImportClassifiesFreshness(t *testing.T) {
 	snap := Snapshot(updated)
 	if snap.EvidenceFreshnessStatus != "stale" {
 		t.Fatalf("snapshot freshness=%s", snap.EvidenceFreshnessStatus)
+	}
+}
+
+func TestSchedulerRecoveryReadbackImportRecordsMissedWakeupEvidence(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("schedule long-running workgraph mission")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join("..", "..", "examples", "valid", "scheduler-recovery-readback.json")
+	if _, err := ImportArtifact(s, rec.MissionID, "scheduler-recovery-readback", path); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := s.Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Evidence.SchedulerRecovery == nil || updated.Evidence.SchedulerRecovery.MissedWakeups != 2 {
+		t.Fatalf("scheduler recovery evidence missing: %+v", updated.Evidence)
+	}
+	if updated.CurrentPhase != "scheduler_recovery_recorded" || !strings.Contains(updated.ExactNextAction, "continue") {
+		t.Fatalf("scheduler recovery did not set continuation action: %+v", updated)
+	}
+}
+
+func TestArtifactManifestIncludesImportedRecoveryAndCompactionReadbacks(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("manifest recovery and compaction evidence")
+	if err != nil {
+		t.Fatal(err)
+	}
+	recoveryPath := filepath.Join("..", "..", "examples", "valid", "scheduler-recovery-readback.json")
+	compactionPath := filepath.Join("..", "..", "examples", "valid", "ledger-compaction-readback.json")
+	if _, err := ImportArtifact(s, rec.MissionID, "scheduler-recovery-readback", recoveryPath); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(s, rec.MissionID, "ledger-compaction-readback", compactionPath); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := s.Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest := BuildArtifactManifest(updated)
+	kinds := map[string]bool{}
+	for _, ref := range manifest.ArtifactRefs {
+		kinds[ref.Kind] = true
+	}
+	if !kinds["scheduler-recovery-readback"] || !kinds["ledger-compaction-readback"] {
+		t.Fatalf("manifest missing recovery or compaction refs: %+v", manifest.ArtifactRefs)
+	}
+	if manifest.ExecutesWork || manifest.ApprovesWork || manifest.SafeToExecute {
+		t.Fatalf("manifest widened authority: %+v", manifest)
 	}
 }
 
@@ -1064,6 +1135,40 @@ func TestTelegramUpdateReplayFixtureProducesIntentOnlyReadback(t *testing.T) {
 	}
 	if readback.MutationAuthority || readback.ExecutesWork || readback.ApprovesWork {
 		t.Fatalf("telegram update replay widened authority: %+v", readback)
+	}
+}
+
+func TestTelegramWebhookReplayFixtureMatchesUpdateReplayBoundary(t *testing.T) {
+	readback, err := ReplayTelegramWebhookFixture(filepath.Join("..", "..", "examples", "valid", "telegram-webhook-replay.json"), map[string]string{"1001": "admin", "1002": "user"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.Schema != "ao.mission.telegram-webhook-replay-readback.v0.1" || readback.Gateway != "telegram_webhook" || readback.Status != "ready" {
+		t.Fatalf("bad webhook replay readback: %+v", readback)
+	}
+	if readback.Total != 5 || readback.IntentRecorded != 2 || readback.Denied != 2 || readback.Invalid != 1 {
+		t.Fatalf("bad webhook replay counts: %+v", readback)
+	}
+	if readback.MutationAuthority || readback.ExecutesWork || readback.ApprovesWork {
+		t.Fatalf("telegram webhook replay widened authority: %+v", readback)
+	}
+}
+
+func TestTelegramWebhookReplayCLIEmitsIntentOnlyReadback(t *testing.T) {
+	var out, errb bytes.Buffer
+	if code := Run([]string{
+		"telegram", "webhook-replay",
+		"--fixture", filepath.Join("..", "..", "examples", "valid", "telegram-webhook-replay.json"),
+		"--config", filepath.Join("..", "..", "examples", "valid", "telegram-config.json"),
+	}, &out, &errb); code != 0 {
+		t.Fatalf("telegram webhook replay: %s", errb.String())
+	}
+	var readback GatewayReplayReadback
+	if err := json.Unmarshal(out.Bytes(), &readback); err != nil {
+		t.Fatal(err)
+	}
+	if readback.Schema != "ao.mission.telegram-webhook-replay-readback.v0.1" || readback.ExecutesWork || readback.ApprovesWork {
+		t.Fatalf("bad webhook CLI readback: %+v", readback)
 	}
 }
 
