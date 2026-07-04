@@ -31,6 +31,8 @@ ao-mission telegram replay-updates --fixture examples/valid/telegram-update-repl
 ao-mission telegram webhook-replay --fixture examples/valid/telegram-webhook-replay.json --config examples/valid/telegram-config.json
 ao-mission a2a replay --fixture examples/valid/a2a-http-integration.json
 ao-mission a2a lifecycle --fixture examples/valid/a2a-task-lifecycle-edges.json
+ao-mission a2a compatibility --agent-card examples/valid/a2a-agent-card.json --http examples/valid/a2a-http-integration.json --lifecycle examples/valid/a2a-task-lifecycle-artifacts.json --out tmp/a2a-compatibility.json
+ao-mission gateway replay-suite --telegram-config examples/valid/telegram-config.json --telegram-webhook examples/valid/telegram-webhook-replay.json --telegram-updates examples/valid/telegram-update-replay.json --a2a-http examples/valid/a2a-http-integration.json --a2a-lifecycle examples/valid/a2a-task-lifecycle-artifacts.json --out tmp/gateway-replay-suite.json
 ao-mission schedule replay --fixture examples/valid/scheduler-readback-replay.json
 ao-mission schedule alerts --fixture examples/valid/scheduler-readback-replay.json
 ao-mission schedule recover --mission <mission-id> --fixture examples/valid/scheduler-readback-replay.json
@@ -38,6 +40,8 @@ ao-mission import scheduler-recovery-readback --mission <mission-id> --path exam
 ao-mission import ledger-compaction-readback --mission <mission-id> --path examples/valid/ledger-compaction-readback.json
 ao-mission mission compact --mission <mission-id> --keep-route-history 25 --keep-steps 25 --dry-run
 ao-mission artifacts repair-manifest --path <artifact-manifest.json> --out <artifact-manifest.repaired.json>
+ao-mission governance diff --before <snapshot-before.json> --after <snapshot-after.json>
+ao-mission mission archive --mission <mission-id> --out tmp/<mission-id>-archive.json
 ```
 
 Telegram and A2A fixture checks record intent/readback only. They do not grant

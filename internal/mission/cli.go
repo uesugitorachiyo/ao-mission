@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -131,8 +132,35 @@ func run(args []string, stdout io.Writer) error {
 				return err
 			}
 			return printJSON(stdout, readback)
+		case "archive":
+			fs := flag.NewFlagSet("mission archive", flag.ContinueOnError)
+			id := fs.String("mission", "", "")
+			outPath := fs.String("out", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*id) == "" || strings.TrimSpace(*outPath) == "" {
+				return errors.New("mission archive requires --mission and --out")
+			}
+			r, err := s.Load(*id)
+			if err != nil {
+				return err
+			}
+			archive, err := BuildMissionArchive(r)
+			if err != nil {
+				return err
+			}
+			body, err := json.MarshalIndent(archive, "", "  ")
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+				return err
+			}
+			fmt.Fprintf(stdout, "mission_archive=%s\nmission=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, archive.MissionID)
+			return nil
 		default:
-			return errors.New("mission requires list, inspect, history, or compact")
+			return errors.New("mission requires list, inspect, history, compact, or archive")
 		}
 	case "status":
 		fs := flag.NewFlagSet("status", flag.ContinueOnError)
@@ -375,6 +403,35 @@ func run(args []string, stdout io.Writer) error {
 			}
 			return printJSON(stdout, readback)
 		}
+		if len(args) >= 2 && args[1] == "compatibility" {
+			fs := flag.NewFlagSet("a2a compatibility", flag.ContinueOnError)
+			agentCardPath := fs.String("agent-card", "", "")
+			httpPath := fs.String("http", "", "")
+			lifecyclePath := fs.String("lifecycle", "", "")
+			outPath := fs.String("out", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*agentCardPath) == "" || strings.TrimSpace(*httpPath) == "" || strings.TrimSpace(*lifecyclePath) == "" {
+				return errors.New("a2a compatibility requires --agent-card, --http, and --lifecycle")
+			}
+			readback, err := BuildA2ACompatibilityReadback(*agentCardPath, *httpPath, *lifecyclePath)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(*outPath) == "" {
+				return printJSON(stdout, readback)
+			}
+			body, err := json.MarshalIndent(readback, "", "  ")
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+				return err
+			}
+			fmt.Fprintf(stdout, "a2a_compatibility=%s\nstatus=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, readback.Status)
+			return nil
+		}
 		if len(args) >= 2 && args[1] == "serve" {
 			fs := flag.NewFlagSet("a2a serve", flag.ContinueOnError)
 			httpMode := fs.Bool("http", false, "")
@@ -399,8 +456,82 @@ func run(args []string, stdout io.Writer) error {
 			fmt.Fprintf(stdout, "a2a_listen=%s\nmutation_authority=false\n", ln.Addr().String())
 			return server.Serve(ln)
 		}
-		return errors.New("a2a requires serve, replay, or lifecycle")
+		return errors.New("a2a requires serve, replay, lifecycle, or compatibility")
 	case "gateway":
+		if len(args) >= 2 && args[1] == "replay-suite" {
+			fs := flag.NewFlagSet("gateway replay-suite", flag.ContinueOnError)
+			telegramConfigPath := fs.String("telegram-config", "", "")
+			telegramWebhookPath := fs.String("telegram-webhook", "", "")
+			telegramUpdatesPath := fs.String("telegram-updates", "", "")
+			a2aHTTPPath := fs.String("a2a-http", "", "")
+			a2aLifecyclePath := fs.String("a2a-lifecycle", "", "")
+			outPath := fs.String("out", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*outPath) == "" {
+				return errors.New("gateway replay-suite requires --out")
+			}
+			readbacks := []GatewayReplayReadback{}
+			refs := []string{}
+			var lifecycle *A2ATaskLifecycleReadback
+			var allowedChats map[string]string
+			if strings.TrimSpace(*telegramWebhookPath) != "" || strings.TrimSpace(*telegramUpdatesPath) != "" {
+				if strings.TrimSpace(*telegramConfigPath) == "" {
+					return errors.New("gateway replay-suite requires --telegram-config with Telegram fixtures")
+				}
+				cfg, err := LoadTelegramConfig(*telegramConfigPath)
+				if err != nil {
+					return err
+				}
+				allowedChats = cfg.AllowedChats
+			}
+			if strings.TrimSpace(*telegramWebhookPath) != "" {
+				readback, err := ReplayTelegramWebhookFixture(*telegramWebhookPath, allowedChats)
+				if err != nil {
+					return err
+				}
+				readbacks = append(readbacks, readback)
+				refs = append(refs, filepath.ToSlash(*telegramWebhookPath))
+			}
+			if strings.TrimSpace(*telegramUpdatesPath) != "" {
+				readback, err := ReplayTelegramUpdates(*telegramUpdatesPath, allowedChats)
+				if err != nil {
+					return err
+				}
+				readbacks = append(readbacks, readback)
+				refs = append(refs, filepath.ToSlash(*telegramUpdatesPath))
+			}
+			if strings.TrimSpace(*a2aHTTPPath) != "" {
+				readback, err := ReplayA2AHTTPFixture(*a2aHTTPPath)
+				if err != nil {
+					return err
+				}
+				readbacks = append(readbacks, readback)
+				refs = append(refs, filepath.ToSlash(*a2aHTTPPath))
+			}
+			if strings.TrimSpace(*a2aLifecyclePath) != "" {
+				readback, err := ReplayA2ATaskLifecycle(*a2aLifecyclePath)
+				if err != nil {
+					return err
+				}
+				lifecycle = &readback
+				refs = append(refs, filepath.ToSlash(*a2aLifecyclePath))
+			}
+			if len(readbacks) == 0 && lifecycle == nil {
+				return errors.New("gateway replay-suite requires at least one replay input")
+			}
+			suite := BuildGatewayReplaySuite(readbacks, lifecycle, refs)
+			body, err := json.MarshalIndent(suite, "", "  ")
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+				return err
+			}
+			fmt.Fprintf(stdout, "gateway_replay_suite=%s\nstatus=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, suite.Status)
+			return nil
+		}
 		if len(args) >= 2 && args[1] == "ledger" {
 			fs := flag.NewFlagSet("gateway ledger", flag.ContinueOnError)
 			missionID := fs.String("mission", "", "")
@@ -450,7 +581,7 @@ func run(args []string, stdout io.Writer) error {
 			fmt.Fprintf(stdout, "gateway_intent_ledger=%s\nmission=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, ledger.MissionID)
 			return nil
 		}
-		return errors.New("gateway requires ledger")
+		return errors.New("gateway requires ledger or replay-suite")
 	case "governance":
 		if len(args) >= 2 && args[1] == "snapshot" {
 			id := missionFlag(args[2:])
@@ -460,7 +591,27 @@ func run(args []string, stdout io.Writer) error {
 			}
 			return printJSON(stdout, Snapshot(r))
 		}
-		return errors.New("governance requires snapshot")
+		if len(args) >= 2 && args[1] == "diff" {
+			fs := flag.NewFlagSet("governance diff", flag.ContinueOnError)
+			beforePath := fs.String("before", "", "")
+			afterPath := fs.String("after", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*beforePath) == "" || strings.TrimSpace(*afterPath) == "" {
+				return errors.New("governance diff requires --before and --after")
+			}
+			before, err := LoadGovernanceSnapshot(*beforePath)
+			if err != nil {
+				return err
+			}
+			after, err := LoadGovernanceSnapshot(*afterPath)
+			if err != nil {
+				return err
+			}
+			return printJSON(stdout, DiffGovernanceSnapshots(before, after))
+		}
+		return errors.New("governance requires snapshot or diff")
 	case "command":
 		if len(args) >= 2 && args[1] == "status" {
 			fs := flag.NewFlagSet("command status", flag.ContinueOnError)
