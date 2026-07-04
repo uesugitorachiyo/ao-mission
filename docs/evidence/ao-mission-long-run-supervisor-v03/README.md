@@ -2,8 +2,8 @@
 
 Mission: `ao-mission-long-run-supervisor-v03`
 
-Status: local implementation and readback evidence complete pending final
-verification and any available remote PR lifecycle.
+Status: implementation, readback evidence, post-merge verification, CI, and
+normal PR lifecycle complete.
 
 Scope:
 - AO Mission owns the long-run lease, checkpoint, return gate, route
