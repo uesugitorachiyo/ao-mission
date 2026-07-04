@@ -186,6 +186,8 @@ type TelegramCommandMatrixEntry struct {
 }
 
 type GatewayReplayResult struct {
+	RequestID         string `json:"request_id,omitempty"`
+	ResponseID        string `json:"response_id,omitempty"`
 	Command           string `json:"command,omitempty"`
 	Method            string `json:"method,omitempty"`
 	ExpectedStatus    string `json:"expected_status"`
@@ -206,6 +208,7 @@ type GatewayReplayReadback struct {
 	Stale             int                   `json:"stale,omitempty"`
 	UnknownFreshness  int                   `json:"unknown_freshness,omitempty"`
 	FreshnessStatus   string                `json:"freshness_status,omitempty"`
+	CorrelationID     string                `json:"correlation_id,omitempty"`
 	Results           []GatewayReplayResult `json:"results"`
 	MutationAuthority bool                  `json:"mutation_authority"`
 	ExecutesWork      bool                  `json:"executes_work"`
@@ -252,6 +255,7 @@ type GatewayReplaySuiteReadback struct {
 	Denied            int                       `json:"denied"`
 	Invalid           int                       `json:"invalid"`
 	ArtifactReadbacks int                       `json:"artifact_readbacks"`
+	CorrelationID     string                    `json:"correlation_id,omitempty"`
 	ReplayRefs        []string                  `json:"replay_refs"`
 	Replays           []GatewayReplayReadback   `json:"replays"`
 	A2ALifecycle      *A2ATaskLifecycleReadback `json:"a2a_lifecycle,omitempty"`

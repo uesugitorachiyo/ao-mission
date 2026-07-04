@@ -18,8 +18,9 @@ type TelegramConfig struct {
 }
 
 type TelegramUpdateReplay struct {
-	Schema  string                  `json:"schema"`
-	Updates []TelegramUpdateFixture `json:"updates"`
+	Schema        string                  `json:"schema"`
+	CorrelationID string                  `json:"correlation_id,omitempty"`
+	Updates       []TelegramUpdateFixture `json:"updates"`
 }
 
 type TelegramUpdateFixture struct {
@@ -150,6 +151,7 @@ func ReplayTelegramUpdates(path string, allowlist map[string]string) (GatewayRep
 		Schema:            "ao.mission.telegram-update-replay-readback.v0.1",
 		Gateway:           "telegram",
 		Status:            "ready",
+		CorrelationID:     strings.TrimSpace(fixture.CorrelationID),
 		Results:           []GatewayReplayResult{},
 		MutationAuthority: false,
 		ExecutesWork:      false,
@@ -200,8 +202,9 @@ func ReplayTelegramWebhookFixture(path string, allowlist map[string]string) (Gat
 
 func ReplayA2AHTTPFixture(path string) (GatewayReplayReadback, error) {
 	var fixture struct {
-		Schema   string `json:"schema"`
-		Requests []struct {
+		Schema        string `json:"schema"`
+		CorrelationID string `json:"correlation_id,omitempty"`
+		Requests      []struct {
 			JSONRPC        string         `json:"jsonrpc"`
 			ID             string         `json:"id"`
 			Method         string         `json:"method"`
@@ -226,6 +229,7 @@ func ReplayA2AHTTPFixture(path string) (GatewayReplayReadback, error) {
 		Schema:            "ao.mission.a2a-http-replay-readback.v0.1",
 		Gateway:           "a2a",
 		Status:            "ready",
+		CorrelationID:     strings.TrimSpace(fixture.CorrelationID),
 		Results:           []GatewayReplayResult{},
 		MutationAuthority: false,
 		ExecutesWork:      false,
@@ -244,12 +248,16 @@ func ReplayA2AHTTPFixture(path string) (GatewayReplayReadback, error) {
 		if err != nil {
 			return GatewayReplayReadback{}, err
 		}
-		result := GatewayReplayResult{Method: req.Method, ExpectedStatus: req.ExpectedStatus, ActualStatus: rpc.Result.Status, MutationAuthority: rpc.Result.MutationAuthority}
+		responseID := fmt.Sprint(rpc.ID)
+		result := GatewayReplayResult{RequestID: req.ID, ResponseID: responseID, Method: req.Method, ExpectedStatus: req.ExpectedStatus, ActualStatus: rpc.Result.Status, MutationAuthority: rpc.Result.MutationAuthority}
 		readback.Results = append(readback.Results, result)
 		if rpc.Result.MutationAuthority {
 			readback.MutationAuthority = true
 		}
 		countGatewayStatus(&readback, rpc.Result.Status)
+		if req.ID != "" && responseID != req.ID {
+			readback.Status = "blocked"
+		}
 		if req.ExpectedStatus != "" && rpc.Result.Status != req.ExpectedStatus {
 			readback.Status = "blocked"
 		}

@@ -1,5 +1,6 @@
 {
   "schema": "ao.mission.telegram-update-replay.v0.1",
+  "correlation_id": "corr-telegram-replay-001",
   "updates": [
     {
       "update_id": 1,
