@@ -1201,6 +1201,40 @@ func TestArtifactManifestSelfValidationRejectsInvalidDigestFormat(t *testing.T) 
 	}
 }
 
+func TestArtifactManifestValidationNormalizesTextLineEndings(t *testing.T) {
+	dir := t.TempDir()
+	artifactPath := filepath.Join(dir, "route.json")
+	lfBody := []byte("{\n  \"schema\": \"ao.mission.route-decision.v0.1\"\n}\n")
+	if err := os.WriteFile(artifactPath, []byte("{\r\n  \"schema\": \"ao.mission.route-decision.v0.1\"\r\n}\r\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(lfBody)
+	manifest := FinalizeArtifactManifest(ArtifactManifest{
+		MissionID: "mission-demo",
+		ArtifactRefs: []ArtifactRef{{
+			Schema: "ao.mission.artifact-ref.v0.1",
+			Ref:    artifactPath,
+			Digest: "sha256:" + hex.EncodeToString(sum[:]),
+			Kind:   "route_readback",
+		}},
+	})
+	manifestPath := filepath.Join(dir, "artifact-manifest.json")
+	body, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(manifestPath, append(body, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result, err := ValidateArtifactManifestFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != "passed" || result.ArtifactCount != 1 {
+		t.Fatalf("bad normalized manifest validation: %+v", result)
+	}
+}
+
 func TestArtifactManifestFixtureBindsRecoveryAndCompactionEvidence(t *testing.T) {
 	result, err := ValidateArtifactManifestFile(filepath.Join("..", "..", "examples", "valid", "artifact-manifest-recovery-compaction.json"))
 	if err != nil {
