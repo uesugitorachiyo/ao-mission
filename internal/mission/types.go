@@ -50,6 +50,7 @@ type EvidenceSummary struct {
 	AtlasWorkgraph    *NodeCounts              `json:"atlas_workgraph,omitempty"`
 	FoundryRollup     *FoundryRollupCounts     `json:"foundry_rollup,omitempty"`
 	SchedulerReadback *SchedulerEvidenceCounts `json:"scheduler_readback,omitempty"`
+	LedgerCompaction  *LedgerCompactionCounts  `json:"ledger_compaction,omitempty"`
 }
 
 type NodeCounts struct {
@@ -298,6 +299,7 @@ type SchedulerReplayReadback struct {
 	Unknown        int    `json:"unknown"`
 	ExecutesWork   bool   `json:"executes_work"`
 	ApprovesWork   bool   `json:"approves_work"`
+	EvaluatedAtUTC string `json:"evaluated_at_utc"`
 	GeneratedAtUTC string `json:"generated_at_utc"`
 }
 
@@ -312,6 +314,48 @@ type SchedulerAlertSummary struct {
 	ExecutesWork   bool     `json:"executes_work"`
 	ApprovesWork   bool     `json:"approves_work"`
 	GeneratedAtUTC string   `json:"generated_at_utc"`
+}
+
+type SchedulerRecoveryReadback struct {
+	Schema          string `json:"schema"`
+	MissionID       string `json:"mission_id"`
+	Status          string `json:"status"`
+	RecoveryMode    string `json:"recovery_mode"`
+	MissedWakeups   int    `json:"missed_wakeups"`
+	Fresh           int    `json:"fresh"`
+	Stale           int    `json:"stale"`
+	Unknown         int    `json:"unknown"`
+	ExactNextAction string `json:"exact_next_action"`
+	ExecutesWork    bool   `json:"executes_work"`
+	ApprovesWork    bool   `json:"approves_work"`
+	GeneratedAtUTC  string `json:"generated_at_utc"`
+}
+
+type LedgerCompactionOptions struct {
+	KeepRouteHistory int
+	KeepSteps        int
+}
+
+type LedgerCompactionCounts struct {
+	RouteHistoryBefore int `json:"route_history_before"`
+	RouteHistoryAfter  int `json:"route_history_after"`
+	StepsBefore        int `json:"steps_before"`
+	StepsAfter         int `json:"steps_after"`
+}
+
+type LedgerCompactionReadback struct {
+	Schema              string `json:"schema"`
+	MissionID           string `json:"mission_id"`
+	Status              string `json:"status"`
+	RouteHistoryBefore  int    `json:"route_history_before"`
+	RouteHistoryAfter   int    `json:"route_history_after"`
+	StepsBefore         int    `json:"steps_before"`
+	StepsAfter          int    `json:"steps_after"`
+	ExactNextAction     string `json:"exact_next_action"`
+	ExecutesWork        bool   `json:"executes_work"`
+	ApprovesWork        bool   `json:"approves_work"`
+	MutatesRepositories bool   `json:"mutates_repositories"`
+	GeneratedAtUTC      string `json:"generated_at_utc"`
 }
 
 type CommandStatus struct {

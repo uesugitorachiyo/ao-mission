@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 )
 
 func ReplaySchedulerReadbacks(path string) (SchedulerReplayReadback, error) {
 	var fixture struct {
-		Schema    string `json:"schema"`
-		Readbacks []struct {
+		Schema         string `json:"schema"`
+		EvaluatedAtUTC string `json:"evaluated_at_utc"`
+		Readbacks      []struct {
 			Schema         string `json:"schema"`
 			MissionID      string `json:"mission_id"`
 			Status         string `json:"status"`
@@ -35,7 +37,16 @@ func ReplaySchedulerReadbacks(path string) (SchedulerReplayReadback, error) {
 		Status:         "ready",
 		ExecutesWork:   false,
 		ApprovesWork:   false,
+		EvaluatedAtUTC: fixture.EvaluatedAtUTC,
 		GeneratedAtUTC: now(nil),
+	}
+	evaluatedAt := time.Now().UTC()
+	if fixture.EvaluatedAtUTC != "" {
+		parsed, err := time.Parse(time.RFC3339, fixture.EvaluatedAtUTC)
+		if err != nil {
+			return SchedulerReplayReadback{}, fmt.Errorf("scheduler replay evaluated_at_utc must be RFC3339")
+		}
+		evaluatedAt = parsed.UTC()
 	}
 	for _, item := range fixture.Readbacks {
 		if item.Schema != SchedulerReadbackSchema {
@@ -45,7 +56,7 @@ func ReplaySchedulerReadbacks(path string) (SchedulerReplayReadback, error) {
 			return SchedulerReplayReadback{}, fmt.Errorf("scheduler replay item must not claim execution or approval authority")
 		}
 		readback.Total++
-		switch classifyFreshness(item.GeneratedAtUTC) {
+		switch classifyFreshnessAt(item.GeneratedAtUTC, evaluatedAt) {
 		case "fresh":
 			readback.Fresh++
 		case "stale":

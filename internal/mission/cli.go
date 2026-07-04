@@ -114,8 +114,24 @@ func run(args []string, stdout io.Writer) error {
 				fmt.Fprintf(stdout, "route=%s reason=%s safe_to_execute=%t next=%s\n", item.Route, item.Reason, item.SafeToExecute, item.ExactNextAction)
 			}
 			return nil
+		case "compact":
+			fs := flag.NewFlagSet("mission compact", flag.ContinueOnError)
+			id := fs.String("mission", "", "")
+			keepRouteHistory := fs.Int("keep-route-history", 25, "")
+			keepSteps := fs.Int("keep-steps", 25, "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*id) == "" {
+				return errors.New("mission compact requires --mission")
+			}
+			readback, err := CompactMissionLedger(s, *id, LedgerCompactionOptions{KeepRouteHistory: *keepRouteHistory, KeepSteps: *keepSteps})
+			if err != nil {
+				return err
+			}
+			return printJSON(stdout, readback)
 		default:
-			return errors.New("mission requires list, inspect, or history")
+			return errors.New("mission requires list, inspect, history, or compact")
 		}
 	case "status":
 		fs := flag.NewFlagSet("status", flag.ContinueOnError)
@@ -218,6 +234,22 @@ func run(args []string, stdout io.Writer) error {
 				return err
 			}
 			return printJSON(stdout, BuildSchedulerAlertSummary(readback))
+		}
+		if len(args) >= 2 && args[1] == "recover" {
+			fs := flag.NewFlagSet("schedule recover", flag.ContinueOnError)
+			id := fs.String("mission", "", "")
+			fixturePath := fs.String("fixture", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*id) == "" || strings.TrimSpace(*fixturePath) == "" {
+				return errors.New("schedule recover requires --mission and --fixture")
+			}
+			readback, err := ReplaySchedulerReadbacks(*fixturePath)
+			if err != nil {
+				return err
+			}
+			return printJSON(stdout, BuildSchedulerRecoveryReadback(*id, readback))
 		}
 		fs := flag.NewFlagSet("schedule", flag.ContinueOnError)
 		id := fs.String("mission", "", "")
