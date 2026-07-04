@@ -302,6 +302,19 @@ type A2AStreamingDenialReadback struct {
 	GeneratedAtUTC     string `json:"generated_at_utc"`
 }
 
+type A2ACancellationReplayReadback struct {
+	Schema            string `json:"schema"`
+	Status            string `json:"status"`
+	Total             int    `json:"total"`
+	CancelRequested   int    `json:"cancel_requested"`
+	Cancelled         int    `json:"cancelled"`
+	MutationAuthority bool   `json:"mutation_authority"`
+	ExecutesWork      bool   `json:"executes_work"`
+	ApprovesWork      bool   `json:"approves_work"`
+	ExactNextAction   string `json:"exact_next_action"`
+	GeneratedAtUTC    string `json:"generated_at_utc"`
+}
+
 type A2AAgentCard struct {
 	Schema             string          `json:"schema"`
 	Name               string          `json:"name"`
@@ -512,7 +525,9 @@ type MissionArchiveImportReadback struct {
 
 type GatewayReadinessRollup struct {
 	Schema              string   `json:"schema"`
+	MissionID           string   `json:"mission_id,omitempty"`
 	Status              string   `json:"status"`
+	CorrelationID       string   `json:"correlation_id,omitempty"`
 	ReadbackCount       int      `json:"readback_count"`
 	BlockedReadbacks    int      `json:"blocked_readbacks"`
 	ReadbackRefs        []string `json:"readback_refs"`

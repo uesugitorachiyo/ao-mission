@@ -49,7 +49,11 @@ Use `ao-mission a2a compatibility --agent-card examples/valid/a2a-agent-card.jso
 
 Use `ao-mission a2a streaming-denial --agent-card examples/invalid/a2a-agent-card-streaming.json --out tmp/a2a-streaming-denial.json` to prove streaming and push-style capability requests stay denied unless separately gated.
 
-Use `ao-mission gateway readiness-rollup --suite tmp/gateway-replay-suite.json --a2a-compatibility tmp/a2a-compatibility.json --archive-validation tmp/archive-validation.json --snapshot-diff tmp/snapshot-diff.json --out tmp/gateway-readiness-rollup.json` after generating the referenced packets to bind gateway readiness into one no-authority summary.
+Use `ao-mission a2a cancellation-replay --lifecycle examples/valid/a2a-task-lifecycle.json --out tmp/a2a-cancellation-replay.json` to prove A2A cancellation requests and cancelled states remain lifecycle readbacks, not execution authority.
+
+Use `ao-mission gateway readiness-rollup --mission <mission-id> --suite tmp/gateway-replay-suite.json --a2a-compatibility tmp/a2a-compatibility.json --archive-validation tmp/archive-validation.json --snapshot-diff tmp/snapshot-diff.json --correlation-id corr-gateway-001 --out tmp/gateway-readiness-rollup.json` after generating the referenced packets to bind gateway readiness into one no-authority summary. The `mission_id` lets Atlas and Foundry validate the rollup against the mission record, and the `correlation_id` connects replay artifacts to downstream Atlas, Foundry, and Command rollups without approving, scheduling, or executing work.
+
+The reference pattern from Hermes is a single gateway process with cross-session continuity; AO Mission keeps that pattern but narrows it to intent/readback artifacts. The reference pattern from A2A is Agent Card discovery, task lifecycle, streaming, push notifications, and cancellation; AO Mission advertises readback-only skills, keeps `streaming=false` and `push_notifications=false`, and records cancellation as evidence only.
 
 ## Operator Rule
 
