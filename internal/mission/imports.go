@@ -57,23 +57,53 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 			rec.CurrentPhase = "atlas_workgraph_ready"
 			rec.ExactNextAction = "send first safe Atlas node to AO Foundry"
 			AppendRouteHistory(rec, routeFromRecord(*rec, "Atlas workgraph imported"))
+			gate := EvaluateReturnGate(*rec)
+			rec.ReturnGate = &gate
+			reconciliation := BuildRouteReconciliation(*rec)
+			rec.Reconciliation = &reconciliation
 		case "foundry-run-link":
 			rec.CurrentPhase = "foundry_run_link_recorded"
 			rec.ExactNextAction = "read next Atlas dependency-unblocked node or final rollup"
 			AppendRouteHistory(rec, routeFromRecord(*rec, "Foundry run-link imported"))
+			gate := EvaluateReturnGate(*rec)
+			rec.ReturnGate = &gate
+			reconciliation := BuildRouteReconciliation(*rec)
+			rec.Reconciliation = &reconciliation
 		case "foundry-final-rollup":
 			rollup := parseFoundryRollupCounts(doc)
 			rec.Evidence.FoundryRollup = &rollup
-			if rollup.Status == "completed" && rollup.TotalNodes > 0 && rollup.CompletedNodes == rollup.TotalNodes {
+			switch normalizeFoundryRollupStatus(rollup.Status) {
+			case "completed", "promoted":
+				if !foundryRollupClosesMission(rollup) {
+					rec.CurrentPhase = "foundry_final_rollup_recorded"
+					rec.ExactNextAction = "review final rollup node counts before closure"
+					break
+				}
 				rec.Status = "done"
 				rec.CurrentRoute = "complete"
 				rec.CurrentPhase = "complete"
 				rec.ExactNextAction = "mission complete; read final rollup and recommended next tasks"
-			} else {
+			case "denied":
+				rec.Status = "blocked"
+				rec.CurrentRoute = "ao-atlas"
+				rec.CurrentPhase = "foundry_rollup_denied"
+				rec.ExactNextAction = "Foundry rollup denied; generate repair/repack support node through AO Atlas"
+				rec.Blockers = appendMissingString(rec.Blockers, "foundry final rollup status denied")
+			case "blocked":
+				rec.Status = "blocked"
+				rec.CurrentRoute = "ao-atlas"
+				rec.CurrentPhase = "foundry_rollup_blocked"
+				rec.ExactNextAction = "Foundry rollup blocked; resolve exact blocker before continuing"
+				rec.Blockers = appendMissingString(rec.Blockers, "foundry final rollup status blocked")
+			default:
 				rec.CurrentPhase = "foundry_final_rollup_recorded"
 				rec.ExactNextAction = "review final rollup blockers before continuing"
 			}
 			AppendRouteHistory(rec, routeFromRecord(*rec, "Foundry final rollup imported"))
+			gate := EvaluateReturnGate(*rec)
+			rec.ReturnGate = &gate
+			reconciliation := BuildRouteReconciliation(*rec)
+			rec.Reconciliation = &reconciliation
 		case "scheduler-readback":
 			rec.Evidence.SchedulerReadback = &SchedulerEvidenceCounts{
 				Status:          stringFromAny(doc["status"]),
@@ -201,10 +231,19 @@ func countWorkgraphNodes(doc map[string]any) NodeCounts {
 func parseFoundryRollupCounts(doc map[string]any) FoundryRollupCounts {
 	status, _ := doc["status"].(string)
 	return FoundryRollupCounts{
-		Status:         status,
+		Status:         normalizeFoundryRollupStatus(status),
 		CompletedNodes: intFromAny(doc["completed_nodes"]),
 		TotalNodes:     intFromAny(doc["total_nodes"]),
 	}
+}
+
+func appendMissingString(values []string, value string) []string {
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
 }
 
 func intFromAny(v any) int {

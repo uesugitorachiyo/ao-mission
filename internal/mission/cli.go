@@ -435,10 +435,23 @@ func run(args []string, stdout io.Writer) error {
 		id := fs.String("mission", "", "")
 		until := fs.Bool("until-done", false, "")
 		max := fs.Int("max-iterations", 1, "")
+		minNodes := fs.Int("min-nodes", 0, "")
+		minMinutes := fs.Int("min-minutes", 0, "")
+		maxMinutes := fs.Int("max-minutes", 0, "")
+		returnOnlyWhen := fs.String("return-only-when", "", "")
+		checkpointPolicy := fs.String("checkpoint-policy", "", "")
 		if err := fs.Parse(args[1:]); err != nil {
 			return err
 		}
-		r, err := Continue(s, *id, ContinueOptions{UntilDone: *until, MaxIterations: *max})
+		r, err := Continue(s, *id, ContinueOptions{
+			UntilDone:        *until,
+			MaxIterations:    *max,
+			MinNodes:         *minNodes,
+			MinMinutes:       *minMinutes,
+			MaxMinutes:       *maxMinutes,
+			ReturnOnlyWhen:   *returnOnlyWhen,
+			CheckpointPolicy: *checkpointPolicy,
+		})
 		if err != nil {
 			return err
 		}

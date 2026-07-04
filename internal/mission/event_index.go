@@ -137,7 +137,37 @@ func BuildMissionDoctorReadback(s Store) MissionDoctorReadback {
 	}
 	readback.MissionCount = index.MissionCount
 	readback.EventCount = index.TotalEvents
-	readback.Checks = append(readback.Checks, "mission_records_readable", "mission_event_index_readable", "authority_flags_false")
+	records, err := s.List()
+	if err != nil {
+		readback.Status = "blocked"
+		readback.Blockers = append(readback.Blockers, "mission records reload failed: "+err.Error())
+		return readback
+	}
+	for _, record := range records {
+		if record.GoalLease != nil {
+			readback.LeaseCount++
+		}
+		if len(record.Checkpoints) > 0 {
+			readback.FreshCheckpoints++
+		}
+		if record.ReturnGate != nil && !record.ReturnGate.FinalResponseAllowed {
+			readback.EarlyReturnRisks++
+		}
+		if record.Reconciliation != nil && record.Reconciliation.Status == "stale_route_detected" {
+			readback.StaleRoutes++
+			readback.Status = "blocked"
+			readback.Blockers = append(readback.Blockers, "stale route reconciliation for "+record.MissionID)
+		}
+	}
+	readback.Checks = append(readback.Checks,
+		"mission_records_readable",
+		"mission_event_index_readable",
+		"authority_flags_false",
+		"lease_health_checked",
+		"checkpoint_freshness_checked",
+		"stale_route_reconciliation_checked",
+		"early_return_risk_checked",
+	)
 	return readback
 }
 
@@ -290,6 +320,64 @@ func missionEventsForRecord(record Record) []MissionEvent {
 			Sequence:     i + 1,
 			ArtifactKind: ref.Kind,
 			Summary:      strings.TrimSpace(ref.Kind + " " + ref.Ref + " " + ref.Digest),
+		})
+	}
+	if record.GoalLease != nil {
+		events = append(events, MissionEvent{
+			Schema:         "ao.mission.event.v0.1",
+			MissionID:      record.MissionID,
+			Kind:           "goal_lease",
+			Sequence:       len(events) + 1,
+			Status:         "ready",
+			Summary:        fmt.Sprintf("lease min_nodes=%d min_minutes=%d max_minutes=%d return_only_when=%s checkpoint_policy=%s", record.GoalLease.MinNodes, record.GoalLease.MinMinutes, record.GoalLease.MaxMinutes, record.GoalLease.ReturnOnlyWhen, record.GoalLease.CheckpointPolicy),
+			GeneratedAtUTC: record.GoalLease.UpdatedAtUTC,
+		})
+	}
+	for i, checkpoint := range record.Checkpoints {
+		events = append(events, MissionEvent{
+			Schema:         "ao.mission.event.v0.1",
+			MissionID:      record.MissionID,
+			Kind:           "checkpoint",
+			Sequence:       i + 1,
+			Status:         checkpoint.Result,
+			Route:          checkpoint.Route,
+			Phase:          checkpoint.Phase,
+			Summary:        checkpoint.ResumeCommand + " " + checkpoint.ExactNextAction,
+			GeneratedAtUTC: checkpoint.GeneratedAtUTC,
+		})
+	}
+	if record.Evidence.FoundryRollup != nil {
+		events = append(events, MissionEvent{
+			Schema:         "ao.mission.event.v0.1",
+			MissionID:      record.MissionID,
+			Kind:           "foundry_rollup",
+			Sequence:       len(events) + 1,
+			Status:         record.Evidence.FoundryRollup.Status,
+			Summary:        fmt.Sprintf("foundry rollup status %s completed_nodes=%d total_nodes=%d", record.Evidence.FoundryRollup.Status, record.Evidence.FoundryRollup.CompletedNodes, record.Evidence.FoundryRollup.TotalNodes),
+			GeneratedAtUTC: record.UpdatedAtUTC,
+		})
+	}
+	if record.ReturnGate != nil {
+		events = append(events, MissionEvent{
+			Schema:         "ao.mission.event.v0.1",
+			MissionID:      record.MissionID,
+			Kind:           "return_gate",
+			Sequence:       len(events) + 1,
+			Status:         record.ReturnGate.Status,
+			Summary:        record.ReturnGate.Reason + " " + record.ReturnGate.ExactNextAction,
+			GeneratedAtUTC: record.ReturnGate.GeneratedAtUTC,
+		})
+	}
+	if record.Reconciliation != nil {
+		events = append(events, MissionEvent{
+			Schema:         "ao.mission.event.v0.1",
+			MissionID:      record.MissionID,
+			Kind:           "route_reconciliation",
+			Sequence:       len(events) + 1,
+			Status:         record.Reconciliation.Status,
+			Route:          record.Reconciliation.CurrentRoute,
+			Summary:        record.Reconciliation.ExactNextAction,
+			GeneratedAtUTC: record.Reconciliation.GeneratedAtUTC,
 		})
 	}
 	return events

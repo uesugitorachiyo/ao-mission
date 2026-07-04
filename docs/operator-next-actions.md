@@ -17,10 +17,12 @@ ao-mission status --mission <mission-id>
 ## Continue Locally
 
 ```sh
-ao-mission continue --mission <mission-id> --until-done --max-iterations 10
+ao-mission continue --mission <mission-id> --until-done --max-iterations 20 --min-nodes 15 --min-minutes 120 --max-minutes 180
 ao-mission mission history --mission <mission-id>
 ao-mission mission events index --out tmp/mission-event-index.json
 ao-mission mission events search --mission <mission-id> --query "AO Atlas" --index tmp/mission-event-index.json --json
+ao-mission mission events search --mission <mission-id> --query "checkpoint" --index tmp/mission-event-index.json --json
+ao-mission mission events search --mission <mission-id> --query "return_gate" --index tmp/mission-event-index.json --json
 ao-mission mission dashboard --mission <mission-id> --compact --out tmp/<mission-id>-dashboard.json
 ao-mission mission verification-bundle --mission <mission-id> --readiness-bundle tmp/ao-mission-readiness-bundle.json --gateway-replay-bundle tmp/gateway-replay-bundle.json --out tmp/<mission-id>-verification-bundle.json
 ao-mission mission compact --mission <mission-id> --keep-route-history 25 --keep-steps 25
@@ -30,6 +32,18 @@ ao-mission mission validate-archive --path tmp/<mission-id>-archive.json --out t
 ao-mission artifacts manifest --mission <mission-id> --out tmp/<mission-id>-artifact-manifest.json
 ao-mission final rollup --mission <mission-id>
 ```
+
+For 2-3 hour work, AO Mission owns the long-run supervisor lease and checkpoint
+ledger. Atlas owns workgraph and context-heavy sequencing. Foundry owns exactly
+one bounded implementation node at a time. Blueprint is used only when Mission
+or Atlas lacks requirements, authorization, or a safe class boundary. Do not
+route ready Atlas nodes through Blueprint for batching.
+
+The final rollup is not a final response unless `final_response_allowed=true`.
+If it is false, use `exact_next_action`, the latest checkpoint bundle, and the
+Feature Depth Recommendations to continue. A true terminal hard blocker is a
+blocked or denied rollup, stopped mission, explicit blocker list, or safety
+boundary mismatch after repair/repack/support work has already been attempted.
 
 ## Gateway Fixture Checks
 
@@ -93,3 +107,20 @@ Atlas node through Foundry gates.
 
 If it returns `complete`, read the final rollup and recommended next tasks. Do
 not treat a generated handoff file alone as completion.
+
+## Long-Run Role Routing
+
+Use AO Mission when the operator asks for a 2-3 hour run, minimum node budget,
+checkpoint/resume behavior, final-response gating, or cross-repo readback
+reconciliation.
+
+Use AO Atlas when the work needs an ordered workgraph, context pack, exact next
+ready node, repair plan, or Feature Depth Recommendation wave.
+
+Use AO Foundry when Atlas has produced a ready bounded node and the next action
+is implementation evidence, tests, rollback evidence, or a run-link/final
+rollup.
+
+Use AO Blueprint only for missing requirements, missing authorization, or an
+underspecified objective. Blueprint should not be used to split ordinary ready
+implementation batches.

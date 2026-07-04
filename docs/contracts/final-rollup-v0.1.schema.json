@@ -13,6 +13,13 @@
     "executes_work": { "type": "boolean" },
     "approves_work": { "type": "boolean" },
     "provider_calls": { "type": "boolean" },
+    "final_response_allowed": { "type": "boolean" },
+    "return_gate_status": { "type": "string" },
+    "ready_nodes_remaining": { "type": "integer" },
+    "completed_nodes": { "type": "integer" },
+    "total_nodes": { "type": "integer" },
+    "atlas_continuation_prompt": { "type": "string" },
+    "feature_depth_recommendations": { "type": "array" },
     "exact_next_action": { "type": "string" },
     "remaining_denied_surfaces": { "type": "array" },
     "generated_at_utc": { "type": "string" }

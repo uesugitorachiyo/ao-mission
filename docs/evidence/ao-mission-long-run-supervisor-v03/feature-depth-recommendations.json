@@ -1,0 +1,22 @@
+{
+  "schema": "ao.mission.feature-depth-recommendations.v0.3",
+  "mission_id": "ao-mission-long-run-supervisor-v03",
+  "status": "ready",
+  "minimum_tasks": 10,
+  "recommendation_count": 10,
+  "tasks": [
+    {"id": "next-01-mission-cli-fixtures", "owner": "ao-mission", "task": "Add CLI fixture examples for lease flags and checkpoint bundle readback."},
+    {"id": "next-02-mission-dashboard-fields", "owner": "ao-mission", "task": "Expose return gate and checkpoint count in Mission dashboard readback."},
+    {"id": "next-03-command-final-rollup-reader", "owner": "ao-command", "task": "Add AO Command reader for Mission final rollup return-gate fields."},
+    {"id": "next-04-atlas-recommendation-import", "owner": "ao-atlas", "task": "Import Mission Feature Depth Recommendations into Atlas workgraph generation."},
+    {"id": "next-05-foundry-run-link-rollup", "owner": "ao-foundry", "task": "Emit a compact run-link readiness summary consumable by Mission."},
+    {"id": "next-06-promoter-no-promotion-summary", "owner": "ao-promoter", "task": "Bind no-promotion readback to denied and blocked terminal rollups."},
+    {"id": "next-07-sentinel-stale-wording", "owner": "ao-sentinel", "task": "Add stale public-safety wording scan fixture for Mission docs."},
+    {"id": "next-08-blueprint-routing-audit", "owner": "ao-blueprint", "task": "Add docs explaining Blueprint is requirements-only for long-run work."},
+    {"id": "next-09-e2e-mission-atlas-foundry", "owner": "ao-foundry", "task": "Add smoke proving Mission supervises Atlas without short return."},
+    {"id": "next-10-checkpoint-recovery", "owner": "ao-mission", "task": "Add recovery test that reloads checkpoint bundle and resumes continuation."}
+  ],
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false
+}

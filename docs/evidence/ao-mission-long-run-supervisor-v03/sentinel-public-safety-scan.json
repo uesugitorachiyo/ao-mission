@@ -1,0 +1,12 @@
+{
+  "schema": "ao.sentinel.public-safety-wording-readback.v0.1",
+  "status": "pending_final_scan",
+  "mission_id": "ao-mission-long-run-supervisor-v03",
+  "scope": ["ao-mission", "ao-atlas", "ao-foundry", "ao-command"],
+  "unsafe_public_claims_found": false,
+  "broad_RSI": "denied",
+  "exact_next_action": "run production-readiness public-safety scans after final formatting",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false
+}

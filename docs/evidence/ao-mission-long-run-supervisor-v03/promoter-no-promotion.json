@@ -1,0 +1,11 @@
+{
+  "schema": "ao.promoter.no-promotion-readback.v0.1",
+  "status": "no_promotion_requested",
+  "mission_id": "ao-mission-long-run-supervisor-v03",
+  "reason": "This correction improves long-run orchestration and readback quality only; it does not prove broad_RSI or expand execution authority.",
+  "broad_RSI": "denied",
+  "unrestricted_self_modification": "denied",
+  "safe_to_promote": false,
+  "executes_work": false,
+  "approves_work": false
+}

@@ -3,8 +3,13 @@ package mission
 import "errors"
 
 type ContinueOptions struct {
-	UntilDone     bool
-	MaxIterations int
+	UntilDone        bool
+	MaxIterations    int
+	MinNodes         int
+	MinMinutes       int
+	MaxMinutes       int
+	ReturnOnlyWhen   string
+	CheckpointPolicy string
 }
 
 func Continue(s Store, missionID string, opts ContinueOptions) (Record, error) {
@@ -18,13 +23,22 @@ func Continue(s Store, missionID string, opts ContinueOptions) (Record, error) {
 		if r.Status == "paused" {
 			return errors.New("mission is paused")
 		}
+		lease := ensureGoalLease(r, opts)
 		for i := 0; i < opts.MaxIterations; i++ {
+			if r.Status == "done" || hardBlockerExists(*r) {
+				break
+			}
 			decision := NextAction(*r)
 			step := ContinuationStep{Schema: StepSchema, MissionID: r.MissionID, Iteration: len(r.Steps) + 1, Route: decision.Route, Result: "handoff_required", ExactNextAction: decision.ExactNextAction, GeneratedAtUTC: now(s.Clock)}
 			r.Steps = append(r.Steps, step)
 			r.CurrentRoute = decision.Route
 			r.CurrentPhase = "handoff_required"
 			r.ExactNextAction = decision.ExactNextAction
+			appendMissionCheckpoint(r, step)
+			gate := EvaluateReturnGate(*r)
+			r.ReturnGate = &gate
+			reconciliation := BuildRouteReconciliation(*r)
+			r.Reconciliation = &reconciliation
 			if err := s.SaveEventLoopDecision(EventLoopDecision{
 				Schema:              EventLoopDecisionSchema,
 				MissionID:           r.MissionID,
@@ -39,12 +53,20 @@ func Continue(s Store, missionID string, opts ContinueOptions) (Record, error) {
 			}); err != nil {
 				return err
 			}
+			if err := s.SaveCheckpointBundle(BuildCheckpointBundle(*r)); err != nil {
+				return err
+			}
 			if !opts.UntilDone {
 				break
 			}
-			// v0.1 does not execute downstream systems itself; stop the zero-wait loop at the first required governed handoff.
-			break
+			if r.ReturnGate != nil && r.ReturnGate.FinalResponseAllowed && len(r.Steps) >= lease.MinNodes {
+				break
+			}
 		}
+		gate := EvaluateReturnGate(*r)
+		r.ReturnGate = &gate
+		reconciliation := BuildRouteReconciliation(*r)
+		r.Reconciliation = &reconciliation
 		return nil
 	})
 }

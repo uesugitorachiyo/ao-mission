@@ -1,0 +1,12 @@
+{
+  "schema": "ao.atlas.final-state-reconciliation.v0.1",
+  "status": "ready",
+  "workgraph_status": "completed",
+  "foundry_rollup_status": "run_links_recorded",
+  "promoter_verdict_status": "not_bound",
+  "command_readback_status": "compact_bound",
+  "exact_next_action": "continue with next Feature Depth wave only after final verification",
+  "schedules_work": false,
+  "executes_work": false,
+  "approves_work": false
+}

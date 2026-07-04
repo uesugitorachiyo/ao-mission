@@ -27,8 +27,14 @@ func TestMissionLifecycleAndSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(r.Steps) != 1 {
+	if len(r.Steps) != 10 {
 		t.Fatalf("steps=%d", len(r.Steps))
+	}
+	if r.GoalLease == nil || r.GoalLease.MinNodes != 10 || r.GoalLease.ReturnOnlyWhen == "" {
+		t.Fatalf("missing long-run lease: %+v", r.GoalLease)
+	}
+	if len(r.Checkpoints) != len(r.Steps) {
+		t.Fatalf("checkpoints=%d steps=%d", len(r.Checkpoints), len(r.Steps))
 	}
 	snap := Snapshot(r)
 	if snap.SafeToExecute {
@@ -56,11 +62,62 @@ func TestContinuePersistsEventLoopDecision(t *testing.T) {
 	if decision.Schema != EventLoopDecisionSchema || decision.MissionID != rec.MissionID {
 		t.Fatalf("bad event loop decision: %+v", decision)
 	}
-	if decision.Status != "handoff_required" || decision.Route != "ao-atlas" || decision.Iteration != 1 {
+	if decision.Status != "handoff_required" || decision.Route != "ao-atlas" || decision.Iteration != 3 {
 		t.Fatalf("unexpected event loop decision: %+v", decision)
 	}
 	if decision.ExecutesWork || decision.ApprovesWork || decision.MutatesRepositories {
 		t.Fatalf("event loop widened authority: %+v", decision)
+	}
+}
+
+func TestContinueUntilDoneDoesNotStopAfterOneHandoff(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("supervise long-running atlas workgraph mission")
+	if err != nil {
+		t.Fatal(err)
+	}
+	continued, err := Continue(s, rec.MissionID, ContinueOptions{UntilDone: true, MaxIterations: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(continued.Steps) != 4 {
+		t.Fatalf("until-done stopped early after %d steps", len(continued.Steps))
+	}
+	if continued.ReturnGate == nil || continued.ReturnGate.FinalResponseAllowed {
+		t.Fatalf("premature final return should be denied: %+v", continued.ReturnGate)
+	}
+}
+
+func TestContinueWritesCheckpointBundleAndDoctorSupervisorHealth(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("supervise checkpointed atlas workgraph mission")
+	if err != nil {
+		t.Fatal(err)
+	}
+	continued, err := Continue(s, rec.MissionID, ContinueOptions{UntilDone: true, MaxIterations: 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := s.LoadCheckpointBundle(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bundle.Schema != CheckpointBundleSchema || bundle.CheckpointCount != 3 || bundle.ExecutesWork || bundle.ApprovesWork || bundle.MutatesRepositories {
+		t.Fatalf("bad checkpoint bundle: %+v", bundle)
+	}
+	if bundle.ReturnGate == nil || bundle.ReturnGate.FinalResponseAllowed {
+		t.Fatalf("checkpoint bundle should carry early-return denial: %+v", bundle.ReturnGate)
+	}
+	doctor := BuildMissionDoctorReadback(s)
+	if doctor.Schema != "ao.mission.doctor-readback.v0.1" || doctor.LeaseCount != 1 || doctor.FreshCheckpoints != 1 || doctor.EarlyReturnRisks != 1 {
+		t.Fatalf("doctor missing supervisor health: %+v continued=%+v", doctor, continued)
+	}
+	for _, want := range []string{"lease_health_checked", "checkpoint_freshness_checked", "stale_route_reconciliation_checked", "early_return_risk_checked"} {
+		if !stringSliceContains(doctor.Checks, want) {
+			t.Fatalf("doctor missing check %q: %+v", want, doctor)
+		}
 	}
 }
 
@@ -125,6 +182,17 @@ func TestSchedulerReadbackImportRejectsExecutionAuthority(t *testing.T) {
 	}
 	if updated.Evidence.SchedulerReadback != nil {
 		t.Fatalf("unsafe scheduler readback was recorded: %+v", updated.Evidence.SchedulerReadback)
+	}
+}
+
+func TestRouterSendsConcreteBatchSupervisionToAtlasNotBlueprint(t *testing.T) {
+	decision := DecideRoute("mission-route", "supervise twenty bounded implementation and evidence nodes", nil)
+	if decision.Route != "ao-atlas" {
+		t.Fatalf("concrete long-run batch should route to Atlas, got %+v", decision)
+	}
+	underspecified := DecideRoute("mission-route", "figure out", nil)
+	if underspecified.Route != "ao-blueprint" {
+		t.Fatalf("underspecified objective should still route to Blueprint, got %+v", underspecified)
 	}
 }
 
@@ -258,6 +326,77 @@ func TestContractValidationRejectsSchemaTypeMismatch(t *testing.T) {
 	}
 }
 
+func TestSupervisorV03ContractsValidate(t *testing.T) {
+	dir := t.TempDir()
+	fixtures := map[string]any{
+		"goal-lease.json": GoalLease{
+			Schema:           GoalLeaseSchema,
+			MinNodes:         10,
+			MinMinutes:       120,
+			MaxMinutes:       180,
+			MaxIterations:    20,
+			ReturnOnlyWhen:   defaultReturnOnlyWhen,
+			CheckpointPolicy: defaultCheckpointPolicy,
+		},
+		"checkpoint.json": MissionCheckpoint{
+			Schema:          MissionCheckpointSchema,
+			MissionID:       "mission-contract",
+			Sequence:        1,
+			Iteration:       1,
+			Route:           "ao-atlas",
+			Phase:           "handoff_required",
+			Result:          "handoff_required",
+			ExactNextAction: "send objective to AO Atlas for workgraph sequencing",
+			ResumeCommand:   "ao-mission continue --mission mission-contract --until-done --max-iterations 10",
+			GeneratedAtUTC:  "2026-07-04T00:00:00Z",
+		},
+		"return-gate.json": ReturnGate{
+			Schema:               ReturnGateSchema,
+			MissionID:            "mission-contract",
+			Status:               "early_return_denied",
+			FinalResponseAllowed: false,
+			Reason:               "lease minimum unmet",
+			CompletedNodes:       1,
+			MinNodes:             10,
+			ReadyNodesRemaining:  1,
+			HardBlocker:          false,
+			ExactNextAction:      "continue mission",
+			GeneratedAtUTC:       "2026-07-04T00:00:00Z",
+		},
+		"route-reconciliation.json": RouteReconciliation{
+			Schema:                RouteReconciliationSchema,
+			MissionID:             "mission-contract",
+			Status:                "ready",
+			CurrentRoute:          "ao-atlas",
+			LatestRoute:           "ao-atlas",
+			AtlasReadyNodes:       1,
+			CommandReadbackBound:  false,
+			PromoterReadbackBound: false,
+			ExactNextAction:       "continue from latest exact next action",
+			GeneratedAtUTC:        "2026-07-04T00:00:00Z",
+		},
+		"checkpoint-bundle.json": MissionCheckpointBundle{
+			Schema:              CheckpointBundleSchema,
+			MissionID:           "mission-contract",
+			Status:              "ready",
+			CheckpointCount:     1,
+			ResumePrompt:        "ao-mission continue --mission mission-contract --until-done --max-iterations 10",
+			SafeToExecute:       false,
+			ExecutesWork:        false,
+			ApprovesWork:        false,
+			MutatesRepositories: false,
+			GeneratedAtUTC:      "2026-07-04T00:00:00Z",
+		},
+	}
+	for name, fixture := range fixtures {
+		path := filepath.Join(dir, name)
+		writeJSONForTest(t, path, fixture)
+		if result, err := ValidateContractFile(path); err != nil {
+			t.Fatalf("%s failed contract validation: %v %+v", name, err, result)
+		}
+	}
+}
+
 func TestMissionListInspectCommandStatusAndArtifactManifest(t *testing.T) {
 	dir := t.TempDir()
 	var out, errb bytes.Buffer
@@ -379,6 +518,135 @@ func TestImportAtlasWorkgraphCountsAndFoundryFinalRollupCompletion(t *testing.T)
 	}
 	if done.Evidence.FoundryRollup == nil || done.Evidence.FoundryRollup.CompletedNodes != 3 {
 		t.Fatalf("bad rollup evidence: %+v", done.Evidence.FoundryRollup)
+	}
+}
+
+func TestPromotedFoundryRollupClosesMission(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("build atlas workgraph for promoted rollup")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rollupPath := filepath.Join(dir, "foundry-final-rollup.json")
+	rollup := `{"schema":"ao.foundry.final-rollup.v0.1","status":"promoted","completed_nodes":2,"total_nodes":2}`
+	if err := os.WriteFile(rollupPath, []byte(rollup), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(s, rec.MissionID, "foundry-final-rollup", rollupPath); err != nil {
+		t.Fatal(err)
+	}
+	done, err := s.Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if done.Status != "done" || done.CurrentRoute != "complete" || done.Evidence.FoundryRollup.Status != "promoted" {
+		t.Fatalf("promoted rollup should close mission: %+v", done)
+	}
+}
+
+func TestDeniedFoundryRollupBlocksMissionWithExactNextAction(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("build atlas workgraph for denied rollup")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rollupPath := filepath.Join(dir, "foundry-final-rollup.json")
+	rollup := `{"schema":"ao.foundry.final-rollup.v0.1","status":"denied","completed_nodes":1,"total_nodes":2}`
+	if err := os.WriteFile(rollupPath, []byte(rollup), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(s, rec.MissionID, "foundry-final-rollup", rollupPath); err != nil {
+		t.Fatal(err)
+	}
+	blocked, err := s.Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if blocked.Status != "blocked" || !strings.Contains(blocked.ExactNextAction, "Foundry rollup denied") {
+		t.Fatalf("denied rollup should block with exact next action: %+v", blocked)
+	}
+}
+
+func TestEventIndexSearchesSupervisorEvidence(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("index supervisor checkpoint and rollup evidence")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Continue(s, rec.MissionID, ContinueOptions{UntilDone: true, MaxIterations: 2}); err != nil {
+		t.Fatal(err)
+	}
+	index, err := BuildMissionEventIndex(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preTerminalResults := SearchMissionEvents(index, MissionEventSearchFilters{MissionID: rec.MissionID, Query: "early_return_denied"})
+	if preTerminalResults.TotalMatches == 0 {
+		t.Fatalf("event index did not expose early-return risk before terminal rollup: %+v", index)
+	}
+	rollupPath := filepath.Join(dir, "foundry-final-rollup.json")
+	rollup := `{"schema":"ao.foundry.final-rollup.v0.1","status":"blocked","completed_nodes":1,"total_nodes":2}`
+	if err := os.WriteFile(rollupPath, []byte(rollup), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(s, rec.MissionID, "foundry-final-rollup", rollupPath); err != nil {
+		t.Fatal(err)
+	}
+	index, err = BuildMissionEventIndex(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, query := range []string{"checkpoint", "foundry rollup", "blocked"} {
+		results := SearchMissionEvents(index, MissionEventSearchFilters{MissionID: rec.MissionID, Query: query})
+		if results.TotalMatches == 0 {
+			t.Fatalf("event index did not find %q: %+v", query, index)
+		}
+		if results.ExecutesWork || results.ApprovesWork || results.MutatesRepositories {
+			t.Fatalf("event search widened authority: %+v", results)
+		}
+	}
+}
+
+func TestFeatureDepthRecommendationsReturnAtLeastTenActionableTasks(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("long-running atlas workgraph mission")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec.Evidence.AtlasWorkgraph = &NodeCounts{Total: 12, Ready: 3, Blocked: 2, Completed: 7}
+	rollup := BuildFinalRollup(rec)
+	if len(rollup.FeatureDepthRecommendations) < 10 {
+		t.Fatalf("recommendations too shallow: %d", len(rollup.FeatureDepthRecommendations))
+	}
+	for _, item := range rollup.FeatureDepthRecommendations {
+		if item.ID == "" || item.Task == "" || item.Owner == "" || item.ExactNextAction == "" {
+			t.Fatalf("recommendation is not actionable: %+v", item)
+		}
+	}
+}
+
+func TestFinalRollupDeniesFinalResponseWhenReadyNodesRemain(t *testing.T) {
+	rec := Record{
+		Schema:          RecordSchema,
+		MissionID:       "mission-ready-remains",
+		Status:          "active",
+		CurrentRoute:    "ao-foundry",
+		CurrentPhase:    "atlas_workgraph_ready",
+		ExactNextAction: "send first safe Atlas node to AO Foundry",
+		Evidence: EvidenceSummary{
+			AtlasWorkgraph: &NodeCounts{Total: 4, Ready: 2, Blocked: 0, Completed: 2},
+		},
+	}
+	rollup := BuildFinalRollup(rec)
+	if rollup.FinalResponseAllowed || rollup.ReturnGateStatus != "early_return_denied" {
+		t.Fatalf("final response should be denied while ready nodes remain: %+v", rollup)
+	}
+	if !strings.Contains(rollup.ExactNextAction, "continue") {
+		t.Fatalf("rollup did not preserve executable next action: %+v", rollup)
 	}
 }
 
