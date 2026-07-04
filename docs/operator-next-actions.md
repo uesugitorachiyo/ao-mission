@@ -36,6 +36,8 @@ ao-mission schedule alerts --fixture examples/valid/scheduler-readback-replay.js
 ao-mission schedule recover --mission <mission-id> --fixture examples/valid/scheduler-readback-replay.json
 ao-mission import scheduler-recovery-readback --mission <mission-id> --path examples/valid/scheduler-recovery-readback.json
 ao-mission import ledger-compaction-readback --mission <mission-id> --path examples/valid/ledger-compaction-readback.json
+ao-mission mission compact --mission <mission-id> --keep-route-history 25 --keep-steps 25 --dry-run
+ao-mission artifacts repair-manifest --path <artifact-manifest.json> --out <artifact-manifest.repaired.json>
 ```
 
 Telegram and A2A fixture checks record intent/readback only. They do not grant

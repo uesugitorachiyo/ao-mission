@@ -20,5 +20,31 @@
     "push_notifications=false",
     "mutation_authority=false"
   ],
+  "capabilities_detail": {
+    "streaming": false,
+    "push_notifications": false,
+    "state_transition_history": true,
+    "artifact_readbacks": true
+  },
+  "skills": [
+    {
+      "id": "mission-readback",
+      "name": "Mission readback",
+      "description": "Return mission status, route, next action, and governance snapshot readbacks.",
+      "tags": ["mission", "readback", "intent-only"]
+    },
+    {
+      "id": "mission-continuation-intent",
+      "name": "Mission continuation intent",
+      "description": "Record a continuation request without granting execution authority.",
+      "tags": ["mission", "continuation", "intent-only"]
+    },
+    {
+      "id": "mission-artifact-readback",
+      "name": "Mission artifact readback",
+      "description": "Return artifact references and digest-bound readback pointers.",
+      "tags": ["artifacts", "readback", "no-mutation"]
+    }
+  ],
   "mutation_authority": false
 }

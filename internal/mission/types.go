@@ -256,21 +256,30 @@ type A2ATaskLifecycleReadback struct {
 }
 
 type A2AAgentCard struct {
-	Schema            string   `json:"schema"`
-	Name              string   `json:"name"`
-	ProtocolVersion   string   `json:"protocol_version"`
-	Description       string   `json:"description"`
-	Endpoint          string   `json:"endpoint"`
-	Methods           []string `json:"methods"`
-	Capabilities      []string `json:"capabilities"`
-	MutationAuthority bool     `json:"mutation_authority"`
+	Schema             string          `json:"schema"`
+	Name               string          `json:"name"`
+	ProtocolVersion    string          `json:"protocol_version"`
+	Description        string          `json:"description"`
+	Endpoint           string          `json:"endpoint"`
+	Methods            []string        `json:"methods"`
+	Capabilities       []string        `json:"capabilities"`
+	CapabilitiesDetail map[string]bool `json:"capabilities_detail,omitempty"`
+	Skills             []A2AAgentSkill `json:"skills,omitempty"`
+	MutationAuthority  bool            `json:"mutation_authority"`
+}
+type A2AAgentSkill struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Tags        []string `json:"tags"`
 }
 type A2ATask struct {
-	Schema            string `json:"schema"`
-	TaskID            string `json:"task_id"`
-	Method            string `json:"method"`
-	Status            string `json:"status"`
-	MutationAuthority bool   `json:"mutation_authority"`
+	Schema            string        `json:"schema"`
+	TaskID            string        `json:"task_id"`
+	Method            string        `json:"method"`
+	Status            string        `json:"status"`
+	ArtifactRefs      []ArtifactRef `json:"artifact_refs,omitempty"`
+	MutationAuthority bool          `json:"mutation_authority"`
 }
 
 type A2AJSONRPCResponse struct {
@@ -346,6 +355,7 @@ type SchedulerRecoveryReadback struct {
 type LedgerCompactionOptions struct {
 	KeepRouteHistory int
 	KeepSteps        int
+	DryRun           bool
 }
 
 type LedgerCompactionCounts struct {

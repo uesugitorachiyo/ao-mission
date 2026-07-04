@@ -101,6 +101,38 @@ func ValidateArtifactManifestFile(path string) (ArtifactManifestValidation, erro
 	return result, nil
 }
 
+func RepairArtifactManifestFile(path string) (ArtifactManifest, error) {
+	var manifest ArtifactManifest
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return ArtifactManifest{}, err
+	}
+	if err := json.Unmarshal(body, &manifest); err != nil {
+		return ArtifactManifest{}, err
+	}
+	for i, ref := range manifest.ArtifactRefs {
+		actualPath := ref.Ref
+		if !filepath.IsAbs(actualPath) {
+			if _, err := os.Stat(actualPath); err != nil {
+				actualPath = filepath.Join(filepath.Dir(path), actualPath)
+			}
+		}
+		data, err := os.ReadFile(actualPath)
+		if err != nil {
+			return ArtifactManifest{}, err
+		}
+		sum := sha256.Sum256(normalizeTextArtifactDigestData(data))
+		manifest.ArtifactRefs[i].Digest = "sha256:" + hex.EncodeToString(sum[:])
+		if strings.TrimSpace(manifest.ArtifactRefs[i].Schema) == "" {
+			manifest.ArtifactRefs[i].Schema = ArtifactRefSchema
+		}
+	}
+	return FinalizeArtifactManifest(ArtifactManifest{
+		MissionID:    manifest.MissionID,
+		ArtifactRefs: manifest.ArtifactRefs,
+	}), nil
+}
+
 func normalizeTextArtifactDigestData(data []byte) []byte {
 	if !utf8.Valid(data) {
 		return data
