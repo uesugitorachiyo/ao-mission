@@ -301,6 +301,7 @@ type A2AStreamingDenialReadback struct {
 	Schema             string `json:"schema"`
 	Status             string `json:"status"`
 	StreamingRequested bool   `json:"streaming_requested"`
+	SSERequested       bool   `json:"sse_requested,omitempty"`
 	PushRequested      bool   `json:"push_notifications_requested"`
 	DeniedCapability   string `json:"denied_capability"`
 	MutationAuthority  bool   `json:"mutation_authority"`
@@ -560,6 +561,63 @@ type GatewayReadinessRollup struct {
 	ApprovesWork        bool     `json:"approves_work"`
 	MutatesRepositories bool     `json:"mutates_repositories"`
 	ExactNextAction     string   `json:"exact_next_action"`
+	GeneratedAtUTC      string   `json:"generated_at_utc"`
+}
+
+type MissionEvent struct {
+	Schema         string `json:"schema"`
+	MissionID      string `json:"mission_id"`
+	Kind           string `json:"kind"`
+	Sequence       int    `json:"sequence"`
+	Status         string `json:"status,omitempty"`
+	Route          string `json:"route,omitempty"`
+	Phase          string `json:"phase,omitempty"`
+	ArtifactKind   string `json:"artifact_kind,omitempty"`
+	Summary        string `json:"summary"`
+	GeneratedAtUTC string `json:"generated_at_utc,omitempty"`
+}
+
+type MissionEventIndex struct {
+	Schema              string         `json:"schema"`
+	Status              string         `json:"status"`
+	Root                string         `json:"root"`
+	MissionCount        int            `json:"mission_count"`
+	TotalEvents         int            `json:"total_events"`
+	Events              []MissionEvent `json:"events"`
+	SafeToExecute       bool           `json:"safe_to_execute"`
+	ExecutesWork        bool           `json:"executes_work"`
+	ApprovesWork        bool           `json:"approves_work"`
+	MutatesRepositories bool           `json:"mutates_repositories"`
+	GeneratedAtUTC      string         `json:"generated_at_utc"`
+}
+
+type MissionEventSearchReadback struct {
+	Schema              string         `json:"schema"`
+	Status              string         `json:"status"`
+	Query               string         `json:"query,omitempty"`
+	MissionID           string         `json:"mission_id,omitempty"`
+	Kind                string         `json:"kind,omitempty"`
+	TotalMatches        int            `json:"total_matches"`
+	Events              []MissionEvent `json:"events"`
+	SafeToExecute       bool           `json:"safe_to_execute"`
+	ExecutesWork        bool           `json:"executes_work"`
+	ApprovesWork        bool           `json:"approves_work"`
+	MutatesRepositories bool           `json:"mutates_repositories"`
+	GeneratedAtUTC      string         `json:"generated_at_utc"`
+}
+
+type MissionDoctorReadback struct {
+	Schema              string   `json:"schema"`
+	Status              string   `json:"status"`
+	Root                string   `json:"root"`
+	MissionCount        int      `json:"mission_count"`
+	EventCount          int      `json:"event_count"`
+	Checks              []string `json:"checks"`
+	Blockers            []string `json:"blockers"`
+	SafeToExecute       bool     `json:"safe_to_execute"`
+	ExecutesWork        bool     `json:"executes_work"`
+	ApprovesWork        bool     `json:"approves_work"`
+	MutatesRepositories bool     `json:"mutates_repositories"`
 	GeneratedAtUTC      string   `json:"generated_at_utc"`
 }
 

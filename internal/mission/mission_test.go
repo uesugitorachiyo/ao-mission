@@ -1780,6 +1780,151 @@ func TestA2AStreamingDeniedReadbackRejectsStreamingAgentCard(t *testing.T) {
 	}
 }
 
+func TestA2AStreamingDeniedReadbackRejectsSSEFixture(t *testing.T) {
+	var out, errb bytes.Buffer
+	code := Run([]string{
+		"a2a", "streaming-denial",
+		"--agent-card", filepath.Join("..", "..", "examples", "invalid", "a2a-agent-card-streaming-sse.json"),
+	}, &out, &errb)
+	if code != 0 {
+		t.Fatalf("a2a streaming-denial should emit SSE denial readback, got stderr=%s", errb.String())
+	}
+	var readback map[string]any
+	if err := json.Unmarshal(out.Bytes(), &readback); err != nil {
+		t.Fatal(err)
+	}
+	if readback["schema"] != "ao.mission.a2a-streaming-denial-readback.v0.1" || readback["status"] != "denied" {
+		t.Fatalf("bad A2A SSE denial: %#v", readback)
+	}
+	if readback["sse_requested"] != true || readback["streaming_requested"] != true || readback["denied_capability"] != "streaming_or_push" {
+		t.Fatalf("A2A SSE denial missing requested capability flags: %#v", readback)
+	}
+	if readback["mutation_authority"] != false || readback["executes_work"] != false || readback["approves_work"] != false {
+		t.Fatalf("A2A SSE denial widened authority: %#v", readback)
+	}
+}
+
+func TestMissionEventIndexSearchAndCLIReadback(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "event search atlas mission"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "next", "--mission", rec.MissionID, "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("next: %s", errb.String())
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "mission", "events", "index", "--out", filepath.Join(dir, "mission-event-index.json")}, &out, &errb); code != 0 {
+		t.Fatalf("mission events index: %s", errb.String())
+	}
+	var index MissionEventIndex
+	if err := json.Unmarshal(out.Bytes(), &index); err != nil {
+		t.Fatal(err)
+	}
+	if index.Schema != "ao.mission.event-index.v0.1" || index.TotalEvents < 2 || index.ExecutesWork || index.ApprovesWork || index.MutatesRepositories {
+		t.Fatalf("bad event index: %+v", index)
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "mission", "events", "search", "--mission", rec.MissionID, "--kind", "route_decision", "--query", "AO Atlas", "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("mission events search: %s", errb.String())
+	}
+	var results MissionEventSearchReadback
+	if err := json.Unmarshal(out.Bytes(), &results); err != nil {
+		t.Fatal(err)
+	}
+	if results.Schema != "ao.mission.event-search-readback.v0.1" || results.TotalMatches == 0 {
+		t.Fatalf("bad event search results: %+v", results)
+	}
+	if results.ExecutesWork || results.ApprovesWork || results.MutatesRepositories {
+		t.Fatalf("event search widened authority: %+v", results)
+	}
+}
+
+func TestDoctorCommandReportsLocalStoreHealthWithoutAuthority(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "doctor mission loop"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "doctor", "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("doctor: %s", errb.String())
+	}
+	var readback MissionDoctorReadback
+	if err := json.Unmarshal(out.Bytes(), &readback); err != nil {
+		t.Fatal(err)
+	}
+	if readback.Schema != "ao.mission.doctor-readback.v0.1" || readback.Status != "ready" || readback.MissionCount != 1 {
+		t.Fatalf("bad doctor readback: %+v", readback)
+	}
+	if readback.SafeToExecute || readback.ExecutesWork || readback.ApprovesWork || readback.MutatesRepositories {
+		t.Fatalf("doctor widened authority: %+v", readback)
+	}
+}
+
+func TestSchedulerRecoveryDoesNotRecommendContinuationWhenReplayFresh(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "scheduler-fresh-replay.json")
+	if err := os.WriteFile(path, []byte(`{
+  "schema": "ao.mission.scheduler-replay-fixture.v0.1",
+  "evaluated_at_utc": "2026-07-03T12:00:00Z",
+  "readbacks": [
+    {
+      "schema": "ao.mission.scheduler-readback.v0.1",
+      "mission_id": "mission-demo",
+      "status": "ready",
+      "scheduler": "codex-cron",
+      "event_loop": true,
+      "generated_at_utc": "2026-07-03T11:55:00Z",
+      "executes_work": false,
+      "approves_work": false
+    }
+  ]
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	replay, err := ReplaySchedulerReadbacks(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recovery := BuildSchedulerRecoveryReadback("mission-demo", replay)
+	if recovery.Status != "ready" || recovery.RecoveryMode != "none_required" || strings.Contains(recovery.ExactNextAction, "continue --mission") {
+		t.Fatalf("fresh scheduler replay should not request recovery continuation: %+v", recovery)
+	}
+	if recovery.ExecutesWork || recovery.ApprovesWork {
+		t.Fatalf("fresh scheduler recovery widened authority: %+v", recovery)
+	}
+}
+
+func TestTelegramCommandReplayMatrixCoversAllAllowedCommandsAndDeniedRoles(t *testing.T) {
+	readback, err := ReplayTelegramCommandMatrix(
+		filepath.Join("..", "..", "examples", "valid", "telegram-command-matrix.json"),
+		map[string]string{"1001": "admin", "1002": "user"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	covered := map[string]bool{}
+	for _, result := range readback.Results {
+		covered[result.Command] = true
+	}
+	for command := range allowedTelegramCommands {
+		if !covered[command] {
+			t.Fatalf("telegram replay matrix missing allowed command %s", command)
+		}
+	}
+	if readback.Total < len(allowedTelegramCommands)+2 || readback.Denied < 2 {
+		t.Fatalf("telegram replay matrix should cover allowed and denied role cases: %+v", readback)
+	}
+	if readback.MutationAuthority || readback.ExecutesWork || readback.ApprovesWork {
+		t.Fatalf("telegram replay matrix widened authority: %+v", readback)
+	}
+}
+
 func TestGatewayReadinessRollupCombinesReadbacksWithoutAuthority(t *testing.T) {
 	dir := t.TempDir()
 	suitePath := filepath.Join(dir, "suite.json")

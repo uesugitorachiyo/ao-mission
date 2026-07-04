@@ -122,26 +122,20 @@ func BuildA2AStreamingDenialReadback(agentCardPath string) (A2AStreamingDenialRe
 	if err := json.Unmarshal(body, &card); err != nil {
 		return A2AStreamingDenialReadback{}, err
 	}
-	streaming := card.CapabilitiesDetail["streaming"]
+	sse := card.CapabilitiesDetail["sse"]
+	streaming := card.CapabilitiesDetail["streaming"] || sse || stringSliceContains(card.Capabilities, "sse=true")
 	push := card.CapabilitiesDetail["push_notifications"]
 	denied := "none"
 	status := "ready"
-	if streaming {
-		denied = "streaming"
-		status = "denied"
-	}
-	if push {
-		if denied == "none" {
-			denied = "push_notifications"
-		} else {
-			denied += ",push_notifications"
-		}
+	if streaming || push {
+		denied = "streaming_or_push"
 		status = "denied"
 	}
 	return A2AStreamingDenialReadback{
 		Schema:             "ao.mission.a2a-streaming-denial-readback.v0.1",
 		Status:             status,
 		StreamingRequested: streaming,
+		SSERequested:       sse,
 		PushRequested:      push,
 		DeniedCapability:   denied,
 		MutationAuthority:  false,

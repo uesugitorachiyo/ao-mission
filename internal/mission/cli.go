@@ -31,7 +31,7 @@ func printJSON(w io.Writer, v any) error {
 
 func run(args []string, stdout io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: ao-mission [--home <dir>] <init|start|mission|continue|status|next|stop|pause|resume|schedule|daemon|telegram|a2a|gateway|governance|command|artifacts|validate|import|final>")
+		return errors.New("usage: ao-mission [--home <dir>] <init|start|mission|continue|status|next|stop|pause|resume|doctor|schedule|daemon|telegram|a2a|gateway|governance|command|artifacts|validate|import|final>")
 	}
 	home, args, err := parseGlobalHome(args)
 	if err != nil {
@@ -207,9 +207,94 @@ func run(args []string, stdout io.Writer) error {
 				return err
 			}
 			return printJSON(stdout, readback)
+		case "events":
+			if len(args) < 3 {
+				return errors.New("mission events requires index or search")
+			}
+			switch args[2] {
+			case "index":
+				fs := flag.NewFlagSet("mission events index", flag.ContinueOnError)
+				outPath := fs.String("out", "", "")
+				if err := fs.Parse(args[3:]); err != nil {
+					return err
+				}
+				index, err := BuildMissionEventIndex(s)
+				if err != nil {
+					return err
+				}
+				if strings.TrimSpace(*outPath) != "" {
+					body, err := json.MarshalIndent(index, "", "  ")
+					if err != nil {
+						return err
+					}
+					if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+						return err
+					}
+				}
+				return printJSON(stdout, index)
+			case "search":
+				fs := flag.NewFlagSet("mission events search", flag.ContinueOnError)
+				missionID := fs.String("mission", "", "")
+				kind := fs.String("kind", "", "")
+				query := fs.String("query", "", "")
+				indexPath := fs.String("index", "", "")
+				outPath := fs.String("out", "", "")
+				jsonOut := fs.Bool("json", false, "")
+				if err := fs.Parse(args[3:]); err != nil {
+					return err
+				}
+				var index MissionEventIndex
+				if strings.TrimSpace(*indexPath) != "" {
+					body, err := os.ReadFile(*indexPath)
+					if err != nil {
+						return err
+					}
+					if err := json.Unmarshal(body, &index); err != nil {
+						return err
+					}
+				} else {
+					var err error
+					index, err = BuildMissionEventIndex(s)
+					if err != nil {
+						return err
+					}
+				}
+				readback := SearchMissionEvents(index, MissionEventSearchFilters{MissionID: *missionID, Kind: *kind, Query: *query})
+				if strings.TrimSpace(*outPath) != "" {
+					body, err := json.MarshalIndent(readback, "", "  ")
+					if err != nil {
+						return err
+					}
+					if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+						return err
+					}
+				}
+				if *jsonOut {
+					return printJSON(stdout, readback)
+				}
+				fmt.Fprintf(stdout, "mission_events=%d status=%s safe_to_execute=false executes_work=false approves_work=false\n", readback.TotalMatches, readback.Status)
+				for _, event := range readback.Events {
+					fmt.Fprintf(stdout, "mission=%s kind=%s route=%s summary=%s\n", event.MissionID, event.Kind, event.Route, event.Summary)
+				}
+				return nil
+			default:
+				return errors.New("mission events requires index or search")
+			}
 		default:
-			return errors.New("mission requires list, inspect, history, compact, archive, validate-archive, or import-archive")
+			return errors.New("mission requires list, inspect, history, compact, archive, validate-archive, import-archive, or events")
 		}
+	case "doctor":
+		fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
+		jsonOut := fs.Bool("json", false, "")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		readback := BuildMissionDoctorReadback(s)
+		if *jsonOut {
+			return printJSON(stdout, readback)
+		}
+		fmt.Fprintf(stdout, "status=%s\nmissions=%d\nevents=%d\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", readback.Status, readback.MissionCount, readback.EventCount)
+		return nil
 	case "status":
 		fs := flag.NewFlagSet("status", flag.ContinueOnError)
 		id := fs.String("mission", "", "")
