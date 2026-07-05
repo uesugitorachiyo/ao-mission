@@ -35,7 +35,7 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 		return ImportReadback{}, err
 	}
 	if isMissionEvidenceReadback(kind) {
-		for _, field := range []string{"safe_to_execute", "schedules_work", "executes_work", "approves_work", "mutates_repositories", "provider_calls", "release_or_publish", "credential_use", "direct_main_mutation", "concurrent_mutation"} {
+		for _, field := range []string{"safe_to_execute", "schedules_work", "executes_work", "approves_work", "mutates_repositories", "provider_calls", "release_or_publish", "credential_use", "direct_main_mutation", "concurrent_mutation", "claims_authority_advance"} {
 			if boolFromAny(doc[field]) {
 				return ImportReadback{}, fmt.Errorf("%s %s must be false", kind, field)
 			}

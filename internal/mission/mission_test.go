@@ -671,6 +671,34 @@ func TestImportAtlasRecommendationReadbackDeniesFinalWhenLeaseMinimumUnmet(t *te
 	}
 }
 
+func TestImportAtlasRecommendationReadbackRejectsAuthorityAdvanceClaim(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("reject unsafe Atlas recommendation readback")
+	if err != nil {
+		t.Fatal(err)
+	}
+	readbackPath := filepath.Join(dir, "recommendation-readback-authority.json")
+	readback := `{"schema":"ao.atlas.recommendation-readback.v0.1","status":"completed","total_nodes":40,"completed_nodes":40,"ready_nodes":0,"checkpoint_count":40,"elapsed_minutes":491,"min_minutes_met":true,"lease_time_status":"minimum_minutes_met","return_gate_status":"final_response_allowed","final_response_allowed":true,"claims_authority_advance":true,"safe_to_execute":false,"executes_work":false,"approves_work":false,"mutates_repositories":false,"provider_calls":false,"release_or_publish":false,"credential_use":false,"direct_main_mutation":false,"concurrent_mutation":false}`
+	if err := os.WriteFile(readbackPath, []byte(readback), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	err = func() error {
+		_, importErr := ImportArtifact(s, rec.MissionID, "atlas-recommendation-readback", readbackPath)
+		return importErr
+	}()
+	if err == nil || !strings.Contains(err.Error(), "claims_authority_advance") {
+		t.Fatalf("expected authority-advance rejection, got %v", err)
+	}
+	unchanged, err := s.Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unchanged.Evidence.AtlasRecommendation != nil || unchanged.Status == "done" {
+		t.Fatalf("unsafe Atlas recommendation readback was recorded: %+v", unchanged)
+	}
+}
+
 func TestPromotedFoundryRollupClosesMission(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)

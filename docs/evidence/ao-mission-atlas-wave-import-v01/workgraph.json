@@ -5,11 +5,11 @@
   "minimum_nodes": 25,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 2,
-  "ready_nodes": 23,
+  "completed_nodes": 3,
+  "ready_nodes": 22,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue with node-03: reject unsafe authority flags on Atlas recommendation readbacks.",
+  "exact_next_action": "Continue with node-04: add exact blocker readbacks for denied or blocked Atlas recommendation states.",
   "nodes": [
     {
       "node_id": "node-01-atlas-recommendation-readback-import",
@@ -26,7 +26,7 @@
     {
       "node_id": "node-03-atlas-readback-authority-rejection",
       "owner": "ao-mission",
-      "status": "ready",
+      "status": "completed",
       "objective": "Reject Atlas recommendation readbacks that claim execution, approval, provider, release, credential, or direct-main authority."
     }
   ]

@@ -1,0 +1,10 @@
+{
+  "schema": "ao.mission.node-gate-readback.v0.1",
+  "node_id": "node-03-atlas-readback-authority-rejection",
+  "status": "passed",
+  "gate": "AO Mission rejects Atlas recommendation readbacks that claim authority advancement.",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false
+}

@@ -19,5 +19,6 @@
   "credential_use": false,
   "direct_main_mutation": false,
   "concurrent_mutation": false,
+  "claims_authority_advance": false,
   "exact_next_action": "Finalize AO Atlas long-run wave with Promoter, Command, and public-safety readbacks."
 }

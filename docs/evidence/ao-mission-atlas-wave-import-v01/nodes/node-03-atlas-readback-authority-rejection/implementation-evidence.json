@@ -1,0 +1,11 @@
+{
+  "schema": "ao.mission.implementation-evidence.v0.1",
+  "node_id": "node-03-atlas-readback-authority-rejection",
+  "status": "implemented_locally",
+  "files": [
+    "internal/mission/imports.go",
+    "internal/mission/mission_test.go",
+    "examples/valid/atlas-recommendation-readback.json"
+  ],
+  "behavior": "Mission readback imports now reject claims_authority_advance=true."
+}

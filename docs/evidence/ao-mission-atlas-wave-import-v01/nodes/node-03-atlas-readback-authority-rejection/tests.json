@@ -1,0 +1,9 @@
+{
+  "schema": "ao.mission.tests-readback.v0.1",
+  "node_id": "node-03-atlas-readback-authority-rejection",
+  "red": "go test ./internal/mission -run TestImportAtlasRecommendationReadbackRejectsAuthorityAdvanceClaim -count=1 failed because the importer accepted claims_authority_advance=true.",
+  "green": "go test ./internal/mission -run TestImportAtlasRecommendationReadbackRejectsAuthorityAdvanceClaim -count=1 passed after adding the denylist field.",
+  "regressions": [
+    "TestImportAtlasRecommendationReadbackRejectsAuthorityAdvanceClaim"
+  ]
+}

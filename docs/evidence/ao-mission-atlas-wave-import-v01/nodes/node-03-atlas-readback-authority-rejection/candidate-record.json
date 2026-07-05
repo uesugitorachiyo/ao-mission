@@ -1,0 +1,20 @@
+{
+  "schema": "ao.mission.candidate-record.v0.1",
+  "node_id": "node-03-atlas-readback-authority-rejection",
+  "candidate": "Add claims_authority_advance to the Mission readback import authority denylist.",
+  "bounded_scope": [
+    "internal/mission/imports.go",
+    "internal/mission/mission_test.go",
+    "examples/valid/atlas-recommendation-readback.json",
+    "node evidence readbacks"
+  ],
+  "forbidden_scope": [
+    "provider calls",
+    "credential inspection",
+    "release/deploy/publish/upload/tag",
+    "dependency updates",
+    "policy/auth/config widening",
+    "direct main mutation",
+    "RSI promotion"
+  ]
+}
