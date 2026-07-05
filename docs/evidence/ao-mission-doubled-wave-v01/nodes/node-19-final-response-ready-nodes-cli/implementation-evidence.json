@@ -1,0 +1,11 @@
+{
+  "schema": "ao.evidence.implementation.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-19-final-response-ready-nodes-cli",
+  "repo": "ao-mission",
+  "status": "implemented_local",
+  "changed_surfaces": [
+    "internal/mission/mission_test.go: added TestCLIFinalRollupDeniesFinalResponseWhenReadyNodesRemain"
+  ],
+  "behavioral_summary": "The operator-facing final rollup CLI path now has direct regression coverage denying final response when ready nodes remain."
+}

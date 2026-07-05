@@ -1,0 +1,8 @@
+{
+  "schema": "ao.command.node-readback.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-19-final-response-ready-nodes-cli",
+  "status": "ready_for_full_verification",
+  "summary": "AO Mission CLI regression now proves final rollup denies final response while ready nodes remain.",
+  "exact_next_action": "Run full AO Mission verification, open PR, wait for CI, merge, sync, delete codex branch, then continue node 20."
+}

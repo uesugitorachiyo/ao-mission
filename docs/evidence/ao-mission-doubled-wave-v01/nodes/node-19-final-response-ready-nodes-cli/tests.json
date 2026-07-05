@@ -1,0 +1,27 @@
+{
+  "schema": "ao.evidence.tests.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-19-final-response-ready-nodes-cli",
+  "tests": [
+    {
+      "name": "TestCLIFinalRollupDeniesFinalResponseWhenReadyNodesRemain",
+      "path": "internal/mission/mission_test.go",
+      "asserts": [
+        "CLI imports workgraph with 10 completed and 2 ready nodes",
+        "CLI final rollup reports final_response_allowed=false",
+        "CLI final rollup reports return_gate_status=early_return_denied",
+        "CLI final rollup reports ready_nodes_remaining=2 and preserves continuation action",
+        "final rollup keeps safe_to_execute, executes_work, approves_work, and provider_calls false"
+      ]
+    },
+    {
+      "name": "TestFinalRollupDeniesFinalResponseWhenReadyNodesRemain",
+      "path": "internal/mission/mission_test.go",
+      "asserts": [
+        "builder-level final rollup denies final response while ready nodes remain"
+      ]
+    }
+  ],
+  "focused_command": "go test ./internal/mission -run 'TestFinalRollupDeniesFinalResponseWhenReadyNodesRemain|TestCLIFinalRollupDeniesFinalResponseWhenReadyNodesRemain' -count=1",
+  "focused_result": "passed"
+}
