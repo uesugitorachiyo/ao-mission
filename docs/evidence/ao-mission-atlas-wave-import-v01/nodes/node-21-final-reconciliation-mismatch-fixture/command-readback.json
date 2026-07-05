@@ -1,0 +1,7 @@
+{
+  "schema": "ao.command.readback.v0.1",
+  "node_id": "node-21-final-reconciliation-mismatch-fixture",
+  "status": "ready_for_review",
+  "summary": "Blocked final reconciliation mismatch fixture preserves exact Foundry/Atlas blocker wording.",
+  "exact_next_action": "merge node 21 after CI, then continue node 22"
+}

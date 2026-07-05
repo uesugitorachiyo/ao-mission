@@ -1,0 +1,13 @@
+{
+  "schema": "ao.foundry.implementation-evidence.v0.1",
+  "node_id": "node-21-final-reconciliation-mismatch-fixture",
+  "status": "implemented",
+  "changed_files": [
+    "internal/mission/mission_test.go",
+    "examples/valid/final-reconciliation-mismatch-packet.json",
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/workgraph.json",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/README.md"
+  ],
+  "behavior": "The mismatch fixture and regression preserve exact Foundry/Atlas blocker details and keep execution, approval, promotion, and RSI authority denied."
+}

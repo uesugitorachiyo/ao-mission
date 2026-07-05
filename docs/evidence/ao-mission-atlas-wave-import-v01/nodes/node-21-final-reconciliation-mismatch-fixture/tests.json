@@ -1,0 +1,7 @@
+{
+  "schema": "ao.foundry.tests.v0.1",
+  "node_id": "node-21-final-reconciliation-mismatch-fixture",
+  "status": "passed",
+  "red": "go test ./internal/mission -run TestFinalReconciliationMismatchFixturePreservesExactBlocker -count=1 failed because final-reconciliation-mismatch-packet.json was missing.",
+  "green": "The targeted test and full verification pass after adding the mismatch fixture and readiness assertion."
+}

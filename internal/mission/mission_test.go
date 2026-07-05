@@ -1136,6 +1136,31 @@ func TestFinalReconciliationPacketReportsFoundryAtlasMismatch(t *testing.T) {
 	}
 }
 
+func TestFinalReconciliationMismatchFixturePreservesExactBlocker(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("..", "..", "examples", "valid", "final-reconciliation-mismatch-packet.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var packet MissionFinalReconciliationPacket
+	if err := json.Unmarshal(body, &packet); err != nil {
+		t.Fatal(err)
+	}
+	if packet.Schema != "ao.mission.final-reconciliation-packet.v0.1" || packet.Status != "blocked" || packet.ArtifactsAgree {
+		t.Fatalf("unexpected mismatch fixture header: %+v", packet)
+	}
+	for _, want := range []string{"Foundry completed_nodes=39", "Atlas completed_nodes=40"} {
+		if !strings.Contains(packet.Blocker, want) {
+			t.Fatalf("mismatch fixture missing blocker detail %q: %+v", want, packet)
+		}
+	}
+	if packet.SafeToExecute || packet.ExecutesWork || packet.ApprovesWork || packet.MutatesRepositories || packet.ClaimsAuthorityAdvance {
+		t.Fatalf("mismatch fixture widened authority: %+v", packet)
+	}
+	if !packet.RSIRemainsDenied || packet.PromotionClaimed {
+		t.Fatalf("mismatch fixture should keep promotion denied and RSI denied: %+v", packet)
+	}
+}
+
 func TestCLIFinalReconcileEmitsPacket(t *testing.T) {
 	dir := t.TempDir()
 	var out, errb bytes.Buffer
