@@ -1,0 +1,16 @@
+{
+  "schema": "ao.mission.doubled-wave.command-readback.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-05-route-readback-reconciliation",
+  "status": "ready",
+  "summary": "AO Mission now imports Atlas final-synthesis readbacks, closes terminal route state when final gates are coherent, and marks Command/Promoter readbacks bound in route reconciliation.",
+  "route_reconciliation_status": "ready",
+  "command_readback_bound": true,
+  "promoter_readback_bound": true,
+  "final_response_allowed_for_doubled_wave": false,
+  "exact_next_action": "Continue node-06: refresh durable checkpoint/resume bundle after node 5 reconciliation.",
+  "schedules_work": false,
+  "executes_work": false,
+  "approves_work": false,
+  "rsi_remains_denied": true
+}

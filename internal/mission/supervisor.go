@@ -263,8 +263,8 @@ func BuildRouteReconciliation(r Record) RouteReconciliation {
 		status = "stale_route_detected"
 		next = "reconcile terminal mission route with final rollup"
 	}
-	commandBound := artifactKindBound(r, "command-readback") || artifactKindBound(r, "command-status")
-	promoterBound := artifactKindBound(r, "promoter-readback") || artifactKindBound(r, "promoter-verdict")
+	commandBound := artifactKindBound(r, "command-readback") || artifactKindBound(r, "command-status") || atlasFinalSynthesisCommandBound(r)
+	promoterBound := artifactKindBound(r, "promoter-readback") || artifactKindBound(r, "promoter-verdict") || atlasFinalSynthesisPromoterBound(r)
 	return RouteReconciliation{
 		Schema:                RouteReconciliationSchema,
 		MissionID:             r.MissionID,
@@ -278,6 +278,14 @@ func BuildRouteReconciliation(r Record) RouteReconciliation {
 		ExactNextAction:       next,
 		GeneratedAtUTC:        now(nil),
 	}
+}
+
+func atlasFinalSynthesisCommandBound(r Record) bool {
+	return r.Evidence.AtlasFinalSynthesis != nil && r.Evidence.AtlasFinalSynthesis.CommandReadback == "ready"
+}
+
+func atlasFinalSynthesisPromoterBound(r Record) bool {
+	return r.Evidence.AtlasFinalSynthesis != nil && strings.TrimSpace(r.Evidence.AtlasFinalSynthesis.PromoterStatus) != ""
 }
 
 func artifactKindBound(r Record, kind string) bool {

@@ -5,11 +5,11 @@
   "minimum_nodes": 60,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 3,
-  "ready_nodes": 57,
+  "completed_nodes": 5,
+  "ready_nodes": 55,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue node-04: roundtrip Mission final synthesis into Atlas and verify zero ready nodes.",
+  "exact_next_action": "Continue node-06: refresh durable checkpoint/resume bundle after node 5 reconciliation.",
   "nodes": [
     {
       "node_id": "node-01-final-synthesis-cli",
@@ -28,6 +28,18 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Record metadata-only Codex session-duration readback without reading log contents or secrets."
+    },
+    {
+      "node_id": "node-04-atlas-final-synthesis-roundtrip",
+      "owner": "ao-atlas",
+      "status": "completed",
+      "objective": "Roundtrip Mission final synthesis into Atlas and verify zero ready nodes."
+    },
+    {
+      "node_id": "node-05-route-readback-reconciliation",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Reconcile stale route/readback state across Atlas final synthesis, Command, Promoter, and Mission route artifacts."
     }
   ]
 }

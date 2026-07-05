@@ -1,0 +1,17 @@
+{
+  "schema": "ao.mission.import-readback.v0.1",
+  "mission_id": "mission-34fba87a45815a21",
+  "kind": "atlas-final-synthesis-readback",
+  "status": "recorded",
+  "artifact": {
+    "schema": "ao.mission.artifact-ref.v0.1",
+    "ref": "examples/valid/atlas-final-synthesis-readback.json",
+    "digest": "sha256:16b32e9a0eb78447760c58bb1543d6b22fa9d2dbdbd8c2836c72e8fd2c5775f3",
+    "kind": "atlas-final-synthesis-readback"
+  },
+  "exact_next_action": "mission complete; read final rollup and recommended next tasks",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "generated_at_utc": "2026-07-05T02:24:10Z"
+}

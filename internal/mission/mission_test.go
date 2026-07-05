@@ -1094,6 +1094,108 @@ func TestCLICommandStatusTextIncludesAtlasRecommendationSummary(t *testing.T) {
 	}
 }
 
+func TestImportAtlasFinalSynthesisReadbackClosesStaleRoute(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "stale Atlas final synthesis route"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if code := Run([]string{
+		"--home", dir, "import", "atlas-final-synthesis-readback",
+		"--mission", rec.MissionID,
+		"--path", filepath.Join("..", "..", "examples", "valid", "atlas-final-synthesis-readback.json"),
+	}, &out, &errb); code != 0 {
+		t.Fatalf("import: %s", errb.String())
+	}
+	done, err := NewStore(dir).Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if done.Status != "done" || done.CurrentRoute != "complete" || done.CurrentPhase != "complete" {
+		t.Fatalf("final synthesis import did not close stale route: %+v", done)
+	}
+	if done.Evidence.AtlasFinalSynthesis == nil ||
+		done.Evidence.AtlasFinalSynthesis.CommandReadback != "ready" ||
+		done.Evidence.AtlasFinalSynthesis.PromoterStatus != "no_promotion_requested" ||
+		!done.Evidence.AtlasFinalSynthesis.BranchCleanupBound {
+		t.Fatalf("final synthesis evidence not bound: %+v", done.Evidence.AtlasFinalSynthesis)
+	}
+	if done.Evidence.AtlasRecommendation == nil ||
+		done.Evidence.AtlasRecommendation.TotalNodes != 26 ||
+		done.Evidence.AtlasRecommendation.CompletedNodes != 26 ||
+		done.Evidence.AtlasRecommendation.ReadyNodes != 0 ||
+		done.Evidence.AtlasRecommendation.ReturnGateStatus != "final_response_allowed" ||
+		!done.Evidence.AtlasRecommendation.FinalResponseAllowed ||
+		!done.Evidence.AtlasRecommendation.RSIRemainsDenied {
+		t.Fatalf("final synthesis did not populate Atlas recommendation counts: %+v", done.Evidence.AtlasRecommendation)
+	}
+	if done.Reconciliation == nil ||
+		done.Reconciliation.Status != "ready" ||
+		done.Reconciliation.CurrentRoute != "complete" ||
+		done.Reconciliation.LatestRoute != "complete" ||
+		done.Reconciliation.AtlasReadyNodes != 0 ||
+		!done.Reconciliation.CommandReadbackBound ||
+		!done.Reconciliation.PromoterReadbackBound {
+		t.Fatalf("route/readback reconciliation not closed: %+v", done.Reconciliation)
+	}
+	if done.ReturnGate == nil || !done.ReturnGate.FinalResponseAllowed {
+		t.Fatalf("return gate should allow terminal imported final synthesis: %+v", done.ReturnGate)
+	}
+}
+
+func TestImportAtlasFinalSynthesisReadbackRejectsReadyNodeDrift(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("reject final synthesis drift")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "atlas-final-synthesis-readback.json")
+	if err := os.WriteFile(path, []byte(`{
+		"contract_version":"ao.atlas.ao-mission-final-synthesis-readback.v0.1",
+		"mission_id":"ao-mission-drift",
+		"status":"completed",
+		"source_digest":"sha256:a5f018dd6e64f1975e63b344822989d1d8d779e1c17df2a931a6aac8ed352c44",
+		"total_nodes":26,
+		"completed_nodes":25,
+		"ready_nodes":1,
+		"blocked_nodes":0,
+		"minimum_nodes":25,
+		"target_minutes":120,
+		"max_minutes":180,
+		"return_gate_status":"final_response_allowed",
+		"final_response_allowed":true,
+		"final_response_reason":"bad drift",
+		"atlas_workgraph_status":"completed",
+		"foundry_rollup":"readback-only wave; no promotion requested",
+		"promoter_status":"no_promotion_requested",
+		"command_readback":"ready",
+		"event_search_bound":true,
+		"branch_cleanup_bound":true,
+		"exact_next_action":"should not close",
+		"feature_depth_next_tasks":["one","two","three","four","five","six","seven","eight","nine","ten"],
+		"rsi_remains_denied":true,
+		"promotion_claimed":false,
+		"claims_authority_advance":false,
+		"safe_to_execute":false,
+		"schedules_work":false,
+		"executes_work":false,
+		"approves_work":false,
+		"mutates_repositories":false
+	}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err = ImportArtifact(s, rec.MissionID, "atlas-final-synthesis-readback", path)
+	if err == nil || !strings.Contains(err.Error(), "final response cannot be allowed while ready nodes remain") {
+		t.Fatalf("expected ready-node final synthesis rejection, got %v", err)
+	}
+}
+
 func TestFinalReconciliationPacketAgreesAcrossAtlasFoundryAndCommand(t *testing.T) {
 	rec := Record{
 		Schema:          RecordSchema,

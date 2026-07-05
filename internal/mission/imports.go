@@ -95,6 +95,45 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 			rec.ReturnGate = &gate
 			reconciliation := BuildRouteReconciliation(*rec)
 			rec.Reconciliation = &reconciliation
+		case "atlas-final-synthesis-readback":
+			readback := parseAtlasFinalSynthesisReadbackCounts(doc)
+			if err := validateAtlasFinalSynthesisReadback(readback); err != nil {
+				return err
+			}
+			rec.Evidence.AtlasFinalSynthesis = &readback
+			rec.Evidence.AtlasRecommendation = atlasRecommendationFromFinalSynthesis(readback)
+			rec.Evidence.AtlasWorkgraph = &NodeCounts{
+				Total:     readback.TotalNodes,
+				Ready:     readback.ReadyNodes,
+				Blocked:   readback.BlockedNodes,
+				Completed: readback.CompletedNodes,
+			}
+			rec.ExactNextAction = readback.ExactNextAction
+			switch {
+			case atlasFinalSynthesisClosesMission(readback):
+				rec.Status = "done"
+				rec.CurrentRoute = "complete"
+				rec.CurrentPhase = "complete"
+				rec.ExactNextAction = "mission complete; read final rollup and recommended next tasks"
+			case readback.Status == "blocked" || readback.Status == "denied":
+				rec.Status = "blocked"
+				rec.CurrentRoute = "ao-atlas"
+				rec.CurrentPhase = "atlas_final_synthesis_" + readback.Status
+				blocker := atlasFinalSynthesisBlocker(readback)
+				rec.Blockers = appendMissingString(rec.Blockers, blocker)
+				rec.ExactNextAction = "Atlas final synthesis readback " + readback.Status + ": " + blocker
+			default:
+				rec.CurrentRoute = "ao-atlas"
+				rec.CurrentPhase = "atlas_final_synthesis_readback_recorded"
+				if rec.ExactNextAction == "" {
+					rec.ExactNextAction = "continue AO Atlas final synthesis reconciliation from latest exact next action"
+				}
+			}
+			AppendRouteHistory(rec, routeFromRecord(*rec, "Atlas final synthesis readback imported"))
+			gate := EvaluateReturnGate(*rec)
+			rec.ReturnGate = &gate
+			reconciliation := BuildRouteReconciliation(*rec)
+			rec.Reconciliation = &reconciliation
 		case "foundry-run-link":
 			rec.CurrentPhase = "foundry_run_link_recorded"
 			rec.ExactNextAction = "read next Atlas dependency-unblocked node or final rollup"
@@ -196,7 +235,7 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 
 func isMissionEvidenceReadback(kind string) bool {
 	switch kind {
-	case "atlas-recommendation-readback", "scheduler-readback", "scheduler-recovery-readback", "ledger-compaction-readback":
+	case "atlas-recommendation-readback", "atlas-final-synthesis-readback", "scheduler-readback", "scheduler-recovery-readback", "ledger-compaction-readback":
 		return true
 	default:
 		return false
@@ -289,6 +328,85 @@ func parseAtlasRecommendationReadbackCounts(doc map[string]any) AtlasRecommendat
 	}
 }
 
+func parseAtlasFinalSynthesisReadbackCounts(doc map[string]any) AtlasFinalSynthesisReadbackCounts {
+	return AtlasFinalSynthesisReadbackCounts{
+		ContractVersion:      stringFromAny(doc["contract_version"]),
+		Status:               stringFromAny(doc["status"]),
+		TotalNodes:           intFromAny(doc["total_nodes"]),
+		CompletedNodes:       intFromAny(doc["completed_nodes"]),
+		ReadyNodes:           intFromAny(doc["ready_nodes"]),
+		BlockedNodes:         intFromAny(doc["blocked_nodes"]),
+		MinimumNodes:         intFromAny(doc["minimum_nodes"]),
+		ReturnGateStatus:     stringFromAny(doc["return_gate_status"]),
+		FinalResponseAllowed: boolFromAny(doc["final_response_allowed"]),
+		FinalResponseReason:  stringFromAny(doc["final_response_reason"]),
+		AtlasWorkgraphStatus: stringFromAny(doc["atlas_workgraph_status"]),
+		FoundryRollup:        stringFromAny(doc["foundry_rollup"]),
+		PromoterStatus:       stringFromAny(doc["promoter_status"]),
+		CommandReadback:      stringFromAny(doc["command_readback"]),
+		EventSearchBound:     boolFromAny(doc["event_search_bound"]),
+		BranchCleanupBound:   boolFromAny(doc["branch_cleanup_bound"]),
+		RSIRemainsDenied:     boolFromAny(doc["rsi_remains_denied"]),
+		ExactNextAction:      stringFromAny(doc["exact_next_action"]),
+	}
+}
+
+func validateAtlasFinalSynthesisReadback(readback AtlasFinalSynthesisReadbackCounts) error {
+	switch {
+	case readback.ContractVersion != "ao.atlas.ao-mission-final-synthesis-readback.v0.1":
+		return fmt.Errorf("contract_version must be ao.atlas.ao-mission-final-synthesis-readback.v0.1")
+	case readback.TotalNodes != readback.CompletedNodes+readback.ReadyNodes+readback.BlockedNodes:
+		return fmt.Errorf("total_nodes must equal completed_nodes plus ready_nodes plus blocked_nodes")
+	case readback.FinalResponseAllowed && readback.ReadyNodes > 0:
+		return fmt.Errorf("final response cannot be allowed while ready nodes remain")
+	case readback.FinalResponseAllowed && readback.BlockedNodes > 0:
+		return fmt.Errorf("final response cannot be allowed while blocked nodes remain")
+	case readback.FinalResponseAllowed && readback.CompletedNodes < readback.MinimumNodes:
+		return fmt.Errorf("final response requires completed_nodes to meet minimum_nodes")
+	case readback.FinalResponseAllowed && readback.ReturnGateStatus != "final_response_allowed":
+		return fmt.Errorf("final response requires return_gate_status final_response_allowed")
+	case readback.FinalResponseAllowed && readback.Status != "completed":
+		return fmt.Errorf("final response requires completed status")
+	case readback.FinalResponseAllowed && readback.AtlasWorkgraphStatus != "completed":
+		return fmt.Errorf("final response requires completed Atlas workgraph status")
+	case readback.FinalResponseAllowed && readback.CommandReadback != "ready":
+		return fmt.Errorf("final response requires ready command_readback")
+	case readback.FinalResponseAllowed && !readback.EventSearchBound:
+		return fmt.Errorf("final response requires event search binding")
+	case readback.FinalResponseAllowed && !readback.BranchCleanupBound:
+		return fmt.Errorf("final response requires branch cleanup binding")
+	case !readback.RSIRemainsDenied:
+		return fmt.Errorf("rsi_remains_denied must be true")
+	default:
+		return nil
+	}
+}
+
+func atlasRecommendationFromFinalSynthesis(readback AtlasFinalSynthesisReadbackCounts) *AtlasRecommendationReadbackCounts {
+	leaseStatus := "minimum_minutes_unmet"
+	minMinutesMet := false
+	checkpoints := 0
+	if readback.FinalResponseAllowed {
+		leaseStatus = "minimum_minutes_met"
+		minMinutesMet = true
+		checkpoints = readback.TotalNodes
+	}
+	return &AtlasRecommendationReadbackCounts{
+		Status:               readback.Status,
+		TotalNodes:           readback.TotalNodes,
+		CompletedNodes:       readback.CompletedNodes,
+		ReadyNodes:           readback.ReadyNodes,
+		CheckpointCount:      checkpoints,
+		MinMinutesMet:        minMinutesMet,
+		LeaseTimeStatus:      leaseStatus,
+		ReturnGateStatus:     readback.ReturnGateStatus,
+		FinalResponseAllowed: readback.FinalResponseAllowed,
+		Blocker:              atlasFinalSynthesisBlocker(readback),
+		RSIRemainsDenied:     readback.RSIRemainsDenied,
+		ExactNextAction:      readback.ExactNextAction,
+	}
+}
+
 func atlasRecommendationReadbackClosesMission(readback AtlasRecommendationReadbackCounts) bool {
 	return readback.Status == "completed" &&
 		readback.TotalNodes > 0 &&
@@ -299,6 +417,42 @@ func atlasRecommendationReadbackClosesMission(readback AtlasRecommendationReadba
 		readback.LeaseTimeStatus == "minimum_minutes_met" &&
 		readback.ReturnGateStatus == "final_response_allowed" &&
 		readback.FinalResponseAllowed
+}
+
+func atlasFinalSynthesisClosesMission(readback AtlasFinalSynthesisReadbackCounts) bool {
+	return readback.Status == "completed" &&
+		readback.TotalNodes > 0 &&
+		readback.CompletedNodes == readback.TotalNodes &&
+		readback.ReadyNodes == 0 &&
+		readback.BlockedNodes == 0 &&
+		readback.CompletedNodes >= readback.MinimumNodes &&
+		readback.ReturnGateStatus == "final_response_allowed" &&
+		readback.FinalResponseAllowed &&
+		readback.AtlasWorkgraphStatus == "completed" &&
+		readback.CommandReadback == "ready" &&
+		readback.PromoterStatus != "" &&
+		readback.EventSearchBound &&
+		readback.BranchCleanupBound &&
+		readback.RSIRemainsDenied
+}
+
+func atlasFinalSynthesisBlocker(readback AtlasFinalSynthesisReadbackCounts) string {
+	switch {
+	case readback.FinalResponseAllowed && readback.ReadyNodes > 0:
+		return "final response cannot be allowed while ready nodes remain"
+	case readback.FinalResponseAllowed && readback.BlockedNodes > 0:
+		return "final response cannot be allowed while blocked nodes remain"
+	case readback.CompletedNodes < readback.MinimumNodes:
+		return "minimum nodes unmet"
+	case readback.ReturnGateStatus != "" && readback.ReturnGateStatus != "final_response_allowed":
+		return "return gate status " + readback.ReturnGateStatus
+	case readback.CommandReadback != "" && readback.CommandReadback != "ready":
+		return "command readback status " + readback.CommandReadback
+	case !readback.RSIRemainsDenied:
+		return "RSI denial evidence missing"
+	default:
+		return ""
+	}
 }
 
 func atlasRecommendationReadbackTerminalBlocker(readback AtlasRecommendationReadbackCounts) bool {

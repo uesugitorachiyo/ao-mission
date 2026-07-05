@@ -1,0 +1,24 @@
+{
+  "schema": "ao.mission.doubled-wave.node-evidence.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-05-route-readback-reconciliation",
+  "status": "recorded",
+  "evidence_key": "rollback_record",
+  "rollback_scope": [
+    "internal/mission/imports.go",
+    "internal/mission/types.go",
+    "internal/mission/supervisor.go",
+    "internal/mission/cli.go",
+    "internal/mission/mission_test.go",
+    "examples/valid/atlas-final-synthesis-readback.json",
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-doubled-wave-v01/workgraph.json",
+    "docs/evidence/ao-mission-doubled-wave-v01/nodes/node-05-route-readback-reconciliation"
+  ],
+  "rollback_action": "Revert the node-05 commit if Atlas final-synthesis import validation or reconciliation binding regresses before merge.",
+  "data_migration_required": false,
+  "schedules_work": false,
+  "executes_work": false,
+  "approves_work": false,
+  "rsi_remains_denied": true
+}

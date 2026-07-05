@@ -26,6 +26,8 @@ reconcile_json="$(mktemp)"
 event_index_json="$(mktemp)"
 event_search_json="$(mktemp)"
 synthesis_json="$(mktemp)"
+final_synthesis_import_json="$(mktemp)"
+final_synthesis_inspect_json="$(mktemp)"
 ./ao-mission --home "$tmp_home" start "import completed Atlas recommendation wave" >"$mission_json"
 mission_id="$(jq -r '.mission_id' "$mission_json")"
 ./ao-mission --home "$tmp_home" import atlas-recommendation-readback --mission "$mission_id" --path examples/valid/atlas-recommendation-readback.json >"$import_json"
@@ -38,8 +40,14 @@ jq -e '.schema == "ao.mission.final-reconciliation-packet.v0.1" and .artifacts_a
 ./ao-mission --home "$tmp_home" mission events search --mission "$mission_id" --kind final_reconciliation --index "$event_index_json" --json >"$event_search_json"
 jq -e '.schema == "ao.mission.event-search-readback.v0.1" and .status == "ready" and .total_matches >= 1 and .events[0].kind == "final_reconciliation" and .safe_to_execute == false and .executes_work == false and .approves_work == false' "$event_search_json" >/dev/null
 ./ao-mission --home "$tmp_home" final synthesize --mission "$mission_id" --evidence-root docs/evidence/ao-mission-doubled-wave-v01 >"$synthesis_json"
-jq -e '.schema == "ao.mission.atlas-wave-final-synthesis.v0.1" and .mission == "ao-mission-doubled-wave-v01" and .completed_nodes >= 1 and .ready_nodes >= 57 and .final_response_allowed == false and (.feature_depth_recommendations | length >= 20) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .rsi_remains_denied == true' "$synthesis_json" >/dev/null
-rm -rf "$tmp_home" "$mission_json" "$import_json" "$inspect_json" "$reconcile_json" "$event_index_json" "$event_search_json" "$synthesis_json" ao-mission
+jq -e '.schema == "ao.mission.atlas-wave-final-synthesis.v0.1" and .mission == "ao-mission-doubled-wave-v01" and .completed_nodes >= 5 and .ready_nodes >= 55 and .final_response_allowed == false and (.feature_depth_recommendations | length >= 20) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .rsi_remains_denied == true' "$synthesis_json" >/dev/null
+./ao-mission --home "$tmp_home" start "import Atlas final synthesis readback" >"$mission_json"
+final_synthesis_mission_id="$(jq -r '.mission_id' "$mission_json")"
+./ao-mission --home "$tmp_home" import atlas-final-synthesis-readback --mission "$final_synthesis_mission_id" --path examples/valid/atlas-final-synthesis-readback.json >"$final_synthesis_import_json"
+jq -e '.kind == "atlas-final-synthesis-readback" and .safe_to_execute == false and .executes_work == false and .approves_work == false' "$final_synthesis_import_json" >/dev/null
+./ao-mission --home "$tmp_home" mission inspect --mission "$final_synthesis_mission_id" --json >"$final_synthesis_inspect_json"
+jq -e '.status == "done" and .current_route == "complete" and .current_phase == "complete" and .evidence.atlas_final_synthesis.command_readback == "ready" and .evidence.atlas_final_synthesis.promoter_status == "no_promotion_requested" and .route_reconciliation.command_readback_bound == true and .route_reconciliation.promoter_readback_bound == true and .route_reconciliation.atlas_ready_nodes == 0 and .return_gate.final_response_allowed == true' "$final_synthesis_inspect_json" >/dev/null
+rm -rf "$tmp_home" "$mission_json" "$import_json" "$inspect_json" "$reconcile_json" "$event_index_json" "$event_search_json" "$synthesis_json" "$final_synthesis_import_json" "$final_synthesis_inspect_json" ao-mission
 grep -q "25-node Atlas recommendation import wave" docs/operator-next-actions.md
 grep -q "Do not stop before 25 completed nodes" docs/evidence/ao-mission-atlas-wave-import-v01/next-recommended-prompt.md
 grep -q "final-reconciliation-packet.json" docs/operator-next-actions.md
@@ -61,5 +69,6 @@ jq -e '.schema == "ao.mission.post-merge-final-closure.v0.1" and .status == "com
 grep -q "Do not stop before 30 completed nodes" docs/evidence/ao-mission-atlas-wave-import-v01/next-wave-recommended-prompt.md
 jq -e '.schema == "ao.mission.wave-duration-ledger.v0.1" and .mission == "ao-mission-doubled-wave-v01" and .status == "active" and .minimum_minutes == 120 and .target_minutes == 120 and .max_minutes == 180 and .minimum_minutes_met == false and .final_response_allowed == false and .rsi_remains_denied == true and .safe_to_execute == false and .executes_work == false and .approves_work == false' docs/evidence/ao-mission-doubled-wave-v01/duration-ledger.json >/dev/null
 jq -e '.schema == "ao.mission.codex-session-duration-readback.v0.1" and .mission == "ao-mission-doubled-wave-v01" and .status == "metadata_available" and .content_read == false and .secret_values_read == false and .session_log_files_found > 0 and .safe_to_execute == false and .executes_work == false and .approves_work == false and .rsi_remains_denied == true' docs/evidence/ao-mission-doubled-wave-v01/codex-session-duration-readback.json >/dev/null
+jq -e '.contract_version == "ao.atlas.ao-mission-final-synthesis-readback.v0.1" and .completed_nodes == 26 and .ready_nodes == 0 and .blocked_nodes == 0 and .final_response_allowed == true and .command_readback == "ready" and .promoter_status == "no_promotion_requested" and .rsi_remains_denied == true and .safe_to_execute == false and .executes_work == false and .approves_work == false' examples/valid/atlas-final-synthesis-readback.json >/dev/null
 jq -e '.schema == "ao.mission.event-search-production-smoke.v0.1" and .status == "passed" and .mission == "ao-mission-atlas-wave-import-v01" and .searched_kind == "final_reconciliation" and .total_matches_minimum == 1 and .safe_to_execute == false and .executes_work == false and .approves_work == false and .rsi_remains_denied == true' docs/evidence/ao-mission-atlas-wave-import-v01/event-search-production-smoke.json >/dev/null
 echo "AO Mission production readiness: 100/100 status=ready"

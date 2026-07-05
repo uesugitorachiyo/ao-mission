@@ -1,0 +1,15 @@
+{
+  "schema": "ao.mission.doubled-wave.node-evidence.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-05-route-readback-reconciliation",
+  "status": "passed",
+  "gate": "single_active_mutation_node",
+  "owner": "ao-mission",
+  "objective": "Bind AO Atlas final-synthesis readback into AO Mission route/readback reconciliation.",
+  "previous_node": "node-04-atlas-final-synthesis-roundtrip",
+  "next_node": "node-06-checkpoint-resume-refresh",
+  "schedules_work": false,
+  "executes_work": false,
+  "approves_work": false,
+  "rsi_remains_denied": true
+}

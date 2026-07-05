@@ -53,6 +53,7 @@ type Record struct {
 type EvidenceSummary struct {
 	AtlasWorkgraph      *NodeCounts                        `json:"atlas_workgraph,omitempty"`
 	AtlasRecommendation *AtlasRecommendationReadbackCounts `json:"atlas_recommendation,omitempty"`
+	AtlasFinalSynthesis *AtlasFinalSynthesisReadbackCounts `json:"atlas_final_synthesis,omitempty"`
 	FoundryRollup       *FoundryRollupCounts               `json:"foundry_rollup,omitempty"`
 	SchedulerReadback   *SchedulerEvidenceCounts           `json:"scheduler_readback,omitempty"`
 	SchedulerRecovery   *SchedulerRecoveryCounts           `json:"scheduler_recovery,omitempty"`
@@ -86,6 +87,27 @@ type AtlasRecommendationReadbackCounts struct {
 	FinalResponseAllowed bool   `json:"final_response_allowed"`
 	Blocker              string `json:"blocker,omitempty"`
 	RSIRemainsDenied     bool   `json:"rsi_remains_denied,omitempty"`
+	ExactNextAction      string `json:"exact_next_action"`
+}
+
+type AtlasFinalSynthesisReadbackCounts struct {
+	ContractVersion      string `json:"contract_version"`
+	Status               string `json:"status"`
+	TotalNodes           int    `json:"total_nodes"`
+	CompletedNodes       int    `json:"completed_nodes"`
+	ReadyNodes           int    `json:"ready_nodes"`
+	BlockedNodes         int    `json:"blocked_nodes"`
+	MinimumNodes         int    `json:"minimum_nodes"`
+	ReturnGateStatus     string `json:"return_gate_status"`
+	FinalResponseAllowed bool   `json:"final_response_allowed"`
+	FinalResponseReason  string `json:"final_response_reason"`
+	AtlasWorkgraphStatus string `json:"atlas_workgraph_status"`
+	FoundryRollup        string `json:"foundry_rollup"`
+	PromoterStatus       string `json:"promoter_status"`
+	CommandReadback      string `json:"command_readback"`
+	EventSearchBound     bool   `json:"event_search_bound"`
+	BranchCleanupBound   bool   `json:"branch_cleanup_bound"`
+	RSIRemainsDenied     bool   `json:"rsi_remains_denied"`
 	ExactNextAction      string `json:"exact_next_action"`
 }
 
