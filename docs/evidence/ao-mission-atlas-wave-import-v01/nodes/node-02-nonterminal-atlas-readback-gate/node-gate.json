@@ -1,0 +1,10 @@
+{
+  "schema": "ao.mission.node-gate-readback.v0.1",
+  "node_id": "node-02-nonterminal-atlas-readback-gate",
+  "status": "passed",
+  "gate": "AO Mission denies final response for Atlas recommendation readbacks that are complete by count but still under the long-run lease minimum.",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false
+}

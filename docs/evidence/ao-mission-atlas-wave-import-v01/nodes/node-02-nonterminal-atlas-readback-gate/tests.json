@@ -1,0 +1,9 @@
+{
+  "schema": "ao.mission.tests-readback.v0.1",
+  "node_id": "node-02-nonterminal-atlas-readback-gate",
+  "red": "go test ./internal/mission -run TestImportAtlasRecommendationReadbackDeniesFinalWhenLeaseMinimumUnmet -count=1 failed because Mission returned the generic reason exact next action remains.",
+  "green": "go test ./internal/mission -run TestImportAtlasRecommendationReadbackDeniesFinalWhenLeaseMinimumUnmet -count=1 passed after adding the Atlas-specific return gate branch.",
+  "regressions": [
+    "TestImportAtlasRecommendationReadbackDeniesFinalWhenLeaseMinimumUnmet"
+  ]
+}

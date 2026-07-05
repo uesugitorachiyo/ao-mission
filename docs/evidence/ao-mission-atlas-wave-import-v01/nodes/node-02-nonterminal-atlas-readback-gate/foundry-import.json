@@ -1,0 +1,11 @@
+{
+  "schema": "ao.foundry.import-readback.v0.1",
+  "node_id": "node-02-nonterminal-atlas-readback-gate",
+  "status": "ready_for_bounded_implementation",
+  "owner": "ao-foundry",
+  "task": "Implement only the nonterminal Atlas recommendation readback gate node.",
+  "single_active_mutation_node": true,
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false
+}

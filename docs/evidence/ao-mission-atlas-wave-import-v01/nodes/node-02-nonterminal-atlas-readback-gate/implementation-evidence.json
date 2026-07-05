@@ -1,0 +1,10 @@
+{
+  "schema": "ao.mission.implementation-evidence.v0.1",
+  "node_id": "node-02-nonterminal-atlas-readback-gate",
+  "status": "implemented_locally",
+  "files": [
+    "internal/mission/supervisor.go",
+    "internal/mission/mission_test.go"
+  ],
+  "behavior": "EvaluateReturnGate now reports Atlas recommendation return_gate_status, lease_time_status, and elapsed_minutes when Atlas denies final response."
+}

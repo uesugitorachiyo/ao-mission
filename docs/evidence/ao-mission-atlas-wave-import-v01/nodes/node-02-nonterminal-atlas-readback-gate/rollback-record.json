@@ -1,0 +1,7 @@
+{
+  "schema": "ao.mission.rollback-record.v0.1",
+  "node_id": "node-02-nonterminal-atlas-readback-gate",
+  "rollback": "Revert the AtlasRecommendation branch in EvaluateReturnGate and remove TestImportAtlasRecommendationReadbackDeniesFinalWhenLeaseMinimumUnmet.",
+  "risk": "Low; changes only final-response readback wording and denial specificity.",
+  "requires_release": false
+}

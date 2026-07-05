@@ -616,6 +616,61 @@ func TestCLIImportsAtlasRecommendationReadback(t *testing.T) {
 	}
 }
 
+func TestImportAtlasRecommendationReadbackDeniesFinalWhenLeaseMinimumUnmet(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("import short Atlas recommendation wave")
+	if err != nil {
+		t.Fatal(err)
+	}
+	readbackPath := filepath.Join(dir, "recommendation-readback-short.json")
+	readback := `{
+		"schema":"ao.atlas.recommendation-readback.v0.1",
+		"status":"completed",
+		"total_nodes":40,
+		"completed_nodes":40,
+		"ready_nodes":0,
+		"checkpoint_count":40,
+		"elapsed_minutes":22,
+		"min_minutes_met":false,
+		"lease_time_status":"minimum_minutes_unmet",
+		"return_gate_status":"blocked_minimum_minutes_unmet",
+		"final_response_allowed":false,
+		"safe_to_execute":false,
+		"executes_work":false,
+		"approves_work":false,
+		"mutates_repositories":false,
+		"provider_calls":false,
+		"release_or_publish":false,
+		"credential_use":false,
+		"direct_main_mutation":false,
+		"concurrent_mutation":false,
+		"exact_next_action":"Continue AO Atlas wave until the minimum lease duration is met."
+	}`
+	if err := os.WriteFile(readbackPath, []byte(readback), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(s, rec.MissionID, "atlas-recommendation-readback", readbackPath); err != nil {
+		t.Fatal(err)
+	}
+	continued, err := s.Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if continued.Status == "done" || continued.CurrentRoute != "ao-atlas" {
+		t.Fatalf("short Atlas readback should keep Mission routed to Atlas: %+v", continued)
+	}
+	if continued.ReturnGate == nil || continued.ReturnGate.FinalResponseAllowed {
+		t.Fatalf("short Atlas readback should deny final response: %+v", continued.ReturnGate)
+	}
+	if !strings.Contains(continued.ReturnGate.Reason, "blocked_minimum_minutes_unmet") {
+		t.Fatalf("return gate should carry Atlas lease blocker, got %+v", continued.ReturnGate)
+	}
+	if !strings.Contains(continued.ReturnGate.ExactNextAction, "minimum lease") {
+		t.Fatalf("return gate should preserve Atlas lease continuation action, got %+v", continued.ReturnGate)
+	}
+}
+
 func TestPromotedFoundryRollupClosesMission(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)
