@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "node_id": "node-16-promoter-no-promotion-root-summary",
+  "status": "imported",
+  "bounded_task": "Bind root Promoter no-promotion readback for the wave.",
+  "executes_one_node": true,
+  "safe_to_execute": false
+}

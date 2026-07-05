@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.candidate-record.v0.1",
+  "node_id": "node-16-promoter-no-promotion-root-summary",
+  "status": "selected",
+  "candidate": "Add a root Promoter no-promotion summary bound to the Atlas recommendation import wave.",
+  "owner": "ao-mission",
+  "why_now": "A single promoter readback makes the wave closure status auditable without inferring promotion from implementation evidence."
+}

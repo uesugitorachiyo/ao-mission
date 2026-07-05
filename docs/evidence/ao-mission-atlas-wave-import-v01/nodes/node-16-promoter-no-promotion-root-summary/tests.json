@@ -1,0 +1,7 @@
+{
+  "schema": "ao.foundry.tests.v0.1",
+  "node_id": "node-16-promoter-no-promotion-root-summary",
+  "status": "passed",
+  "red": "scripts/production-readiness.sh failed because promoter-no-promotion-summary.json did not exist.",
+  "green": "scripts/production-readiness.sh passes after adding the root Promoter no-promotion summary."
+}

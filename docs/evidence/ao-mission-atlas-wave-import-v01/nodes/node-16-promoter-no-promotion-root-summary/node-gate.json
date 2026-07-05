@@ -1,0 +1,8 @@
+{
+  "schema": "ao.atlas.node-gate.v0.1",
+  "node_id": "node-16-promoter-no-promotion-root-summary",
+  "status": "passed",
+  "gate": "Production readiness requires a root Promoter no-promotion summary for this readback-only wave.",
+  "active_mutation_node": "node-16-promoter-no-promotion-root-summary",
+  "exact_next_action": "verify summary, open PR, wait for CI, merge, and continue node 17"
+}
