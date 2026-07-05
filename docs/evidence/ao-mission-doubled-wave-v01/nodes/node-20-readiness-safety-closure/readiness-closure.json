@@ -1,0 +1,24 @@
+{
+  "schema": "ao.mission.readiness-safety-closure.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "status": "local_verified_ready_for_pr",
+  "completed_nodes": 20,
+  "ready_nodes": 40,
+  "blocked_nodes": 0,
+  "merged_prs": {
+    "ao_mission": [47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60],
+    "ao_atlas": [237, 238, 239],
+    "ao_foundry": [255],
+    "ao_command": [109]
+  },
+  "readiness": {
+    "ao_mission": "passed",
+    "ao_command": "passed",
+    "production_readiness_assertion_repaired": true
+  },
+  "public_safety_scan": "passed",
+  "promotion_claimed": false,
+  "rsi_remains_denied": true,
+  "final_response_allowed": false,
+  "exact_next_action": "Continue node-21 through the next Atlas-owned Feature Depth wave."
+}

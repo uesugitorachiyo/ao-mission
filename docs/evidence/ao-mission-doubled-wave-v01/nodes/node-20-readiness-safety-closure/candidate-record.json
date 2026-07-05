@@ -1,0 +1,20 @@
+{
+  "schema": "ao.evidence.candidate-record.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-20-readiness-safety-closure",
+  "candidate": {
+    "repo": "ao-mission",
+    "branch": "codex/doubled-wave-node-20-readiness-safety-closure",
+    "summary": "Record production readiness and public-safety closure for nodes 1-20 and generate the next recommended Atlas prompt for nodes 21-60.",
+    "reason": "The first doubled-wave segment needs a durable closure packet before returning, including current workgraph counts, readiness results, scoped public-safety scans, and exact next action."
+  },
+  "expected_behavior": [
+    "workgraph reports 20 completed nodes, 40 ready nodes, and final_response_allowed=false",
+    "next recommended prompt lists nodes 21-60 for the next 2-3 hour wave",
+    "production readiness accepts the node 20 workgraph state and still denies final response while ready nodes remain",
+    "AO Mission and AO Command readiness checks pass after merged nodes 14-19",
+    "public-safety scans show no secret-like patterns or authority-widening true flags"
+  ],
+  "risk": "Low: evidence and prompt/readback updates only.",
+  "rollback": "Revert the node 20 evidence, workgraph count update, and next recommended prompt."
+}
