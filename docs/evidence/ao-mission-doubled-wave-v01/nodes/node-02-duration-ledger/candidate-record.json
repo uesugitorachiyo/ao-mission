@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.candidate-record.v0.1",
+  "node_id": "node-02-duration-ledger",
+  "status": "selected",
+  "candidate": "Add a duration ledger for the doubled 60-node wave.",
+  "owner": "ao-mission",
+  "why_now": "The operator reported short 14-20 minute loops; duration evidence must be auditable before final closure."
+}

@@ -1,0 +1,7 @@
+{
+  "schema": "ao.foundry.tests.v0.1",
+  "node_id": "node-02-duration-ledger",
+  "status": "passed",
+  "red": "scripts/production-readiness.sh failed because duration-ledger.json did not exist.",
+  "green": "scripts/production-readiness.sh passes after adding the duration ledger and readiness assertion."
+}

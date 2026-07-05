@@ -1,0 +1,6 @@
+{
+  "schema": "ao.foundry.rollback-record.v0.1",
+  "node_id": "node-02-duration-ledger",
+  "rollback": "Remove duration-ledger.json and its production-readiness assertion.",
+  "safe_to_revert": true
+}

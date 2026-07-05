@@ -5,17 +5,23 @@
   "minimum_nodes": 60,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 1,
-  "ready_nodes": 59,
+  "completed_nodes": 2,
+  "ready_nodes": 58,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue node-02: add duration ledger evidence for 2-3 hour lease auditing.",
+  "exact_next_action": "Continue node-03: add Codex session-duration readback from local session logs without exposing secrets.",
   "nodes": [
     {
       "node_id": "node-01-final-synthesis-cli",
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Add generated final synthesis CLI output from live Mission state and evidence-root workgraph."
+    },
+    {
+      "node_id": "node-02-duration-ledger",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Record 2-3 hour lease timing fields and keep final response denied while the minimum duration is unmet."
     }
   ]
 }

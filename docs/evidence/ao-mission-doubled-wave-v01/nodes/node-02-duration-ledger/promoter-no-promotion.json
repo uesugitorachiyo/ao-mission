@@ -1,0 +1,7 @@
+{
+  "schema": "ao.promoter.no-promotion-readback.v0.1",
+  "node_id": "node-02-duration-ledger",
+  "status": "no_promotion_requested",
+  "promotion_claimed": false,
+  "reason": "This node records duration readiness only and does not request promotion."
+}

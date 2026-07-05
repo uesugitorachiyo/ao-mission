@@ -1,0 +1,7 @@
+{
+  "schema": "ao.command.readback.v0.1",
+  "node_id": "node-02-duration-ledger",
+  "status": "ready_for_review",
+  "summary": "Doubled wave duration ledger records the 120 minute minimum and keeps final response denied until duration evidence is met.",
+  "exact_next_action": "merge node 02 after CI, then continue node 03"
+}
