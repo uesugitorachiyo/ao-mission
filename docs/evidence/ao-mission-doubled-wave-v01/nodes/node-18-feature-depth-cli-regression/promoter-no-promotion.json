@@ -1,0 +1,12 @@
+{
+  "schema": "ao.evidence.promoter-readback.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-18-feature-depth-cli-regression",
+  "status": "no_promotion",
+  "reason": "Node 18 adds regression coverage for recommendation depth. It does not promote a capability class or assert RSI.",
+  "promotion_readiness": {
+    "capability_promoted": false,
+    "fully_unsupervised_complex_mutation_promoted": false,
+    "rsi_promoted": false
+  }
+}

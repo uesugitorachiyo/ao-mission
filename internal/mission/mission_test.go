@@ -1712,6 +1712,39 @@ func TestFeatureDepthRecommendationsReturnAtLeastTenActionableTasks(t *testing.T
 	}
 }
 
+func TestCLIFinalRollupReturnsAtLeastTenActionableFeatureDepthRecommendations(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "long-running atlas workgraph mission"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	errb.Reset()
+	if code := Run([]string{"--home", dir, "final", "rollup", "--mission", rec.MissionID}, &out, &errb); code != 0 {
+		t.Fatalf("final rollup: %s", errb.String())
+	}
+	var rollup FinalRollup
+	if err := json.Unmarshal(out.Bytes(), &rollup); err != nil {
+		t.Fatal(err)
+	}
+	if rollup.Schema != "ao.mission.final-rollup.v0.1" || rollup.MissionID != rec.MissionID {
+		t.Fatalf("bad rollup header: %+v", rollup)
+	}
+	if len(rollup.FeatureDepthRecommendations) < 10 {
+		t.Fatalf("CLI recommendations too shallow: %d", len(rollup.FeatureDepthRecommendations))
+	}
+	if err := ValidateFeatureDepthRecommendations(rollup.FeatureDepthRecommendations, 10); err != nil {
+		t.Fatalf("CLI recommendations are not actionable: %v", err)
+	}
+	if rollup.SafeToExecute || rollup.ExecutesWork || rollup.ApprovesWork || rollup.ProviderCalls {
+		t.Fatalf("final rollup widened authority: %+v", rollup)
+	}
+}
+
 func TestFeatureDepthRecommendationsEnforceConcreteBudget(t *testing.T) {
 	rec := Record{
 		Schema:          RecordSchema,
