@@ -5,11 +5,11 @@
   "minimum_nodes": 60,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 8,
-  "ready_nodes": 52,
+  "completed_nodes": 9,
+  "ready_nodes": 51,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue node-09: extend AO Mission doctor for lease health, checkpoint freshness, stale route decisions, and early-return risk.",
+  "exact_next_action": "Continue node-10: strengthen AO Mission event index/search binding for route, node, PR, CI, rollup, and blocker evidence.",
   "nodes": [
     {
       "node_id": "node-01-final-synthesis-cli",
@@ -58,6 +58,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Require Feature Depth recommendations to carry concrete gates, evidence, continuation commands, and minimum time budgets."
+    },
+    {
+      "node_id": "node-09-doctor-risk-readback",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Extend AO Mission doctor with detailed lease health, checkpoint freshness, stale route, and early-return risk readback."
     }
   ]
 }

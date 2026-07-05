@@ -1,0 +1,45 @@
+{
+  "schema": "ao.mission.doctor-readback.v0.1",
+  "status": "ready",
+  "root": "/var/folders/v3/66_f37zd7_jf3w5t_1lmdx2h0000gn/T/tmp.oFPnM5pcc7",
+  "mission_count": 1,
+  "event_count": 9,
+  "lease_count": 1,
+  "lease_health_status": "healthy",
+  "fresh_checkpoints": 1,
+  "checkpoint_freshness_status": "fresh",
+  "early_return_risks": 1,
+  "early_return_risk_status": "risk_detected",
+  "stale_routes": 0,
+  "stale_route_decision_status": "clear",
+  "risk_missions": [
+    {
+      "mission_id": "mission-2a44c7ac133c947b",
+      "kind": "early_return",
+      "status": "early_return_denied",
+      "reason": "lease minimum unmet: completed_nodes=2 min_nodes=10",
+      "exact_next_action": "continue mission: send objective to AO Atlas for workgraph sequencing"
+    }
+  ],
+  "exact_next_action": "continue mission: send objective to AO Atlas for workgraph sequencing",
+  "checks": [
+    "mission_store_initialized",
+    "mission_records_readable",
+    "mission_event_index_readable",
+    "authority_flags_false",
+    "lease_health_checked",
+    "lease_minimums_validated",
+    "checkpoint_freshness_checked",
+    "checkpoint_resume_bundle_freshness_validated",
+    "stale_route_reconciliation_checked",
+    "stale_route_decision_bound",
+    "early_return_risk_checked",
+    "early_return_risk_exact_next_action_bound"
+  ],
+  "blockers": [],
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false,
+  "generated_at_utc": "2026-07-05T02:52:12Z"
+}

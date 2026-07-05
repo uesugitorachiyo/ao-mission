@@ -1,0 +1,110 @@
+{
+  "schema": "ao.mission.record.v0.1",
+  "mission_id": "mission-2a44c7ac133c947b",
+  "objective": "node 09 doctor risk readback",
+  "objective_digest": "sha256:e7e6762ec90a812226ba4fbde8a470f80c6037d2f8a78e11c8835385b41b6288",
+  "status": "active",
+  "created_at_utc": "2026-07-05T02:52:12Z",
+  "updated_at_utc": "2026-07-05T02:52:12Z",
+  "current_route": "ao-atlas",
+  "current_phase": "handoff_required",
+  "blockers": [],
+  "exact_next_action": "send objective to AO Atlas for workgraph sequencing",
+  "artifact_refs": [],
+  "steps": [
+    {
+      "schema": "ao.mission.continuation-step.v0.1",
+      "mission_id": "mission-2a44c7ac133c947b",
+      "iteration": 1,
+      "route": "ao-atlas",
+      "result": "handoff_required",
+      "exact_next_action": "send objective to AO Atlas for workgraph sequencing",
+      "generated_at_utc": "2026-07-05T02:52:12Z"
+    },
+    {
+      "schema": "ao.mission.continuation-step.v0.1",
+      "mission_id": "mission-2a44c7ac133c947b",
+      "iteration": 2,
+      "route": "ao-atlas",
+      "result": "handoff_required",
+      "exact_next_action": "send objective to AO Atlas for workgraph sequencing",
+      "generated_at_utc": "2026-07-05T02:52:12Z"
+    }
+  ],
+  "route_history": [
+    {
+      "schema": "ao.mission.route-decision.v0.1",
+      "mission_id": "mission-2a44c7ac133c947b",
+      "route": "ao-atlas",
+      "reason": "specified objective should be sequenced by AO Atlas before Foundry execution",
+      "safe_to_request": true,
+      "safe_to_execute": false,
+      "safe_to_promote": false,
+      "exact_next_action": "send objective to AO Atlas for workgraph sequencing",
+      "generated_at_utc": "2026-07-05T02:52:12Z"
+    }
+  ],
+  "evidence": {},
+  "goal_lease": {
+    "schema": "ao.mission.goal-lease.v0.3",
+    "min_nodes": 10,
+    "min_minutes": 120,
+    "max_minutes": 180,
+    "max_iterations": 2,
+    "return_only_when": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action",
+    "checkpoint_policy": "after_each_node_or_timed_interval",
+    "created_at_utc": "2026-07-05T02:52:12Z",
+    "updated_at_utc": "2026-07-05T02:52:12Z"
+  },
+  "checkpoints": [
+    {
+      "schema": "ao.mission.checkpoint.v0.3",
+      "mission_id": "mission-2a44c7ac133c947b",
+      "sequence": 1,
+      "iteration": 1,
+      "route": "ao-atlas",
+      "phase": "handoff_required",
+      "result": "handoff_required",
+      "exact_next_action": "send objective to AO Atlas for workgraph sequencing",
+      "resume_command": "ao-mission continue --mission mission-2a44c7ac133c947b --until-done --max-iterations 10",
+      "generated_at_utc": "2026-07-05T02:52:12Z"
+    },
+    {
+      "schema": "ao.mission.checkpoint.v0.3",
+      "mission_id": "mission-2a44c7ac133c947b",
+      "sequence": 2,
+      "iteration": 2,
+      "route": "ao-atlas",
+      "phase": "handoff_required",
+      "result": "handoff_required",
+      "exact_next_action": "send objective to AO Atlas for workgraph sequencing",
+      "resume_command": "ao-mission continue --mission mission-2a44c7ac133c947b --until-done --max-iterations 10",
+      "generated_at_utc": "2026-07-05T02:52:12Z"
+    }
+  ],
+  "return_gate": {
+    "schema": "ao.mission.return-gate.v0.3",
+    "mission_id": "mission-2a44c7ac133c947b",
+    "status": "early_return_denied",
+    "final_response_allowed": false,
+    "reason": "lease minimum unmet: completed_nodes=2 min_nodes=10",
+    "completed_nodes": 2,
+    "min_nodes": 10,
+    "ready_nodes_remaining": 0,
+    "hard_blocker": false,
+    "exact_next_action": "continue mission: send objective to AO Atlas for workgraph sequencing",
+    "generated_at_utc": "2026-07-05T02:52:12Z"
+  },
+  "route_reconciliation": {
+    "schema": "ao.mission.route-reconciliation.v0.3",
+    "mission_id": "mission-2a44c7ac133c947b",
+    "status": "ready",
+    "current_route": "ao-atlas",
+    "latest_route": "ao-atlas",
+    "atlas_ready_nodes": 0,
+    "command_readback_bound": false,
+    "promoter_readback_bound": false,
+    "exact_next_action": "route and readback evidence reconciled; continue from latest exact next action",
+    "generated_at_utc": "2026-07-05T02:52:12Z"
+  }
+}

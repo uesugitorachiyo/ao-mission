@@ -1,0 +1,13 @@
+{
+  "schema": "ao.command.node-readback.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-09-doctor-risk-readback",
+  "status": "ready",
+  "summary": "Mission doctor now reports detailed lease health, checkpoint freshness, stale route, and early-return risk records with an exact next action.",
+  "exact_next_action": "Continue node-10: strengthen AO Mission event index/search binding for route, node, PR, CI, rollup, and blocker evidence.",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false,
+  "rsi_remains_denied": true
+}
