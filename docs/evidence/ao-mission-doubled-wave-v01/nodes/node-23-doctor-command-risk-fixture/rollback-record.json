@@ -1,0 +1,16 @@
+{
+  "schema": "ao.evidence.rollback-record.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-23-doctor-command-risk-fixture",
+  "branch": "codex/doubled-wave-node-23-doctor-command-risk-fixture",
+  "rollback_scope": [
+    "examples/valid/doctor-command-compact-early-return-risk.json",
+    "internal/mission/mission_test.go",
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-doubled-wave-v01/workgraph.json",
+    "docs/evidence/ao-mission-doubled-wave-v01/README.md",
+    "docs/evidence/ao-mission-doubled-wave-v01/nodes/node-23-doctor-command-risk-fixture"
+  ],
+  "rollback_action": "Revert the node-23 branch or remove the doctor-command compact fixture, regression, readiness assertion, and node evidence before merge.",
+  "operator_data_migration": "none"
+}

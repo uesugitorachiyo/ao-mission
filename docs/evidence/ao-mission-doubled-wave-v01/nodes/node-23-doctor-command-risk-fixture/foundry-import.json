@@ -1,0 +1,18 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-23-doctor-command-risk-fixture",
+  "owner": "ao-mission",
+  "task": "Implement only the doctor JSON fixture binding Command compact early-return risk.",
+  "inputs": [
+    "internal/mission/event_index.go",
+    "examples/valid/command-compact-timeline-readback.json",
+    "docs/evidence/ao-mission-doubled-wave-v01/workgraph.json"
+  ],
+  "constraints": [
+    "fixture/readback only",
+    "no provider calls",
+    "no authority promotion",
+    "RSI remains denied"
+  ]
+}

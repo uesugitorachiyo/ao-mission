@@ -1,0 +1,25 @@
+{
+  "schema": "ao.evidence.node-gate.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-23-doctor-command-risk-fixture",
+  "owner": "ao-mission",
+  "status": "completed",
+  "objective": "Add a doctor JSON fixture that binds early-return risk into Command compact readback.",
+  "gate": {
+    "single_mutation_node_active": true,
+    "branch": "codex/doubled-wave-node-23-doctor-command-risk-fixture",
+    "direct_main_mutation": false,
+    "provider_calls": false,
+    "credential_or_token_inspection": false,
+    "release_deploy_publish_upload_or_tag": false,
+    "dependency_update": false,
+    "auth_policy_or_config_widening": false,
+    "hidden_instruction_mutation": false,
+    "rsi_remains_denied": true
+  },
+  "exit_criteria": [
+    "doctor fixture reports early_return risk_detected",
+    "Command compact fixture includes doctor_risk event with final_response_allowed=false",
+    "exact next action is bound between doctor and Command compact readback"
+  ]
+}

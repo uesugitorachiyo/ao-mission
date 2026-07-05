@@ -1084,6 +1084,90 @@ func TestCommandCompactTimelineFixtureCoversAtlasAndReconciliationEvents(t *test
 	}
 }
 
+func TestDoctorCommandCompactRiskFixtureBindsEarlyReturnRisk(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("..", "..", "examples", "valid", "doctor-command-compact-early-return-risk.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Schema  string `json:"schema"`
+		Status  string `json:"status"`
+		Mission string `json:"mission"`
+		Doctor  struct {
+			Schema                string              `json:"schema"`
+			Status                string              `json:"status"`
+			EarlyReturnRisks      int                 `json:"early_return_risks"`
+			EarlyReturnRiskStatus string              `json:"early_return_risk_status"`
+			RiskMissions          []MissionDoctorRisk `json:"risk_missions"`
+			ExactNextAction       string              `json:"exact_next_action"`
+			SafeToExecute         bool                `json:"safe_to_execute"`
+			ExecutesWork          bool                `json:"executes_work"`
+			ApprovesWork          bool                `json:"approves_work"`
+			MutatesRepositories   bool                `json:"mutates_repositories"`
+		} `json:"doctor"`
+		CommandCompact struct {
+			Schema              string         `json:"schema"`
+			Status              string         `json:"status"`
+			Compact             bool           `json:"compact"`
+			IncludesEventKinds  []string       `json:"includes_event_kinds"`
+			RecentEvents        []MissionEvent `json:"recent_events"`
+			SafeToExecute       bool           `json:"safe_to_execute"`
+			ExecutesWork        bool           `json:"executes_work"`
+			ApprovesWork        bool           `json:"approves_work"`
+			MutatesRepositories bool           `json:"mutates_repositories"`
+		} `json:"command_compact"`
+		Binding struct {
+			DoctorRiskKind           string `json:"doctor_risk_kind"`
+			CommandEventKind         string `json:"command_event_kind"`
+			ExactNextActionBound     bool   `json:"exact_next_action_bound"`
+			FinalResponseAllowed     bool   `json:"final_response_allowed"`
+			FinalResponseDenialBound bool   `json:"final_response_denial_bound"`
+			CommandCompactRiskBound  bool   `json:"command_compact_risk_bound"`
+		} `json:"binding"`
+		SafeToExecute       bool `json:"safe_to_execute"`
+		ExecutesWork        bool `json:"executes_work"`
+		ApprovesWork        bool `json:"approves_work"`
+		MutatesRepositories bool `json:"mutates_repositories"`
+		RSIRemainsDenied    bool `json:"rsi_remains_denied"`
+	}
+	if err := json.Unmarshal(body, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	if fixture.Schema != "ao.mission.doctor-command-compact-early-return-risk.v0.1" || fixture.Status != "risk_detected" || fixture.Mission != "ao-mission-doubled-wave-v01" {
+		t.Fatalf("bad fixture header: %+v", fixture)
+	}
+	if fixture.Doctor.Schema != "ao.mission.doctor-readback.v0.1" || fixture.Doctor.EarlyReturnRisks < 1 || fixture.Doctor.EarlyReturnRiskStatus != "risk_detected" {
+		t.Fatalf("doctor risk not bound: %+v", fixture.Doctor)
+	}
+	if len(fixture.Doctor.RiskMissions) == 0 || fixture.Doctor.RiskMissions[0].Kind != "early_return" || !strings.Contains(fixture.Doctor.RiskMissions[0].ExactNextAction, "Continue node-23") {
+		t.Fatalf("doctor exact next action missing early-return risk: %+v", fixture.Doctor.RiskMissions)
+	}
+	if fixture.CommandCompact.Schema != "ao.command.compact-timeline-readback.v0.1" || !fixture.CommandCompact.Compact || !stringSliceContains(fixture.CommandCompact.IncludesEventKinds, "doctor_risk") {
+		t.Fatalf("command compact risk event not bound: %+v", fixture.CommandCompact)
+	}
+	if len(fixture.CommandCompact.RecentEvents) == 0 || fixture.CommandCompact.RecentEvents[0].Kind != "doctor_risk" || !strings.Contains(fixture.CommandCompact.RecentEvents[0].Summary, "early_return") || !strings.Contains(fixture.CommandCompact.RecentEvents[0].Summary, "final_response_allowed=false") {
+		t.Fatalf("command compact event missing early-return denial: %+v", fixture.CommandCompact.RecentEvents)
+	}
+	if fixture.Binding.DoctorRiskKind != "early_return" ||
+		fixture.Binding.CommandEventKind != "doctor_risk" ||
+		!fixture.Binding.ExactNextActionBound ||
+		fixture.Binding.FinalResponseAllowed ||
+		!fixture.Binding.FinalResponseDenialBound ||
+		!fixture.Binding.CommandCompactRiskBound {
+		t.Fatalf("bad doctor-command binding: %+v", fixture.Binding)
+	}
+	if fixture.SafeToExecute || fixture.ExecutesWork || fixture.ApprovesWork || fixture.MutatesRepositories || !fixture.RSIRemainsDenied {
+		t.Fatalf("fixture widened authority or failed RSI denial: %+v", fixture)
+	}
+	if fixture.Doctor.SafeToExecute || fixture.Doctor.ExecutesWork || fixture.Doctor.ApprovesWork || fixture.Doctor.MutatesRepositories ||
+		fixture.CommandCompact.SafeToExecute || fixture.CommandCompact.ExecutesWork || fixture.CommandCompact.ApprovesWork || fixture.CommandCompact.MutatesRepositories {
+		t.Fatalf("nested readback widened authority: %+v", fixture)
+	}
+	if err := ValidatePublicSafeText(string(body)); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestFinalReconciliationEventSearchFixturePreservesReadbackShape(t *testing.T) {
 	body, err := os.ReadFile(filepath.Join("..", "..", "examples", "valid", "final-reconciliation-event-search-readback.json"))
 	if err != nil {

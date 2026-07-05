@@ -36,6 +36,8 @@ keeps RSI denied, and does not request promotion.
   CI, rollup, and blocker aliases.
 - node-22-checkpoint-replay-smoke: checkpoint inspect CLI replay smoke after
   Atlas final-synthesis readback import.
+- node-23-doctor-command-risk-fixture: doctor JSON fixture binding Command
+  compact early-return risk.
 
 ## Root Evidence
 

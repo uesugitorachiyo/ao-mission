@@ -1,0 +1,32 @@
+{
+  "schema": "ao.evidence.sentinel-public-safety.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-23-doctor-command-risk-fixture",
+  "status": "local_scans_passed",
+  "scan_scope": [
+    "examples/valid/doctor-command-compact-early-return-risk.json",
+    "docs/evidence/ao-mission-doubled-wave-v01/nodes/node-23-doctor-command-risk-fixture",
+    "internal/mission/mission_test.go",
+    "scripts/production-readiness.sh"
+  ],
+  "safety_flags": {
+    "direct_main_mutation": false,
+    "credential_or_token_inspection": false,
+    "provider_calls": false,
+    "release_deploy_publish_upload_or_tag": false,
+    "dependency_updates": false,
+    "auth_policy_or_config_widening": false,
+    "hidden_instruction_mutation": false,
+    "broad_rsi_claim": false
+  },
+  "scan_results": [
+    {
+      "command": "credential and local-path pattern scan over the doctor-command fixture and node evidence",
+      "matches": 0
+    },
+    {
+      "command": "authority-widening and broad-RSI wording scan over the doctor-command fixture and node evidence",
+      "matches": 0
+    }
+  ]
+}
