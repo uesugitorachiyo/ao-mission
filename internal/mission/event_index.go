@@ -369,6 +369,15 @@ func missionEventsForRecord(record Record) []MissionEvent {
 			Summary:        strings.TrimSpace(route.Reason + " " + route.ExactNextAction),
 			GeneratedAtUTC: route.GeneratedAtUTC,
 		})
+		events = append(events, MissionEvent{
+			Schema:         "ao.mission.event.v0.1",
+			MissionID:      record.MissionID,
+			Kind:           "route_evidence",
+			Sequence:       i + 1,
+			Route:          route.Route,
+			Summary:        strings.TrimSpace("route decision " + route.Route + " " + route.Reason + " " + route.ExactNextAction),
+			GeneratedAtUTC: route.GeneratedAtUTC,
+		})
 	}
 	for i, step := range record.Steps {
 		events = append(events, MissionEvent{
@@ -381,6 +390,16 @@ func missionEventsForRecord(record Record) []MissionEvent {
 			Summary:        step.ExactNextAction,
 			GeneratedAtUTC: step.GeneratedAtUTC,
 		})
+		events = append(events, MissionEvent{
+			Schema:         "ao.mission.event.v0.1",
+			MissionID:      record.MissionID,
+			Kind:           "node_evidence",
+			Sequence:       i + 1,
+			Status:         step.Result,
+			Route:          step.Route,
+			Summary:        fmt.Sprintf("continuation node iteration=%d result=%s next=%s", step.Iteration, step.Result, step.ExactNextAction),
+			GeneratedAtUTC: step.GeneratedAtUTC,
+		})
 	}
 	for i, ref := range record.ArtifactRefs {
 		events = append(events, MissionEvent{
@@ -391,6 +410,16 @@ func missionEventsForRecord(record Record) []MissionEvent {
 			ArtifactKind: ref.Kind,
 			Summary:      strings.TrimSpace(ref.Kind + " " + ref.Ref + " " + ref.Digest),
 		})
+		if alias := artifactEvidenceAliasKind(ref.Kind); alias != "" {
+			events = append(events, MissionEvent{
+				Schema:       "ao.mission.event.v0.1",
+				MissionID:    record.MissionID,
+				Kind:         alias,
+				Sequence:     i + 1,
+				ArtifactKind: ref.Kind,
+				Summary:      strings.TrimSpace(ref.Kind + " " + ref.Ref + " " + ref.Digest),
+			})
+		}
 	}
 	if record.GoalLease != nil {
 		events = append(events, MissionEvent{
@@ -417,13 +446,23 @@ func missionEventsForRecord(record Record) []MissionEvent {
 		})
 	}
 	if record.Evidence.FoundryRollup != nil {
+		summary := fmt.Sprintf("foundry rollup status %s completed_nodes=%d total_nodes=%d", record.Evidence.FoundryRollup.Status, record.Evidence.FoundryRollup.CompletedNodes, record.Evidence.FoundryRollup.TotalNodes)
 		events = append(events, MissionEvent{
 			Schema:         "ao.mission.event.v0.1",
 			MissionID:      record.MissionID,
 			Kind:           "foundry_rollup",
 			Sequence:       len(events) + 1,
 			Status:         record.Evidence.FoundryRollup.Status,
-			Summary:        fmt.Sprintf("foundry rollup status %s completed_nodes=%d total_nodes=%d", record.Evidence.FoundryRollup.Status, record.Evidence.FoundryRollup.CompletedNodes, record.Evidence.FoundryRollup.TotalNodes),
+			Summary:        summary,
+			GeneratedAtUTC: record.UpdatedAtUTC,
+		})
+		events = append(events, MissionEvent{
+			Schema:         "ao.mission.event.v0.1",
+			MissionID:      record.MissionID,
+			Kind:           "rollup_evidence",
+			Sequence:       len(events) + 1,
+			Status:         record.Evidence.FoundryRollup.Status,
+			Summary:        summary,
 			GeneratedAtUTC: record.UpdatedAtUTC,
 		})
 	}
@@ -460,6 +499,30 @@ func missionEventsForRecord(record Record) []MissionEvent {
 			Summary:        record.ReturnGate.Reason + " " + record.ReturnGate.ExactNextAction,
 			GeneratedAtUTC: record.ReturnGate.GeneratedAtUTC,
 		})
+		if record.ReturnGate.HardBlocker || !record.ReturnGate.FinalResponseAllowed {
+			events = append(events, MissionEvent{
+				Schema:         "ao.mission.event.v0.1",
+				MissionID:      record.MissionID,
+				Kind:           "blocker_evidence",
+				Sequence:       len(events) + 1,
+				Status:         record.ReturnGate.Status,
+				Summary:        strings.TrimSpace(record.ReturnGate.Reason + " " + record.ReturnGate.ExactNextAction),
+				GeneratedAtUTC: record.ReturnGate.GeneratedAtUTC,
+			})
+		}
+	}
+	for i, blocker := range record.Blockers {
+		events = append(events, MissionEvent{
+			Schema:         "ao.mission.event.v0.1",
+			MissionID:      record.MissionID,
+			Kind:           "blocker_evidence",
+			Sequence:       i + 1,
+			Status:         "blocked",
+			Route:          record.CurrentRoute,
+			Phase:          record.CurrentPhase,
+			Summary:        blocker,
+			GeneratedAtUTC: record.UpdatedAtUTC,
+		})
 	}
 	if record.Evidence.AtlasRecommendation != nil {
 		packet := BuildFinalReconciliationPacket(record)
@@ -488,6 +551,28 @@ func missionEventsForRecord(record Record) []MissionEvent {
 		})
 	}
 	return events
+}
+
+func artifactEvidenceAliasKind(kind string) string {
+	normalized := strings.NewReplacer("-", "_", " ", "_", "/", "_").Replace(strings.ToLower(strings.TrimSpace(kind)))
+	switch {
+	case normalized == "":
+		return ""
+	case strings.Contains(normalized, "pull_request") || normalized == "pr" || strings.Contains(normalized, "merged_pr"):
+		return "pr_evidence"
+	case strings.Contains(normalized, "ci") || strings.Contains(normalized, "check") || strings.Contains(normalized, "action_run"):
+		return "ci_evidence"
+	case strings.Contains(normalized, "node"):
+		return "node_evidence"
+	case strings.Contains(normalized, "blocker"):
+		return "blocker_evidence"
+	case strings.Contains(normalized, "rollup"):
+		return "rollup_evidence"
+	case strings.Contains(normalized, "route"):
+		return "route_evidence"
+	default:
+		return ""
+	}
 }
 
 func missionEventMatchesQuery(event MissionEvent, query string) bool {

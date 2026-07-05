@@ -1,0 +1,14 @@
+{
+  "schema": "ao.mission.doubled-wave.node-evidence.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-10-event-evidence-aliases",
+  "status": "passed",
+  "gate": "single_active_mutation_node",
+  "owner": "ao-mission",
+  "objective": "Expose route, node, PR, CI, rollup, and blocker evidence as searchable Mission event aliases.",
+  "alias_packet": "docs/evidence/ao-mission-doubled-wave-v01/nodes/node-10-event-evidence-aliases/event-alias-search-readbacks.json",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "rsi_remains_denied": true
+}

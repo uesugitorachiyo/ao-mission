@@ -5,11 +5,11 @@
   "minimum_nodes": 60,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 9,
-  "ready_nodes": 51,
+  "completed_nodes": 10,
+  "ready_nodes": 50,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue node-10: strengthen AO Mission event index/search binding for route, node, PR, CI, rollup, and blocker evidence.",
+  "exact_next_action": "Continue node-11: add Atlas continuation contract that refuses final response while ready nodes or exact next actions remain.",
   "nodes": [
     {
       "node_id": "node-01-final-synthesis-cli",
@@ -64,6 +64,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Extend AO Mission doctor with detailed lease health, checkpoint freshness, stale route, and early-return risk readback."
+    },
+    {
+      "node_id": "node-10-event-evidence-aliases",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Expose route, node, PR, CI, rollup, and blocker evidence as searchable Mission event aliases."
     }
   ]
 }

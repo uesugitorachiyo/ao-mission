@@ -1,0 +1,12 @@
+{
+  "schema": "ao.mission.doubled-wave.node-evidence.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-10-event-evidence-aliases",
+  "status": "ready",
+  "rollback": "Revert the node branch or remove event alias generation, artifact alias normalization, production-readiness alias packet check, and node 10 evidence.",
+  "state_to_preserve": "Mission event index remains readback-only and preserves existing route_decision, artifact_ref, foundry_rollup, return_gate, and blocker records.",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "rsi_remains_denied": true
+}

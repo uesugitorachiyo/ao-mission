@@ -1,0 +1,332 @@
+{
+  "schema": "ao.mission.atlas-wave-final-synthesis.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "status": "active",
+  "mission_id": "mission-54af7215e217323f",
+  "completed_nodes": 10,
+  "ready_nodes": 50,
+  "blocked_nodes": 0,
+  "minimum_nodes": 60,
+  "target_minutes": 120,
+  "max_minutes": 180,
+  "final_response_allowed": false,
+  "atlas_workgraph_status": "active",
+  "foundry_rollup": "readback-only wave; no promotion requested",
+  "promoter_status": "no_promotion_requested",
+  "command_readback": "ready",
+  "event_search_bound": true,
+  "branch_cleanup_bound_through_previous_node": false,
+  "current_node_branch": "none",
+  "current_node_pr_pending": false,
+  "promotion_claimed": false,
+  "claims_authority_advance": false,
+  "rsi_remains_denied": true,
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false,
+  "feature_depth_recommendations": [
+    {
+      "id": "mission-continue-loop",
+      "owner": "ao-mission",
+      "task": "Continue the governed supervisor loop until lease minimums, ready work, or terminal blockers are resolved.",
+      "gate": "Final response remains denied while lease minimums, ready nodes, or exact next action remain.",
+      "evidence_required": [
+        "goal lease",
+        "return gate",
+        "checkpoint bundle"
+      ],
+      "estimated_minutes": 6,
+      "continuation_command": "ao-mission continue --mission mission-54af7215e217323f --until-done --max-iterations 10",
+      "exact_next_action": "run ao-mission continue --mission mission-54af7215e217323f --until-done --max-iterations 10",
+      "stop_condition": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
+    },
+    {
+      "id": "atlas-workgraph-refresh",
+      "owner": "ao-atlas",
+      "task": "Refresh the Atlas workgraph from current Mission readiness, event-index digest, and final rollup evidence.",
+      "gate": "Atlas workgraph refresh records total, completed, ready, and blocked node counts.",
+      "evidence_required": [
+        "mission record",
+        "event index digest",
+        "final rollup digest"
+      ],
+      "estimated_minutes": 6,
+      "continuation_command": "atlas workgraph import --mission mission-54af7215e217323f",
+      "exact_next_action": "import the current Mission record and emit the next bounded Atlas workgraph node",
+      "stop_condition": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
+    },
+    {
+      "id": "foundry-single-node-import",
+      "owner": "ao-foundry",
+      "task": "Consume exactly one safe ready Atlas node and return a run-link or terminal rollup.",
+      "gate": "Exactly one executable mutation node is active and it produces run-link or terminal evidence.",
+      "evidence_required": [
+        "Foundry import",
+        "run-link",
+        "rollback record"
+      ],
+      "estimated_minutes": 6,
+      "continuation_command": "foundry run --mission mission-54af7215e217323f --one-node",
+      "exact_next_action": "run Foundry on the first ready node only and record run-link evidence",
+      "stop_condition": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
+    },
+    {
+      "id": "checkpoint-resume-bundle",
+      "owner": "ao-mission",
+      "task": "Persist and verify a checkpoint/resume bundle after each completed node or timed interval.",
+      "gate": "Checkpoint bundle includes latest route, phase, exact next action, and return gate.",
+      "evidence_required": [
+        "checkpoint bundle",
+        "resume command",
+        "return gate"
+      ],
+      "estimated_minutes": 6,
+      "continuation_command": "ao-mission checkpoint inspect --mission mission-54af7215e217323f",
+      "exact_next_action": "inspect the latest checkpoint bundle before any final response",
+      "stop_condition": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
+    },
+    {
+      "id": "route-reconciliation",
+      "owner": "ao-mission",
+      "task": "Reconcile current route, Atlas readiness, Foundry rollup, Promoter verdict, and Command readback.",
+      "gate": "Route reconciliation binds the newest route and blocks stale final status.",
+      "evidence_required": [
+        "route history",
+        "Foundry rollup",
+        "Command readback"
+      ],
+      "estimated_minutes": 6,
+      "continuation_command": "ao-mission mission events index --out tmp/mission-54af7215e217323f-event-index.json",
+      "exact_next_action": "run mission events search for route, rollup, promoter, command, CI, and blocker evidence",
+      "stop_condition": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
+    },
+    {
+      "id": "event-index-search-binding",
+      "owner": "ao-mission",
+      "task": "Index and search route, node, PR, CI, rollup, and blocker evidence for the active mission.",
+      "gate": "Event search returns mission-bound evidence for node, PR, CI, rollup, and blocker kinds.",
+      "evidence_required": [
+        "event index",
+        "search readback",
+        "artifact refs"
+      ],
+      "estimated_minutes": 6,
+      "continuation_command": "ao-mission mission events index --out tmp/mission-54af7215e217323f-event-index.json",
+      "exact_next_action": "record event search readbacks for every terminal node before closure",
+      "stop_condition": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
+    },
+    {
+      "id": "command-compact-readback",
+      "owner": "ao-command",
+      "task": "Emit a compact long-run mission timeline readback for operator scanning.",
+      "gate": "Command readback summarizes status, ready work, blockers, and exact next action.",
+      "evidence_required": [
+        "Command status",
+        "mission timeline",
+        "exact next action"
+      ],
+      "estimated_minutes": 6,
+      "continuation_command": "ao command mission status --mission mission-54af7215e217323f --compact",
+      "exact_next_action": "bind Mission dashboard and event-index output into AO Command readback",
+      "stop_condition": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
+    },
+    {
+      "id": "promoter-summary",
+      "owner": "ao-promoter",
+      "task": "Record promotion or no-promotion readiness for the exact terminal rollup status.",
+      "gate": "Promoter summary records no-promotion or exact missing evidence without broad RSI claims.",
+      "evidence_required": [
+        "Promoter verdict",
+        "denied surfaces",
+        "RSI denied"
+      ],
+      "estimated_minutes": 6,
+      "continuation_command": "ao-promoter summarize --mission mission-54af7215e217323f",
+      "exact_next_action": "keep broad RSI denied unless governed evidence separately proves it",
+      "stop_condition": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
+    },
+    {
+      "id": "sentinel-wording-scan",
+      "owner": "ao-sentinel",
+      "task": "Scan changed public docs and readbacks for unsafe or stale public-safety wording.",
+      "gate": "Sentinel scan passes without broad capability or RSI wording.",
+      "evidence_required": [
+        "public docs",
+        "readbacks",
+        "wording scan"
+      ],
+      "estimated_minutes": 6,
+      "continuation_command": "ao-sentinel scan docs/evidence docs/operator-next-actions.md",
+      "exact_next_action": "record Sentinel/public-safety wording evidence before rollup closure",
+      "stop_condition": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
+    },
+    {
+      "id": "operator-runbook",
+      "owner": "ao-mission",
+      "task": "Keep the operator runbook explicit about Mission, Atlas, Blueprint, Foundry, and long-run requests.",
+      "gate": "Runbook explains when to use Mission, Atlas, Blueprint, Foundry, and how to request long runs.",
+      "evidence_required": [
+        "operator docs",
+        "route guidance",
+        "long-run prompt"
+      ],
+      "estimated_minutes": 6,
+      "continuation_command": "ao-mission docs verify --operator-runbook",
+      "exact_next_action": "update docs/operator-next-actions.md with 2-3 hour Mission usage",
+      "stop_condition": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
+    },
+    {
+      "id": "production-readiness",
+      "owner": "ao-mission",
+      "task": "Run tests, vet, build, production-readiness, and public-safety wording scans over changed artifacts.",
+      "gate": "Verification evidence includes local tests, build, readiness, and wording scan status.",
+      "evidence_required": [
+        "test output",
+        "build output",
+        "readiness output"
+      ],
+      "estimated_minutes": 6,
+      "continuation_command": "scripts/production-readiness.sh",
+      "exact_next_action": "record verification command output in the mission evidence root",
+      "stop_condition": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
+    },
+    {
+      "id": "final-response-gate",
+      "owner": "ao-mission",
+      "task": "Prove final response is denied while ready nodes or exact next actions remain.",
+      "gate": "Regression fails if ready nodes can still allow final response.",
+      "evidence_required": [
+        "return gate",
+        "ready node fixture",
+        "regression output"
+      ],
+      "estimated_minutes": 6,
+      "continuation_command": "go test ./internal/mission -run TestFinalRollupDeniesFinalResponseWhenReadyNodesRemain -count=1",
+      "exact_next_action": "add or run a final-response denial regression before node closure",
+      "stop_condition": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
+    },
+    {
+      "id": "duration-ledger-review",
+      "owner": "ao-mission",
+      "task": "Compare the latest session duration metadata with the lease target without reading session contents.",
+      "gate": "Duration ledger reports elapsed minutes and never inspects prompt or credential content.",
+      "evidence_required": [
+        "duration ledger",
+        "metadata-only readback",
+        "lease target"
+      ],
+      "estimated_minutes": 6,
+      "continuation_command": "ao-mission duration readback --mission mission-54af7215e217323f",
+      "exact_next_action": "record duration-ledger readback and exact continuation reason when target time is unmet",
+      "stop_condition": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
+    },
+    {
+      "id": "atlas-prompt-packet",
+      "owner": "ao-mission",
+      "task": "Generate an Atlas continuation prompt packet from current readiness, final rollup, and event-index evidence.",
+      "gate": "Prompt packet includes event-index digest, final-rollup digest, and ready-node denial wording.",
+      "evidence_required": [
+        "Atlas prompt packet",
+        "event-index digest",
+        "final-rollup digest"
+      ],
+      "estimated_minutes": 6,
+      "continuation_command": "ao-mission final atlas-prompt --mission mission-54af7215e217323f --event-index tmp/event-index.json --out tmp/atlas-prompt.json",
+      "exact_next_action": "refresh Atlas prompt packet and deny final response if ready work remains",
+      "stop_condition": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
+    },
+    {
+      "id": "stale-rollup-normalization",
+      "owner": "ao-mission",
+      "task": "Normalize completed, promoted, denied, and blocked terminal rollup statuses before route decisions.",
+      "gate": "Terminal status normalization records done or blocker status without preserving stale denial blindly.",
+      "evidence_required": [
+        "Foundry rollup",
+        "normalized status",
+        "route readback"
+      ],
+      "estimated_minutes": 6,
+      "continuation_command": "go test ./internal/mission -run TestImportFoundryFinalRollup -count=1",
+      "exact_next_action": "import a terminal Foundry rollup fixture and verify exact Mission route/readback state",
+      "stop_condition": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
+    },
+    {
+      "id": "branch-lifecycle-evidence",
+      "owner": "ao-mission",
+      "task": "Record local and remote codex branch cleanup evidence after each merged node.",
+      "gate": "Branch cleanup evidence shows no current node branch remains after merge.",
+      "evidence_required": [
+        "local branches",
+        "remote branches",
+        "merge PR"
+      ],
+      "estimated_minutes": 6,
+      "continuation_command": "git fetch --prune \u0026\u0026 git branch --list 'codex/*'",
+      "exact_next_action": "fetch with prune and record branch cleanup in node evidence",
+      "stop_condition": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
+    },
+    {
+      "id": "ci-run-link-evidence",
+      "owner": "ao-mission",
+      "task": "Bind PR and CI run links to the node evidence root before completing the node.",
+      "gate": "CI evidence contains passing jobs and merge head for the completed node.",
+      "evidence_required": [
+        "PR link",
+        "CI checks",
+        "merge head"
+      ],
+      "estimated_minutes": 6,
+      "continuation_command": "gh pr checks --watch --interval 10",
+      "exact_next_action": "record PR number, CI job results, and merge head for the active node",
+      "stop_condition": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
+    },
+    {
+      "id": "rollback-record-audit",
+      "owner": "ao-mission",
+      "task": "Audit every active node for a rollback record before implementation evidence is accepted.",
+      "gate": "Each node evidence root contains rollback record and verification output.",
+      "evidence_required": [
+        "rollback record",
+        "node gate",
+        "verification"
+      ],
+      "estimated_minutes": 6,
+      "continuation_command": "find docs/evidence -name rollback-record.json -print",
+      "exact_next_action": "reject node closure if rollback evidence is missing",
+      "stop_condition": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
+    },
+    {
+      "id": "blueprint-routing-audit",
+      "owner": "ao-atlas",
+      "task": "Route directly through Atlas or Foundry unless a node genuinely needs new requirements or authorization from Blueprint.",
+      "gate": "Route decision denies Blueprint for ordinary bounded implementation work.",
+      "evidence_required": [
+        "route decision",
+        "Blueprint denial",
+        "Foundry import"
+      ],
+      "estimated_minutes": 6,
+      "continuation_command": "atlas route decide --mission mission-54af7215e217323f",
+      "exact_next_action": "record route decision explaining why Blueprint was not used for implementation nodes",
+      "stop_condition": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
+    },
+    {
+      "id": "final-synthesis-readback",
+      "owner": "ao-mission",
+      "task": "Regenerate final synthesis readback and verify it blocks final status until minimum nodes and ready-work gates clear.",
+      "gate": "Final synthesis carries exact next action and at least the minimum Feature Depth recommendations.",
+      "evidence_required": [
+        "final synthesis",
+        "workgraph",
+        "Feature Depth recommendations"
+      ],
+      "estimated_minutes": 6,
+      "continuation_command": "ao-mission final synthesize --mission mission-54af7215e217323f --evidence-root docs/evidence/ao-mission-doubled-wave-v01",
+      "exact_next_action": "run final synthesis and compare completed, ready, blocked, and final-response fields",
+      "stop_condition": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
+    }
+  ],
+  "exact_next_action": "Continue node-11: add Atlas continuation contract that refuses final response while ready nodes or exact next actions remain.",
+  "generated_at_utc": "2026-07-05T02:58:54Z"
+}
