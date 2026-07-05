@@ -1,0 +1,20 @@
+{
+  "schema": "ao.mission.doubled-wave.node-evidence.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-06-import-checkpoint-bundle",
+  "status": "recorded",
+  "evidence_key": "rollback_record",
+  "rollback_scope": [
+    "internal/mission/imports.go",
+    "internal/mission/mission_test.go",
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-doubled-wave-v01/workgraph.json",
+    "docs/evidence/ao-mission-doubled-wave-v01/nodes/node-06-import-checkpoint-bundle"
+  ],
+  "rollback_action": "Revert the node-06 commit if import checkpoint bundle persistence regresses before merge.",
+  "data_migration_required": false,
+  "schedules_work": false,
+  "executes_work": false,
+  "approves_work": false,
+  "rsi_remains_denied": true
+}

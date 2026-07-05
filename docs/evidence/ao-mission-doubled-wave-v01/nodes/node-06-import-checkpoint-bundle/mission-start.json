@@ -1,0 +1,29 @@
+{
+  "schema": "ao.mission.record.v0.1",
+  "mission_id": "mission-bb5d73ff1a4acb34",
+  "objective": "node 6 import checkpoint bundle",
+  "objective_digest": "sha256:ab712da636b211190f99052a5e96308f84949d5aca6410a2b55eb7b5df4a3f36",
+  "status": "active",
+  "created_at_utc": "2026-07-05T02:29:20Z",
+  "updated_at_utc": "2026-07-05T02:29:20Z",
+  "current_route": "ao-atlas",
+  "current_phase": "routing",
+  "blockers": [],
+  "exact_next_action": "send objective to AO Atlas for workgraph sequencing",
+  "artifact_refs": [],
+  "steps": [],
+  "route_history": [
+    {
+      "schema": "ao.mission.route-decision.v0.1",
+      "mission_id": "mission-bb5d73ff1a4acb34",
+      "route": "ao-atlas",
+      "reason": "specified objective should be sequenced by AO Atlas before Foundry execution",
+      "safe_to_request": true,
+      "safe_to_execute": false,
+      "safe_to_promote": false,
+      "exact_next_action": "send objective to AO Atlas for workgraph sequencing",
+      "generated_at_utc": "2026-07-05T02:29:20Z"
+    }
+  ],
+  "evidence": {}
+}

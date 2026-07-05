@@ -1,0 +1,15 @@
+{
+  "schema": "ao.mission.doubled-wave.node-evidence.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-06-import-checkpoint-bundle",
+  "status": "passed",
+  "evidence_key": "tests",
+  "red_test": "go test ./internal/mission -run 'TestImportArtifactWritesDurableCheckpointResumeBundle' -count=1 failed before implementation because the checkpoint bundle file was missing.",
+  "green_tests": [
+    "TestImportArtifactWritesDurableCheckpointResumeBundle"
+  ],
+  "schedules_work": false,
+  "executes_work": false,
+  "approves_work": false,
+  "rsi_remains_denied": true
+}

@@ -1,0 +1,23 @@
+{
+  "schema": "ao.mission.doubled-wave.foundry-import.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-06-import-checkpoint-bundle",
+  "status": "imported",
+  "owner": "ao-mission",
+  "target_factory_repo": "ao-mission",
+  "task": "Persist checkpoint/resume bundle artifacts after Mission imports complete.",
+  "required_gates": [
+    "node_gate",
+    "candidate_record",
+    "rollback_record",
+    "tests",
+    "verification",
+    "sentinel_public_safety",
+    "promoter_no_promotion",
+    "command_readback"
+  ],
+  "schedules_work": false,
+  "executes_work": false,
+  "approves_work": false,
+  "rsi_remains_denied": true
+}
