@@ -1,0 +1,29 @@
+{
+  "schema": "ao.mission.record.v0.1",
+  "mission_id": "mission-34fba87a45815a21",
+  "objective": "node 5 atlas final synthesis reconciliation",
+  "objective_digest": "sha256:b5b144fababd316de9ee081de750596d051180824e4193debff5d99ab93c9c5b",
+  "status": "active",
+  "created_at_utc": "2026-07-05T02:24:09Z",
+  "updated_at_utc": "2026-07-05T02:24:09Z",
+  "current_route": "ao-atlas",
+  "current_phase": "routing",
+  "blockers": [],
+  "exact_next_action": "send authorized pack to AO Atlas",
+  "artifact_refs": [],
+  "steps": [],
+  "route_history": [
+    {
+      "schema": "ao.mission.route-decision.v0.1",
+      "mission_id": "mission-34fba87a45815a21",
+      "route": "ao-atlas",
+      "reason": "objective requires workgraph, context, or long-running task management",
+      "safe_to_request": true,
+      "safe_to_execute": false,
+      "safe_to_promote": false,
+      "exact_next_action": "send authorized pack to AO Atlas",
+      "generated_at_utc": "2026-07-05T02:24:09Z"
+    }
+  ],
+  "evidence": {}
+}

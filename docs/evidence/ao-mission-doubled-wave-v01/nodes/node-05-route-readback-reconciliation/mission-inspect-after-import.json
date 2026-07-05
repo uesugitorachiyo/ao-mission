@@ -1,0 +1,114 @@
+{
+  "schema": "ao.mission.record.v0.1",
+  "mission_id": "mission-34fba87a45815a21",
+  "objective": "node 5 atlas final synthesis reconciliation",
+  "objective_digest": "sha256:b5b144fababd316de9ee081de750596d051180824e4193debff5d99ab93c9c5b",
+  "status": "done",
+  "created_at_utc": "2026-07-05T02:24:09Z",
+  "updated_at_utc": "2026-07-05T02:24:10Z",
+  "current_route": "complete",
+  "current_phase": "complete",
+  "blockers": [],
+  "exact_next_action": "mission complete; read final rollup and recommended next tasks",
+  "artifact_refs": [
+    {
+      "schema": "ao.mission.artifact-ref.v0.1",
+      "ref": "examples/valid/atlas-final-synthesis-readback.json",
+      "digest": "sha256:16b32e9a0eb78447760c58bb1543d6b22fa9d2dbdbd8c2836c72e8fd2c5775f3",
+      "kind": "atlas-final-synthesis-readback"
+    }
+  ],
+  "steps": [],
+  "route_history": [
+    {
+      "schema": "ao.mission.route-decision.v0.1",
+      "mission_id": "mission-34fba87a45815a21",
+      "route": "ao-atlas",
+      "reason": "objective requires workgraph, context, or long-running task management",
+      "safe_to_request": true,
+      "safe_to_execute": false,
+      "safe_to_promote": false,
+      "exact_next_action": "send authorized pack to AO Atlas",
+      "generated_at_utc": "2026-07-05T02:24:09Z"
+    },
+    {
+      "schema": "ao.mission.route-decision.v0.1",
+      "mission_id": "mission-34fba87a45815a21",
+      "route": "complete",
+      "reason": "Atlas final synthesis readback imported",
+      "safe_to_request": true,
+      "safe_to_execute": false,
+      "safe_to_promote": false,
+      "exact_next_action": "mission complete; read final rollup and recommended next tasks",
+      "generated_at_utc": "2026-07-05T02:24:10Z"
+    }
+  ],
+  "evidence": {
+    "atlas_workgraph": {
+      "total": 26,
+      "ready": 0,
+      "blocked": 0,
+      "completed": 26,
+      "failed": 0
+    },
+    "atlas_recommendation": {
+      "status": "completed",
+      "total_nodes": 26,
+      "completed_nodes": 26,
+      "ready_nodes": 0,
+      "checkpoint_count": 26,
+      "elapsed_minutes": 0,
+      "min_minutes_met": true,
+      "lease_time_status": "minimum_minutes_met",
+      "return_gate_status": "final_response_allowed",
+      "final_response_allowed": true,
+      "rsi_remains_denied": true,
+      "exact_next_action": "use next-wave-recommended-prompt.md for the next 30-node AO Atlas wave"
+    },
+    "atlas_final_synthesis": {
+      "contract_version": "ao.atlas.ao-mission-final-synthesis-readback.v0.1",
+      "status": "completed",
+      "total_nodes": 26,
+      "completed_nodes": 26,
+      "ready_nodes": 0,
+      "blocked_nodes": 0,
+      "minimum_nodes": 25,
+      "return_gate_status": "final_response_allowed",
+      "final_response_allowed": true,
+      "final_response_reason": "completed Mission final synthesis has zero ready nodes and required closure evidence",
+      "atlas_workgraph_status": "completed",
+      "foundry_rollup": "readback-only wave; no promotion requested",
+      "promoter_status": "no_promotion_requested",
+      "command_readback": "ready",
+      "event_search_bound": true,
+      "branch_cleanup_bound": true,
+      "rsi_remains_denied": true,
+      "exact_next_action": "use next-wave-recommended-prompt.md for the next 30-node AO Atlas wave"
+    }
+  },
+  "return_gate": {
+    "schema": "ao.mission.return-gate.v0.3",
+    "mission_id": "mission-34fba87a45815a21",
+    "status": "return_allowed",
+    "final_response_allowed": true,
+    "reason": "mission status is done",
+    "completed_nodes": 26,
+    "min_nodes": 10,
+    "ready_nodes_remaining": 0,
+    "hard_blocker": false,
+    "exact_next_action": "mission complete; read final rollup and recommended next tasks",
+    "generated_at_utc": "2026-07-05T02:24:10Z"
+  },
+  "route_reconciliation": {
+    "schema": "ao.mission.route-reconciliation.v0.3",
+    "mission_id": "mission-34fba87a45815a21",
+    "status": "ready",
+    "current_route": "complete",
+    "latest_route": "complete",
+    "atlas_ready_nodes": 0,
+    "command_readback_bound": true,
+    "promoter_readback_bound": true,
+    "exact_next_action": "route and readback evidence reconciled; continue from latest exact next action",
+    "generated_at_utc": "2026-07-05T02:24:10Z"
+  }
+}
