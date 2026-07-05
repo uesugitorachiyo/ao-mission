@@ -1,15 +1,15 @@
 {
   "schema": "ao.atlas.workgraph.v0.1",
   "mission": "ao-mission-atlas-wave-import-v01",
-  "status": "active",
+  "status": "completed",
   "minimum_nodes": 25,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 24,
-  "ready_nodes": 1,
+  "completed_nodes": 25,
+  "ready_nodes": 0,
   "blocked_nodes": 0,
-  "final_response_allowed": false,
-  "exact_next_action": "Continue with node-25: add final synthesis and next Feature Depth recommendations.",
+  "final_response_allowed": true,
+  "exact_next_action": "Wave complete after node 25; read final-synthesis.json and next-wave-recommended-prompt.md.",
   "nodes": [
     {
       "node_id": "node-01-atlas-recommendation-readback-import",
@@ -154,6 +154,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Record merged PR and stale branch cleanup evidence for wave PRs 21 through 43."
+    },
+    {
+      "node_id": "node-25-final-synthesis-next-recommendations",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Close the 25-node wave with final synthesis and next Feature Depth recommendations."
     }
   ]
 }

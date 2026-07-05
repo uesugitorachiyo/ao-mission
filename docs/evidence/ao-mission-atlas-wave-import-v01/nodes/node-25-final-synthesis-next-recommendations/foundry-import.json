@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "node_id": "node-25-final-synthesis-next-recommendations",
+  "status": "imported",
+  "bounded_task": "Close the wave with final synthesis and next recommendations.",
+  "executes_one_node": true,
+  "safe_to_execute": false
+}
