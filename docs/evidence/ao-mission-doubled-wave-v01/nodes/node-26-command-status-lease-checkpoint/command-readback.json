@@ -1,0 +1,14 @@
+{
+  "schema": "ao.command.readback.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-26-command-status-lease-checkpoint",
+  "status": "ready",
+  "summary": "Command status now binds long-run goal lease, checkpoint count, checkpoint freshness, and return gate status.",
+  "fixture": "examples/valid/command-status-lease-checkpoint-readback.json",
+  "exact_next_action": "Continue node-27: AO Atlas prompt-readback quality pass over current Mission final rollup.",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false,
+  "rsi_remains_denied": true
+}

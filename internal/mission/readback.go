@@ -146,20 +146,46 @@ func BuildCommandStatus(r Record) CommandStatus {
 		copy := *r.Evidence.AtlasRecommendation
 		atlasRecommendation = &copy
 	}
+	var goalLease *GoalLease
+	if r.GoalLease != nil {
+		copy := *r.GoalLease
+		goalLease = &copy
+	}
+	gate := r.ReturnGate
+	if gate == nil {
+		evaluated := EvaluateReturnGate(r)
+		gate = &evaluated
+	}
+	checkpointFreshness := "missing"
+	if len(r.Checkpoints) > 0 {
+		checkpointFreshness = "fresh"
+	} else if gate != nil && !gate.FinalResponseAllowed {
+		checkpointFreshness = "stale_or_missing"
+	} else if gate != nil && gate.FinalResponseAllowed {
+		checkpointFreshness = "not_required"
+	}
+	returnGateStatus := ""
+	if gate != nil {
+		returnGateStatus = gate.Status
+	}
 	return CommandStatus{
-		Schema:              "ao.command.mission-status.v0.1",
-		MissionID:           r.MissionID,
-		Status:              r.Status,
-		CurrentRoute:        r.CurrentRoute,
-		CurrentPhase:        r.CurrentPhase,
-		ExactNextAction:     r.ExactNextAction,
-		ReadOnly:            true,
-		SafeToExecute:       false,
-		ExecutesWork:        false,
-		ApprovesWork:        false,
-		MutatesRepositories: false,
-		AtlasRecommendation: atlasRecommendation,
-		Blockers:            r.Blockers,
-		GeneratedAtUTC:      now(nil),
+		Schema:                    "ao.command.mission-status.v0.1",
+		MissionID:                 r.MissionID,
+		Status:                    r.Status,
+		CurrentRoute:              r.CurrentRoute,
+		CurrentPhase:              r.CurrentPhase,
+		ExactNextAction:           r.ExactNextAction,
+		GoalLease:                 goalLease,
+		CheckpointCount:           len(r.Checkpoints),
+		CheckpointFreshnessStatus: checkpointFreshness,
+		ReturnGateStatus:          returnGateStatus,
+		ReadOnly:                  true,
+		SafeToExecute:             false,
+		ExecutesWork:              false,
+		ApprovesWork:              false,
+		MutatesRepositories:       false,
+		AtlasRecommendation:       atlasRecommendation,
+		Blockers:                  r.Blockers,
+		GeneratedAtUTC:            now(nil),
 	}
 }

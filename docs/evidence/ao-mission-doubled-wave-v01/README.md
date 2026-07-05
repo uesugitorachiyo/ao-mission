@@ -42,6 +42,8 @@ keeps RSI denied, and does not request promotion.
   Feature Depth recommendations before packet emission.
 - node-25-final-rollup-ready-denial: final rollup schema fixture proving
   ready-node denial keeps final_response_allowed=false.
+- node-26-command-status-lease-checkpoint: command status readback and fixture
+  bind long-run lease fields and checkpoint freshness.
 
 ## Root Evidence
 

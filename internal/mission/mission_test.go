@@ -1430,6 +1430,69 @@ func TestCommandStatusIncludesAtlasRecommendationSummary(t *testing.T) {
 	}
 }
 
+func TestCommandStatusBindsLongRunLeaseAndCheckpointFreshness(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("command status long-run lease checkpoint")
+	if err != nil {
+		t.Fatal(err)
+	}
+	continued, err := Continue(s, rec.MissionID, ContinueOptions{
+		UntilDone:        true,
+		MaxIterations:    2,
+		MinNodes:         15,
+		MinMinutes:       120,
+		MaxMinutes:       180,
+		ReturnOnlyWhen:   defaultReturnOnlyWhen,
+		CheckpointPolicy: defaultCheckpointPolicy,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	status := BuildCommandStatus(continued)
+	if status.GoalLease == nil ||
+		status.GoalLease.MinNodes != 15 ||
+		status.GoalLease.MinMinutes != 120 ||
+		status.GoalLease.MaxMinutes != 180 ||
+		status.GoalLease.CheckpointPolicy != defaultCheckpointPolicy {
+		t.Fatalf("command status missing long-run lease: %+v", status)
+	}
+	if status.CheckpointCount != 2 || status.CheckpointFreshnessStatus != "fresh" || status.ReturnGateStatus != "early_return_denied" {
+		t.Fatalf("command status missing checkpoint freshness or return gate: %+v", status)
+	}
+	if status.ExecutesWork || status.ApprovesWork || status.MutatesRepositories {
+		t.Fatalf("command status widened authority: %+v", status)
+	}
+}
+
+func TestCommandStatusLeaseCheckpointFixtureValidatesReadback(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("..", "..", "examples", "valid", "command-status-lease-checkpoint-readback.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var status CommandStatus
+	if err := json.Unmarshal(body, &status); err != nil {
+		t.Fatal(err)
+	}
+	if status.Schema != "ao.command.mission-status.v0.1" ||
+		status.GoalLease == nil ||
+		status.GoalLease.MinNodes != 15 ||
+		status.GoalLease.MinMinutes != 120 ||
+		status.GoalLease.MaxMinutes != 180 ||
+		status.GoalLease.CheckpointPolicy != defaultCheckpointPolicy ||
+		status.CheckpointCount != 2 ||
+		status.CheckpointFreshnessStatus != "fresh" ||
+		status.ReturnGateStatus != "early_return_denied" {
+		t.Fatalf("bad command status lease/checkpoint fixture: %+v", status)
+	}
+	if !status.ReadOnly || status.SafeToExecute || status.ExecutesWork || status.ApprovesWork || status.MutatesRepositories {
+		t.Fatalf("fixture widened command authority: %+v", status)
+	}
+	if err := ValidatePublicSafeText(string(body)); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestCLICommandStatusTextIncludesAtlasRecommendationSummary(t *testing.T) {
 	dir := t.TempDir()
 	var out, errb bytes.Buffer

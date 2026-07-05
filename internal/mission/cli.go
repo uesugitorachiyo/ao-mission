@@ -1079,7 +1079,10 @@ func run(args []string, stdout io.Writer) error {
 			if *jsonOut {
 				return printJSON(stdout, status)
 			}
-			fmt.Fprintf(stdout, "mission=%s\nstatus=%s\nread_only=%t\nexecutes_work=%t\nnext=%s\n", status.MissionID, status.Status, status.ReadOnly, status.ExecutesWork, status.ExactNextAction)
+			fmt.Fprintf(stdout, "mission=%s\nstatus=%s\nread_only=%t\nexecutes_work=%t\ncheckpoint_freshness=%s\ncheckpoints=%d\nreturn_gate=%s\nnext=%s\n", status.MissionID, status.Status, status.ReadOnly, status.ExecutesWork, status.CheckpointFreshnessStatus, status.CheckpointCount, status.ReturnGateStatus, status.ExactNextAction)
+			if status.GoalLease != nil {
+				fmt.Fprintf(stdout, "goal_lease=min_nodes:%d min_minutes:%d max_minutes:%d checkpoint_policy:%s\n", status.GoalLease.MinNodes, status.GoalLease.MinMinutes, status.GoalLease.MaxMinutes, status.GoalLease.CheckpointPolicy)
+			}
 			if status.AtlasRecommendation != nil {
 				fmt.Fprintf(stdout, "atlas_recommendation=%s completed_nodes=%d total_nodes=%d ready_nodes=%d final_response_allowed=%t\n", status.AtlasRecommendation.Status, status.AtlasRecommendation.CompletedNodes, status.AtlasRecommendation.TotalNodes, status.AtlasRecommendation.ReadyNodes, status.AtlasRecommendation.FinalResponseAllowed)
 			}

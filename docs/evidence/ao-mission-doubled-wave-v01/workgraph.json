@@ -5,11 +5,11 @@
   "minimum_nodes": 60,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 25,
-  "ready_nodes": 35,
+  "completed_nodes": 26,
+  "ready_nodes": 34,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue node-26: AO Mission command status fixture binding long-run lease and checkpoint freshness.",
+  "exact_next_action": "Continue node-27: AO Atlas prompt-readback quality pass over current Mission final rollup.",
   "nodes": [
     {
       "node_id": "node-01-final-synthesis-cli",
@@ -160,6 +160,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Add final rollup schema fixture for ready-node denial."
+    },
+    {
+      "node_id": "node-26-command-status-lease-checkpoint",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Add command status fixture binding long-run lease and checkpoint freshness."
     }
   ]
 }
