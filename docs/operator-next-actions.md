@@ -30,6 +30,7 @@ ao-mission mission compact --mission <mission-id> --keep-route-history 25 --keep
 ao-mission mission archive --mission <mission-id> --out tmp/<mission-id>-archive.json
 ao-mission mission validate-archive --path tmp/<mission-id>-archive.json --out tmp/<mission-id>-archive-validation.json
 ao-mission artifacts manifest --mission <mission-id> --out tmp/<mission-id>-artifact-manifest.json
+ao-mission import atlas-recommendation-readback --mission <mission-id> --path tmp/recommendation-readback.json
 ao-mission final rollup --mission <mission-id>
 ```
 
@@ -44,6 +45,13 @@ If it is false, use `exact_next_action`, the latest checkpoint bundle, and the
 Feature Depth Recommendations to continue. A true terminal hard blocker is a
 blocked or denied rollup, stopped mission, explicit blocker list, or safety
 boundary mismatch after repair/repack/support work has already been attempted.
+
+Use `atlas-recommendation-readback` when AO Atlas has already executed a
+recommendation wave and emitted a terminal readback. Mission closes only when
+the Atlas readback reports all generated nodes complete, zero ready nodes,
+checkpoint evidence for the wave, the long-run lease minimum met, and
+`final_response_allowed=true`. If any of those are missing, Mission keeps the
+route on AO Atlas and preserves the exact next action for continuation.
 
 ## Gateway Fixture Checks
 

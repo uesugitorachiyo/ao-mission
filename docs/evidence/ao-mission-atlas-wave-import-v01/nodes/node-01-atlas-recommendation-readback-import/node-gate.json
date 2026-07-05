@@ -1,0 +1,10 @@
+{
+  "schema": "ao.mission.node-gate-readback.v0.1",
+  "node_id": "node-01-atlas-recommendation-readback-import",
+  "status": "passed",
+  "gate": "AO Mission imports a completed AO Atlas recommendation readback and closes only when terminal readback gates are satisfied.",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false
+}

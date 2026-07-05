@@ -61,6 +61,32 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 			rec.ReturnGate = &gate
 			reconciliation := BuildRouteReconciliation(*rec)
 			rec.Reconciliation = &reconciliation
+		case "atlas-recommendation-readback":
+			readback := parseAtlasRecommendationReadbackCounts(doc)
+			rec.Evidence.AtlasRecommendation = &readback
+			rec.Evidence.AtlasWorkgraph = &NodeCounts{
+				Total:     readback.TotalNodes,
+				Ready:     readback.ReadyNodes,
+				Completed: readback.CompletedNodes,
+			}
+			rec.ExactNextAction = readback.ExactNextAction
+			if atlasRecommendationReadbackClosesMission(readback) {
+				rec.Status = "done"
+				rec.CurrentRoute = "complete"
+				rec.CurrentPhase = "complete"
+				rec.ExactNextAction = "mission complete; read final rollup and recommended next tasks"
+			} else {
+				rec.CurrentRoute = "ao-atlas"
+				rec.CurrentPhase = "atlas_recommendation_readback_recorded"
+				if rec.ExactNextAction == "" {
+					rec.ExactNextAction = "continue AO Atlas recommendation wave from latest ready node"
+				}
+			}
+			AppendRouteHistory(rec, routeFromRecord(*rec, "Atlas recommendation readback imported"))
+			gate := EvaluateReturnGate(*rec)
+			rec.ReturnGate = &gate
+			reconciliation := BuildRouteReconciliation(*rec)
+			rec.Reconciliation = &reconciliation
 		case "foundry-run-link":
 			rec.CurrentPhase = "foundry_run_link_recorded"
 			rec.ExactNextAction = "read next Atlas dependency-unblocked node or final rollup"
@@ -162,7 +188,7 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 
 func isMissionEvidenceReadback(kind string) bool {
 	switch kind {
-	case "scheduler-readback", "scheduler-recovery-readback", "ledger-compaction-readback":
+	case "atlas-recommendation-readback", "scheduler-readback", "scheduler-recovery-readback", "ledger-compaction-readback":
 		return true
 	default:
 		return false
@@ -235,6 +261,34 @@ func parseFoundryRollupCounts(doc map[string]any) FoundryRollupCounts {
 		CompletedNodes: intFromAny(doc["completed_nodes"]),
 		TotalNodes:     intFromAny(doc["total_nodes"]),
 	}
+}
+
+func parseAtlasRecommendationReadbackCounts(doc map[string]any) AtlasRecommendationReadbackCounts {
+	return AtlasRecommendationReadbackCounts{
+		Status:               stringFromAny(doc["status"]),
+		TotalNodes:           intFromAny(doc["total_nodes"]),
+		CompletedNodes:       intFromAny(doc["completed_nodes"]),
+		ReadyNodes:           intFromAny(doc["ready_nodes"]),
+		CheckpointCount:      intFromAny(doc["checkpoint_count"]),
+		ElapsedMinutes:       intFromAny(doc["elapsed_minutes"]),
+		MinMinutesMet:        boolFromAny(doc["min_minutes_met"]),
+		LeaseTimeStatus:      stringFromAny(doc["lease_time_status"]),
+		ReturnGateStatus:     stringFromAny(doc["return_gate_status"]),
+		FinalResponseAllowed: boolFromAny(doc["final_response_allowed"]),
+		ExactNextAction:      stringFromAny(doc["exact_next_action"]),
+	}
+}
+
+func atlasRecommendationReadbackClosesMission(readback AtlasRecommendationReadbackCounts) bool {
+	return readback.Status == "completed" &&
+		readback.TotalNodes > 0 &&
+		readback.CompletedNodes == readback.TotalNodes &&
+		readback.ReadyNodes == 0 &&
+		readback.CheckpointCount >= readback.TotalNodes &&
+		readback.MinMinutesMet &&
+		readback.LeaseTimeStatus == "minimum_minutes_met" &&
+		readback.ReturnGateStatus == "final_response_allowed" &&
+		readback.FinalResponseAllowed
 }
 
 func appendMissingString(values []string, value string) []string {
