@@ -5,11 +5,11 @@
   "minimum_nodes": 25,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 18,
-  "ready_nodes": 7,
+  "completed_nodes": 19,
+  "ready_nodes": 6,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue with node-19: document command status and final reconcile operator flow.",
+  "exact_next_action": "Continue with node-20: add event search production-readiness smoke for final reconciliation.",
   "nodes": [
     {
       "node_id": "node-01-atlas-recommendation-readback-import",
@@ -118,6 +118,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Add a compact Command timeline fixture over Atlas recommendation and final reconciliation events."
+    },
+    {
+      "node_id": "node-19-command-final-reconcile-operator-flow",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Document the Command status, event search, and final reconciliation closure check before final response."
     }
   ]
 }
