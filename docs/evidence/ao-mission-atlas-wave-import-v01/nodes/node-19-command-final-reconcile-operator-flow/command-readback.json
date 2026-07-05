@@ -1,0 +1,7 @@
+{
+  "schema": "ao.command.readback.v0.1",
+  "node_id": "node-19-command-final-reconcile-operator-flow",
+  "status": "ready_for_review",
+  "summary": "Operator docs now require Command status, event search, and final reconciliation closure checks.",
+  "exact_next_action": "merge node 19 after CI, then continue node 20"
+}

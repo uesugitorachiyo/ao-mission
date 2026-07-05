@@ -66,6 +66,27 @@ the final Mission reconciliation packet. A valid packet keeps
 `promotion_claimed=false`, `rsi_remains_denied=true`,
 `claims_authority_advance=false`, and all execution/approval flags false.
 
+## Command And Final Reconciliation Closure Check
+
+Before any final response for an Atlas recommendation import wave, run the
+Command and final reconciliation closure check:
+
+```sh
+ao-mission command status --mission <mission-id>
+ao-mission command status --mission <mission-id> --json
+ao-mission mission events index --out tmp/mission-event-index.json
+ao-mission mission events search --mission <mission-id> --kind atlas_recommendation --index tmp/mission-event-index.json --json
+ao-mission mission events search --mission <mission-id> --kind final_reconciliation --index tmp/mission-event-index.json --json
+ao-mission final reconcile --mission <mission-id>
+```
+
+Treat the final response as denied if Command status, event search, or final
+reconciliation still shows ready nodes, a stale route, `final_response_allowed`
+false, a missing Promoter no-promotion summary, a missing Foundry terminal
+rollup binding, a missing Command compact timeline, or an exact next action.
+The next action stays with Atlas unless the imported readback is terminal and
+all no-authority closure evidence agrees.
+
 ## Gateway Fixture Checks
 
 ```sh

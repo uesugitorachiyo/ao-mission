@@ -1,0 +1,6 @@
+{
+  "schema": "ao.foundry.rollback-record.v0.1",
+  "node_id": "node-19-command-final-reconcile-operator-flow",
+  "rollback": "Remove the operator-flow docs section and its production-readiness grep.",
+  "safe_to_revert": true
+}

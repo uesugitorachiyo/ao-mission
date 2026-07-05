@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.candidate-record.v0.1",
+  "node_id": "node-19-command-final-reconcile-operator-flow",
+  "status": "selected",
+  "candidate": "Document the Command and final reconciliation closure check for Atlas recommendation import waves.",
+  "owner": "ao-mission",
+  "why_now": "The operator needs exact commands to verify readback agreement before any final response is allowed."
+}

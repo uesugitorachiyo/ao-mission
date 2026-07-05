@@ -1,0 +1,8 @@
+{
+  "schema": "ao.atlas.node-gate.v0.1",
+  "node_id": "node-19-command-final-reconcile-operator-flow",
+  "status": "passed",
+  "gate": "Operator docs must require Command status, event search, and final reconciliation checks before final response.",
+  "active_mutation_node": "node-19-command-final-reconcile-operator-flow",
+  "exact_next_action": "verify docs and readiness, open PR, wait for CI, merge, and continue node 20"
+}

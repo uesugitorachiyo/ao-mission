@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "node_id": "node-19-command-final-reconcile-operator-flow",
+  "status": "imported",
+  "bounded_task": "Bind operator closure flow for Command status, event search, and final reconciliation.",
+  "executes_one_node": true,
+  "safe_to_execute": false
+}

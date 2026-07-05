@@ -1,0 +1,12 @@
+{
+  "schema": "ao.foundry.implementation-evidence.v0.1",
+  "node_id": "node-19-command-final-reconcile-operator-flow",
+  "status": "implemented",
+  "changed_files": [
+    "docs/operator-next-actions.md",
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/workgraph.json",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/README.md"
+  ],
+  "behavior": "Operator docs now include the exact Command status, event search, and final reconcile sequence that must pass before final response."
+}
