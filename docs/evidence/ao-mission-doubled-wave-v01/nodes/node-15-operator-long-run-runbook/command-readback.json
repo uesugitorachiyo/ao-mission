@@ -1,0 +1,8 @@
+{
+  "schema": "ao.command.node-readback.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-15-operator-long-run-runbook",
+  "status": "ready_for_full_verification",
+  "summary": "AO Mission operator docs now include the doubled 2-3 hour runbook, role routing, stop gates, and Atlas continuation prompt shape.",
+  "exact_next_action": "Run full AO Mission verification, open PR, wait for CI, merge, sync, delete codex branch, then continue node 16."
+}

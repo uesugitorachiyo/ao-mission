@@ -1,0 +1,19 @@
+{
+  "schema": "ao.evidence.candidate-record.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-15-operator-long-run-runbook",
+  "candidate": {
+    "repo": "ao-mission",
+    "branch": "codex/doubled-wave-node-15-operator-long-run-runbook",
+    "summary": "Add an operator runbook for doubled 2-3 hour Mission/Atlas/Foundry waves and bind it into the docs test contract.",
+    "reason": "Operators need a concrete prompt and command shape that prevents short 14-20 minute returns, Blueprint over-routing, and final responses while ready work remains."
+  },
+  "expected_behavior": [
+    "Operators can see the 30-node, 120-180 minute request shape.",
+    "Mission, Atlas, Foundry, Command, and Blueprint roles are explicit.",
+    "Blueprint is documented as requirements/authorization only, not batching.",
+    "The stop gate denies final response while final_response_allowed=false, ready nodes, exact next actions, stale checkpoints, stale routes, or mismatched readbacks remain."
+  ],
+  "risk": "Low: docs and regression assertions only.",
+  "rollback": "Revert the docs and test changes from this PR."
+}
