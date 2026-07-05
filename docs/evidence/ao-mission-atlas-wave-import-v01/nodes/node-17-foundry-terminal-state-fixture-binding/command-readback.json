@@ -1,0 +1,7 @@
+{
+  "schema": "ao.command.readback.v0.1",
+  "node_id": "node-17-foundry-terminal-state-fixture-binding",
+  "status": "ready_for_review",
+  "summary": "Foundry terminal-state fixture binds completed/promoted closure and denied/blocked blocker behavior.",
+  "exact_next_action": "merge node 17 after CI, then continue node 18"
+}

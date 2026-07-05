@@ -787,6 +787,71 @@ func TestDeniedFoundryRollupBlocksMissionWithExactNextAction(t *testing.T) {
 	}
 }
 
+func TestFoundryTerminalStateBindingFixtureCoversClosureAndBlockers(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("..", "..", "examples", "valid", "foundry-terminal-state-binding.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Schema string `json:"schema"`
+		States []struct {
+			Status          string `json:"status"`
+			CompletedNodes  int    `json:"completed_nodes"`
+			TotalNodes      int    `json:"total_nodes"`
+			ExpectedMission string `json:"expected_mission_status"`
+			ExpectedRoute   string `json:"expected_route"`
+			ExpectedPhase   string `json:"expected_phase"`
+			ExactBlocker    string `json:"exact_blocker,omitempty"`
+		} `json:"states"`
+	}
+	if err := json.Unmarshal(body, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	if fixture.Schema != "ao.foundry.terminal-state-binding.v0.1" || len(fixture.States) != 4 {
+		t.Fatalf("unexpected fixture coverage: %+v", fixture)
+	}
+	for _, state := range fixture.States {
+		t.Run(state.Status, func(t *testing.T) {
+			dir := t.TempDir()
+			s := NewStore(dir)
+			rec, err := s.Start("bind Foundry terminal state " + state.Status)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rollupPath := filepath.Join(dir, "foundry-final-rollup.json")
+			rollup := map[string]any{
+				"schema":          "ao.foundry.final-rollup.v0.1",
+				"status":          state.Status,
+				"completed_nodes": state.CompletedNodes,
+				"total_nodes":     state.TotalNodes,
+				"safe_to_execute": false,
+				"executes_work":   false,
+				"approves_work":   false,
+			}
+			rollupBody, err := json.Marshal(rollup)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(rollupPath, rollupBody, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := ImportArtifact(s, rec.MissionID, "foundry-final-rollup", rollupPath); err != nil {
+				t.Fatal(err)
+			}
+			got, err := s.Load(rec.MissionID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.Status != state.ExpectedMission || got.CurrentRoute != state.ExpectedRoute || got.CurrentPhase != state.ExpectedPhase {
+				t.Fatalf("terminal state mismatch: got status=%s route=%s phase=%s want status=%s route=%s phase=%s", got.Status, got.CurrentRoute, got.CurrentPhase, state.ExpectedMission, state.ExpectedRoute, state.ExpectedPhase)
+			}
+			if state.ExactBlocker != "" && !strings.Contains(strings.Join(got.Blockers, ";"), state.ExactBlocker) {
+				t.Fatalf("missing exact blocker %q in %+v", state.ExactBlocker, got.Blockers)
+			}
+		})
+	}
+}
+
 func TestEventIndexSearchesSupervisorEvidence(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)

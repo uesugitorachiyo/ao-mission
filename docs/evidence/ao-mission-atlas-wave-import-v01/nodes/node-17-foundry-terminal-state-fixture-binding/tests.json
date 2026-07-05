@@ -1,0 +1,7 @@
+{
+  "schema": "ao.foundry.tests.v0.1",
+  "node_id": "node-17-foundry-terminal-state-fixture-binding",
+  "status": "passed",
+  "red": "go test ./internal/mission -run TestFoundryTerminalStateBindingFixtureCoversClosureAndBlockers -count=1 failed because the fixture was missing.",
+  "green": "The targeted test and full verification pass after adding the fixture and readiness assertion."
+}

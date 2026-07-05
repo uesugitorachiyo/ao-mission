@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.candidate-record.v0.1",
+  "node_id": "node-17-foundry-terminal-state-fixture-binding",
+  "status": "selected",
+  "candidate": "Add a Foundry terminal-state fixture and regression covering completed, promoted, denied, and blocked rollups.",
+  "owner": "ao-mission",
+  "why_now": "Mission closure must not blindly preserve stale rollup state or mishandle promoted, denied, or blocked terminal statuses."
+}

@@ -5,11 +5,11 @@
   "minimum_nodes": 25,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 16,
-  "ready_nodes": 9,
+  "completed_nodes": 17,
+  "ready_nodes": 8,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue with node-17: add Foundry terminal-state fixture binding.",
+  "exact_next_action": "Continue with node-18: add Command compact timeline fixture.",
   "nodes": [
     {
       "node_id": "node-01-atlas-recommendation-readback-import",
@@ -106,6 +106,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Record a root Promoter no-promotion summary for the readback-only Atlas recommendation import wave."
+    },
+    {
+      "node_id": "node-17-foundry-terminal-state-fixture-binding",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Bind Foundry completed, promoted, denied, and blocked terminal states to exact Mission outcomes."
     }
   ]
 }
