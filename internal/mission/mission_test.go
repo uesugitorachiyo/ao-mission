@@ -907,6 +907,30 @@ func TestCommandCompactTimelineFixtureCoversAtlasAndReconciliationEvents(t *test
 	}
 }
 
+func TestFinalReconciliationEventSearchFixturePreservesReadbackShape(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("..", "..", "examples", "valid", "final-reconciliation-event-search-readback.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var readback MissionEventSearchReadback
+	if err := json.Unmarshal(body, &readback); err != nil {
+		t.Fatal(err)
+	}
+	if readback.Schema != "ao.mission.event-search-readback.v0.1" || readback.Status != "ready" || readback.Kind != "final_reconciliation" {
+		t.Fatalf("unexpected event-search readback header: %+v", readback)
+	}
+	if readback.TotalMatches != 1 || len(readback.Events) != 1 {
+		t.Fatalf("event-search fixture should contain exactly one final reconciliation event: %+v", readback)
+	}
+	event := readback.Events[0]
+	if event.Kind != "final_reconciliation" || event.Status != "ready" || !strings.Contains(event.Summary, "artifacts_agree=true") || !strings.Contains(event.Summary, "rsi_remains_denied=true") {
+		t.Fatalf("bad final reconciliation event fixture: %+v", event)
+	}
+	if readback.SafeToExecute || readback.ExecutesWork || readback.ApprovesWork || readback.MutatesRepositories {
+		t.Fatalf("event-search fixture widened authority: %+v", readback)
+	}
+}
+
 func TestEventIndexSearchesSupervisorEvidence(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)

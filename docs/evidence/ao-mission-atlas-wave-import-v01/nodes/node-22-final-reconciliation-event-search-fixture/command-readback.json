@@ -1,0 +1,7 @@
+{
+  "schema": "ao.command.readback.v0.1",
+  "node_id": "node-22-final-reconciliation-event-search-fixture",
+  "status": "ready_for_review",
+  "summary": "Final reconciliation event-search fixture is available for Command and Atlas readback consumers.",
+  "exact_next_action": "merge node 22 after CI, then continue node 23"
+}

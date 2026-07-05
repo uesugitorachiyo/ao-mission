@@ -1,0 +1,8 @@
+{
+  "schema": "ao.atlas.node-gate.v0.1",
+  "node_id": "node-22-final-reconciliation-event-search-fixture",
+  "status": "passed",
+  "gate": "A final_reconciliation event-search readback fixture must preserve event shape and no-authority flags.",
+  "active_mutation_node": "node-22-final-reconciliation-event-search-fixture",
+  "exact_next_action": "verify fixture, open PR, wait for CI, merge, and continue node 23"
+}

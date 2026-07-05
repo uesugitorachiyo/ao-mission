@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.candidate-record.v0.1",
+  "node_id": "node-22-final-reconciliation-event-search-fixture",
+  "status": "selected",
+  "candidate": "Add final_reconciliation event-search fixture and readiness validation.",
+  "owner": "ao-mission",
+  "why_now": "Command and Atlas consumers need a stable final reconciliation search-output fixture, not only an event-index fixture."
+}
