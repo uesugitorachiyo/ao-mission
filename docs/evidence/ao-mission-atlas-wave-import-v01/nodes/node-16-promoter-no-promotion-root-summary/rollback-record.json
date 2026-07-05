@@ -1,0 +1,6 @@
+{
+  "schema": "ao.foundry.rollback-record.v0.1",
+  "node_id": "node-16-promoter-no-promotion-root-summary",
+  "rollback": "Remove promoter-no-promotion-summary.json and the production-readiness assertion that requires it.",
+  "safe_to_revert": true
+}

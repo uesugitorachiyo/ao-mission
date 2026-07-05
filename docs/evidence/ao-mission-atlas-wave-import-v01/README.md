@@ -1,6 +1,6 @@
 # AO Mission Atlas Wave Import v0.1
 
-Status: node 15 implementation and local verification complete; PR/CI pending.
+Status: node 16 implementation and local verification complete; PR/CI pending.
 
 This evidence root tracks the next long-run supervisor integration wave that
 imports the completed AO Atlas 40/40 recommendation readback into AO Mission.
@@ -25,9 +25,11 @@ mutation, unrestricted self-modification, unrestricted RSI, or broad_RSI.
 - node-12-final-reconciliation-fixture-docs: merged in PR #32.
 - node-13-command-status-text-summary: merged in PR #33.
 - node-14-root-public-safety-scan: merged in PR #34.
-- node-15-production-readiness-branch-cleanup: completed locally and verified; PR/CI pending.
+- node-15-production-readiness-branch-cleanup: merged in PR #35.
+- node-16-promoter-no-promotion-root-summary: completed locally and verified; PR/CI pending.
 - root Sentinel scan: `sentinel-public-safety-scan.json`.
 - production readiness and stale branch cleanup packet: `production-readiness-branch-cleanup.json`.
+- root Promoter summary: `promoter-no-promotion-summary.json`.
 - next recommended prompt: `next-recommended-prompt.md`.
 
 ## Evidence

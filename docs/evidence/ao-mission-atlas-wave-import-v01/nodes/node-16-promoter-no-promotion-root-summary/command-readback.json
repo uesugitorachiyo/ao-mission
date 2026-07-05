@@ -1,0 +1,7 @@
+{
+  "schema": "ao.command.readback.v0.1",
+  "node_id": "node-16-promoter-no-promotion-root-summary",
+  "status": "ready_for_review",
+  "summary": "Root Promoter no-promotion summary is bound into production readiness.",
+  "exact_next_action": "merge node 16 after CI, then continue node 17"
+}
