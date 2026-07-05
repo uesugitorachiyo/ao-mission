@@ -40,6 +40,10 @@ func BuildAtlasWaveFinalSynthesis(r Record, evidenceRoot string) (AtlasWaveFinal
 		status = "completed"
 		exactNextAction = "use next-wave-recommended-prompt.md for the next AO Atlas wave"
 	}
+	recommendations := BuildFeatureDepthRecommendations(r, 20)
+	if err := ValidateFeatureDepthRecommendations(recommendations, 20); err != nil {
+		return AtlasWaveFinalSynthesis{}, err
+	}
 	return AtlasWaveFinalSynthesis{
 		Schema:                                "ao.mission.atlas-wave-final-synthesis.v0.1",
 		Mission:                               mission,
@@ -68,7 +72,7 @@ func BuildAtlasWaveFinalSynthesis(r Record, evidenceRoot string) (AtlasWaveFinal
 		ExecutesWork:                          false,
 		ApprovesWork:                          false,
 		MutatesRepositories:                   false,
-		FeatureDepthRecommendations:           BuildFeatureDepthRecommendations(r, 20),
+		FeatureDepthRecommendations:           recommendations,
 		ExactNextAction:                       exactNextAction,
 		GeneratedAtUTC:                        now(nil),
 	}, nil

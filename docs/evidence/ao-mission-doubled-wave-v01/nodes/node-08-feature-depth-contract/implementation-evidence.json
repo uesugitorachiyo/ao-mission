@@ -1,0 +1,18 @@
+{
+  "schema": "ao.mission.doubled-wave.node-evidence.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-08-feature-depth-contract",
+  "status": "implemented",
+  "evidence_key": "implementation_evidence",
+  "implemented_changes": [
+    "Expanded FeatureDepthRecommendation with gate, evidence_required, estimated_minutes, continuation_command, and stop_condition fields.",
+    "Added ValidateFeatureDepthRecommendations to reject shallow recommendation lists, duplicate ids, missing concrete fields, and under-budget estimates.",
+    "Added 20 explicit Feature Depth seeds before generated continuation nodes.",
+    "Wired final synthesis and production-readiness smoke to enforce the concrete recommendation contract."
+  ],
+  "recommendation_packet": "docs/evidence/ao-mission-doubled-wave-v01/nodes/node-08-feature-depth-contract/feature-depth-recommendations.json",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "rsi_remains_denied": true
+}

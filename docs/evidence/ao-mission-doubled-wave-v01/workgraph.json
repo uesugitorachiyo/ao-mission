@@ -5,11 +5,11 @@
   "minimum_nodes": 60,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 7,
-  "ready_nodes": 53,
+  "completed_nodes": 8,
+  "ready_nodes": 52,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue node-08: strengthen Feature Depth Recommendations to require at least 10 concrete next tasks by default.",
+  "exact_next_action": "Continue node-09: extend AO Mission doctor for lease health, checkpoint freshness, stale route decisions, and early-return risk.",
   "nodes": [
     {
       "node_id": "node-01-final-synthesis-cli",
@@ -52,6 +52,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Generate an Atlas continuation prompt packet from readiness, final rollup, and event index evidence."
+    },
+    {
+      "node_id": "node-08-feature-depth-contract",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Require Feature Depth recommendations to carry concrete gates, evidence, continuation commands, and minimum time budgets."
     }
   ]
 }

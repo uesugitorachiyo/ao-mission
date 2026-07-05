@@ -1,0 +1,13 @@
+{
+  "schema": "ao.command.node-readback.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-08-feature-depth-contract",
+  "status": "ready",
+  "summary": "Feature Depth recommendations now carry concrete gates, evidence requirements, continuation commands, and a 120 minute budget for 20 tasks.",
+  "exact_next_action": "Continue node-09: extend AO Mission doctor for lease health, checkpoint freshness, stale route decisions, and early-return risk.",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false,
+  "rsi_remains_denied": true
+}

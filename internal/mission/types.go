@@ -166,10 +166,15 @@ type RouteReconciliation struct {
 }
 
 type FeatureDepthRecommendation struct {
-	ID              string `json:"id"`
-	Owner           string `json:"owner"`
-	Task            string `json:"task"`
-	ExactNextAction string `json:"exact_next_action"`
+	ID                  string   `json:"id"`
+	Owner               string   `json:"owner"`
+	Task                string   `json:"task"`
+	Gate                string   `json:"gate"`
+	EvidenceRequired    []string `json:"evidence_required"`
+	EstimatedMinutes    int      `json:"estimated_minutes"`
+	ContinuationCommand string   `json:"continuation_command"`
+	ExactNextAction     string   `json:"exact_next_action"`
+	StopCondition       string   `json:"stop_condition"`
 }
 
 type MissionCheckpointBundle struct {
