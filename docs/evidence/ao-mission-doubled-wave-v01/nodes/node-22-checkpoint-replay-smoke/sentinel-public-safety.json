@@ -1,0 +1,40 @@
+{
+  "schema": "ao.evidence.sentinel-public-safety.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-22-checkpoint-replay-smoke",
+  "status": "local_scans_passed",
+  "scan_scope": [
+    "internal/mission/cli.go",
+    "internal/mission/mission_test.go",
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-doubled-wave-v01/nodes/node-22-checkpoint-replay-smoke"
+  ],
+  "safety_flags": {
+    "direct_main_mutation": false,
+    "credential_or_token_inspection": false,
+    "provider_calls": false,
+    "release_deploy_publish_upload_or_tag": false,
+    "dependency_updates": false,
+    "auth_policy_or_config_widening": false,
+    "hidden_instruction_mutation": false,
+    "broad_rsi_claim": false
+  },
+  "scan_results": [
+    {
+      "command": "current diff credential and local-path pattern scan",
+      "matches": 0
+    },
+    {
+      "command": "current diff authority-widening and broad-RSI wording scan",
+      "matches": 0
+    },
+    {
+      "command": "public node evidence credential and local-path pattern scan",
+      "matches": 0
+    },
+    {
+      "command": "public node evidence authority-widening and broad-RSI wording scan",
+      "matches": 0
+    }
+  ]
+}

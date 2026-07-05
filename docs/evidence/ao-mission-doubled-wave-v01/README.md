@@ -34,6 +34,8 @@ keeps RSI denied, and does not request promotion.
   closure node for the first 20-node segment.
 - node-21-event-alias-fixture: event-search fixture proving route, node, PR,
   CI, rollup, and blocker aliases.
+- node-22-checkpoint-replay-smoke: checkpoint inspect CLI replay smoke after
+  Atlas final-synthesis readback import.
 
 ## Root Evidence
 

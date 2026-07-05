@@ -1,0 +1,20 @@
+{
+  "schema": "ao.evidence.implementation.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-22-checkpoint-replay-smoke",
+  "status": "implemented",
+  "changes": [
+    "Added ao-mission checkpoint inspect --mission <id> --json to load persisted checkpoint/resume bundles.",
+    "Added text readback output that reports mission, status, checkpoint count, final-response allowance, resume prompt, and readback-only authority flags.",
+    "Added CLI regression proving checkpoint inspect replays the checkpoint bundle written after Atlas final-synthesis readback import.",
+    "Updated production readiness to smoke the checkpoint inspect CLI after Atlas final-synthesis import.",
+    "Repacked node 21 public-safety evidence so it records scan results without embedding the scanner's own sensitive-pattern literals."
+  ],
+  "authority": {
+    "safe_to_execute": false,
+    "executes_work": false,
+    "approves_work": false,
+    "mutates_repositories": false,
+    "rsi_remains_denied": true
+  }
+}

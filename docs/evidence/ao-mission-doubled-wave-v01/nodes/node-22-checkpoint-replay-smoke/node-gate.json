@@ -1,0 +1,25 @@
+{
+  "schema": "ao.evidence.node-gate.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-22-checkpoint-replay-smoke",
+  "owner": "ao-mission",
+  "status": "completed",
+  "objective": "Add a readback-only checkpoint inspect CLI smoke after Atlas readback import.",
+  "gate": {
+    "single_mutation_node_active": true,
+    "branch": "codex/doubled-wave-node-22-checkpoint-replay-smoke",
+    "direct_main_mutation": false,
+    "provider_calls": false,
+    "credential_or_token_inspection": false,
+    "release_deploy_publish_upload_or_tag": false,
+    "dependency_update": false,
+    "auth_policy_or_config_widening": false,
+    "hidden_instruction_mutation": false,
+    "rsi_remains_denied": true
+  },
+  "exit_criteria": [
+    "checkpoint inspect loads a persisted checkpoint/resume bundle after Atlas final-synthesis import",
+    "CLI readback remains safe_to_execute=false, executes_work=false, approves_work=false, and mutates_repositories=false",
+    "production readiness uses the checkpoint inspect CLI instead of directly copying the bundle file"
+  ]
+}

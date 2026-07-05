@@ -1,0 +1,16 @@
+{
+  "schema": "ao.evidence.rollback-record.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-22-checkpoint-replay-smoke",
+  "branch": "codex/doubled-wave-node-22-checkpoint-replay-smoke",
+  "rollback_scope": [
+    "internal/mission/cli.go",
+    "internal/mission/mission_test.go",
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-doubled-wave-v01/workgraph.json",
+    "docs/evidence/ao-mission-doubled-wave-v01/README.md",
+    "docs/evidence/ao-mission-doubled-wave-v01/nodes/node-22-checkpoint-replay-smoke"
+  ],
+  "rollback_action": "Revert the node-22 branch or remove checkpoint inspect CLI handling, its regression test, readiness smoke, and node evidence before merge.",
+  "operator_data_migration": "none"
+}

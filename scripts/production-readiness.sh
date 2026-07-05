@@ -52,7 +52,7 @@ final_synthesis_mission_id="$(jq -r '.mission_id' "$mission_json")"
 jq -e '.kind == "atlas-final-synthesis-readback" and .safe_to_execute == false and .executes_work == false and .approves_work == false' "$final_synthesis_import_json" >/dev/null
 ./ao-mission --home "$tmp_home" mission inspect --mission "$final_synthesis_mission_id" --json >"$final_synthesis_inspect_json"
 jq -e '.status == "done" and .current_route == "complete" and .current_phase == "complete" and .evidence.atlas_final_synthesis.command_readback == "ready" and .evidence.atlas_final_synthesis.promoter_status == "no_promotion_requested" and .route_reconciliation.command_readback_bound == true and .route_reconciliation.promoter_readback_bound == true and .route_reconciliation.atlas_ready_nodes == 0 and .return_gate.final_response_allowed == true' "$final_synthesis_inspect_json" >/dev/null
-cp "$tmp_home/missions/$final_synthesis_mission_id.checkpoint-resume-bundle.json" "$final_synthesis_checkpoint_json"
+./ao-mission --home "$tmp_home" checkpoint inspect --mission "$final_synthesis_mission_id" --json >"$final_synthesis_checkpoint_json"
 jq -e '.schema == "ao.mission.checkpoint-resume-bundle.v0.3" and .mission_id == "'"$final_synthesis_mission_id"'" and .status == "ready" and .return_gate.final_response_allowed == true and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false' "$final_synthesis_checkpoint_json" >/dev/null
 ./ao-mission --home "$tmp_home" start "doctor active lease health smoke" >"$mission_json"
 doctor_mission_id="$(jq -r '.mission_id' "$mission_json")"
