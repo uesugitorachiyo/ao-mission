@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "node_id": "node-23-wave-boundary-readiness-scan",
+  "status": "imported",
+  "bounded_task": "Bind wave-level no-promotion, no-authority-advance, and RSI-denied readiness evidence.",
+  "executes_one_node": true,
+  "safe_to_execute": false
+}

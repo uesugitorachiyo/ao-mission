@@ -1,6 +1,6 @@
 # AO Mission Atlas Wave Import v0.1
 
-Status: node 22 implementation and local verification complete; PR/CI pending.
+Status: node 23 implementation and local verification complete; PR/CI pending.
 
 This evidence root tracks the next long-run supervisor integration wave that
 imports the completed AO Atlas 40/40 recommendation readback into AO Mission.
@@ -32,7 +32,8 @@ mutation, unrestricted self-modification, unrestricted RSI, or broad_RSI.
 - node-19-command-final-reconcile-operator-flow: merged in PR #39.
 - node-20-final-reconciliation-event-search-smoke: merged in PR #40.
 - node-21-final-reconciliation-mismatch-fixture: merged in PR #41.
-- node-22-final-reconciliation-event-search-fixture: completed locally and verified; PR/CI pending.
+- node-22-final-reconciliation-event-search-fixture: merged in PR #42.
+- node-23-wave-boundary-readiness-scan: completed locally and verified; PR/CI pending.
 - root Sentinel scan: `sentinel-public-safety-scan.json`.
 - production readiness and stale branch cleanup packet: `production-readiness-branch-cleanup.json`.
 - root Promoter summary: `promoter-no-promotion-summary.json`.
@@ -41,6 +42,7 @@ mutation, unrestricted self-modification, unrestricted RSI, or broad_RSI.
 - event search production smoke: `event-search-production-smoke.json`.
 - blocked final reconciliation mismatch fixture: `../../../examples/valid/final-reconciliation-mismatch-packet.json`.
 - final reconciliation event-search fixture: `../../../examples/valid/final-reconciliation-event-search-readback.json`.
+- wave boundary readiness packet: `wave-boundary-readiness.json`.
 - next recommended prompt: `next-recommended-prompt.md`.
 
 ## Evidence

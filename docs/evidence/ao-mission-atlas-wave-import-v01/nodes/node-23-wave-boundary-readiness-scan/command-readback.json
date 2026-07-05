@@ -1,0 +1,7 @@
+{
+  "schema": "ao.command.readback.v0.1",
+  "node_id": "node-23-wave-boundary-readiness-scan",
+  "status": "ready_for_review",
+  "summary": "Wave boundary readiness scan validates no-promotion, no-authority-advance, and RSI-denied evidence.",
+  "exact_next_action": "merge node 23 after CI, then continue node 24"
+}
