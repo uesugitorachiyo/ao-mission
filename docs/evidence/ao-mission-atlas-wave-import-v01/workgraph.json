@@ -5,11 +5,11 @@
   "minimum_nodes": 25,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 14,
-  "ready_nodes": 11,
+  "completed_nodes": 15,
+  "ready_nodes": 10,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue with node-15: add production readiness and branch cleanup verification packet.",
+  "exact_next_action": "Continue with node-16: add promoter no-promotion root summary binding.",
   "nodes": [
     {
       "node_id": "node-01-atlas-recommendation-readback-import",
@@ -94,6 +94,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Record root Sentinel public-safety scan for prompt, docs, and reconciliation fixtures."
+    },
+    {
+      "node_id": "node-15-production-readiness-branch-cleanup",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Record production-readiness and stale branch cleanup evidence for the Atlas recommendation import wave."
     }
   ]
 }

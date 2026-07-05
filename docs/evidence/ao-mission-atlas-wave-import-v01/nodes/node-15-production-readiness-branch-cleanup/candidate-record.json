@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.candidate-record.v0.1",
+  "node_id": "node-15-production-readiness-branch-cleanup",
+  "status": "selected",
+  "candidate": "Add a root production-readiness and stale branch cleanup evidence packet for the Atlas recommendation import wave.",
+  "owner": "ao-mission",
+  "why_now": "The wave has merged fourteen PR-backed nodes and needs durable cleanup/readiness evidence before final closure."
+}

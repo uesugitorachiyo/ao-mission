@@ -1,0 +1,6 @@
+{
+  "schema": "ao.foundry.rollback-record.v0.1",
+  "node_id": "node-15-production-readiness-branch-cleanup",
+  "rollback": "Remove production-readiness-branch-cleanup.json and its production-readiness assertion.",
+  "safe_to_revert": true
+}

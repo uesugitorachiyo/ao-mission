@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "node_id": "node-15-production-readiness-branch-cleanup",
+  "status": "imported",
+  "bounded_task": "Bind production-readiness and stale branch cleanup state into root wave evidence.",
+  "executes_one_node": true,
+  "safe_to_execute": false
+}

@@ -1,0 +1,8 @@
+{
+  "schema": "ao.atlas.node-gate.v0.1",
+  "node_id": "node-15-production-readiness-branch-cleanup",
+  "status": "passed",
+  "gate": "Production readiness requires a machine-readable stale branch cleanup packet before wave closure can advance.",
+  "active_mutation_node": "node-15-production-readiness-branch-cleanup",
+  "exact_next_action": "verify the packet locally, open PR, wait for CI, merge, and continue node 16"
+}
