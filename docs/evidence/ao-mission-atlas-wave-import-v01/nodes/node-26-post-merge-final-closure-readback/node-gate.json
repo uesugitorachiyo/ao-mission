@@ -1,0 +1,8 @@
+{
+  "schema": "ao.atlas.node-gate.v0.1",
+  "node_id": "node-26-post-merge-final-closure-readback",
+  "status": "passed",
+  "gate": "Final response must not rely on a stale PR-pending exact next action after node 25 has merged.",
+  "active_mutation_node": "node-26-post-merge-final-closure-readback",
+  "exact_next_action": "verify post-merge closure, open PR, wait for CI, merge, confirm cleanup, and report closure"
+}

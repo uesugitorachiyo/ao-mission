@@ -1,0 +1,13 @@
+{
+  "schema": "ao.foundry.implementation-evidence.v0.1",
+  "node_id": "node-26-post-merge-final-closure-readback",
+  "status": "implemented",
+  "changed_files": [
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/final-synthesis.json",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/post-merge-final-closure.json",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/workgraph.json",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/README.md"
+  ],
+  "behavior": "Final synthesis now records node 25 as merged and cleaned, and exact next action points to the next-wave prompt."
+}
