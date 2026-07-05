@@ -1,0 +1,7 @@
+{
+  "schema": "ao.foundry.tests.v0.1",
+  "node_id": "node-20-final-reconciliation-event-search-smoke",
+  "status": "passed",
+  "red": "scripts/production-readiness.sh failed because event-search-production-smoke.json did not exist.",
+  "green": "scripts/production-readiness.sh passes after adding the smoke artifact and event-search CLI commands."
+}

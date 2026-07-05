@@ -1,0 +1,7 @@
+{
+  "schema": "ao.command.readback.v0.1",
+  "node_id": "node-20-final-reconciliation-event-search-smoke",
+  "status": "ready_for_review",
+  "summary": "Production readiness now searches final_reconciliation events through the CLI.",
+  "exact_next_action": "merge node 20 after CI, then continue node 21"
+}

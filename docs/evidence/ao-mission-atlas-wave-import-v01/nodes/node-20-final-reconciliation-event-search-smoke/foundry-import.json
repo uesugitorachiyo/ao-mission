@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "node_id": "node-20-final-reconciliation-event-search-smoke",
+  "status": "imported",
+  "bounded_task": "Add production-readiness CLI smoke for final_reconciliation event search.",
+  "executes_one_node": true,
+  "safe_to_execute": false
+}
