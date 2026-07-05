@@ -1,0 +1,12 @@
+{
+  "schema": "ao.foundry.implementation-evidence.v0.1",
+  "node_id": "node-24-merged-pr-branch-cleanup",
+  "status": "implemented",
+  "changed_files": [
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/merged-pr-branch-cleanup.json",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/workgraph.json",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/README.md"
+  ],
+  "behavior": "Production readiness now requires merged-PR cleanup evidence for wave PRs 21 through 43 before final synthesis."
+}

@@ -1,0 +1,8 @@
+{
+  "schema": "ao.atlas.node-gate.v0.1",
+  "node_id": "node-24-merged-pr-branch-cleanup",
+  "status": "passed",
+  "gate": "Merged wave PRs and stale codex branch cleanup must be recorded before final synthesis.",
+  "active_mutation_node": "node-24-merged-pr-branch-cleanup",
+  "exact_next_action": "verify cleanup packet, open PR, wait for CI, merge, and continue node 25"
+}

@@ -1,0 +1,7 @@
+{
+  "schema": "ao.foundry.tests.v0.1",
+  "node_id": "node-24-merged-pr-branch-cleanup",
+  "status": "passed",
+  "red": "scripts/production-readiness.sh failed because merged-pr-branch-cleanup.json did not exist.",
+  "green": "scripts/production-readiness.sh passes after adding the merged PR and stale branch cleanup packet."
+}

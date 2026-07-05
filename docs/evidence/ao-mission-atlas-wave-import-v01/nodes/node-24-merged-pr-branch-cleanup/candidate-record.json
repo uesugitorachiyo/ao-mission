@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.candidate-record.v0.1",
+  "node_id": "node-24-merged-pr-branch-cleanup",
+  "status": "selected",
+  "candidate": "Add merged PR and branch cleanup packet covering wave PRs 21 through 43.",
+  "owner": "ao-mission",
+  "why_now": "Final synthesis needs durable branch cleanup evidence before the wave can close."
+}

@@ -1,0 +1,7 @@
+{
+  "schema": "ao.command.readback.v0.1",
+  "node_id": "node-24-merged-pr-branch-cleanup",
+  "status": "ready_for_review",
+  "summary": "Merged PR and stale branch cleanup packet covers wave PRs 21 through 43.",
+  "exact_next_action": "merge node 24 after CI, then continue node 25"
+}

@@ -1,0 +1,6 @@
+{
+  "schema": "ao.foundry.rollback-record.v0.1",
+  "node_id": "node-24-merged-pr-branch-cleanup",
+  "rollback": "Remove merged-pr-branch-cleanup.json and its production-readiness assertion.",
+  "safe_to_revert": true
+}
