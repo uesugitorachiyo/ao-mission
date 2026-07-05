@@ -891,6 +891,41 @@ func TestCommandStatusIncludesAtlasRecommendationSummary(t *testing.T) {
 	}
 }
 
+func TestFinalReconciliationPacketAgreesAcrossAtlasFoundryAndCommand(t *testing.T) {
+	rec := Record{
+		Schema:          RecordSchema,
+		MissionID:       "mission-reconcile",
+		Status:          "done",
+		CurrentRoute:    "complete",
+		CurrentPhase:    "complete",
+		ExactNextAction: "mission complete; read final rollup and recommended next tasks",
+		Evidence: EvidenceSummary{
+			AtlasRecommendation: &AtlasRecommendationReadbackCounts{
+				Status:               "completed",
+				TotalNodes:           40,
+				CompletedNodes:       40,
+				ReadyNodes:           0,
+				CheckpointCount:      40,
+				MinMinutesMet:        true,
+				LeaseTimeStatus:      "minimum_minutes_met",
+				ReturnGateStatus:     "final_response_allowed",
+				FinalResponseAllowed: true,
+			},
+			FoundryRollup: &FoundryRollupCounts{Status: "completed", CompletedNodes: 40, TotalNodes: 40},
+		},
+	}
+	packet := BuildFinalReconciliationPacket(rec)
+	if packet.Status != "ready" || !packet.ArtifactsAgree || !packet.FinalResponseAllowed {
+		t.Fatalf("reconciliation should agree for completed evidence: %+v", packet)
+	}
+	if packet.AtlasRecommendationStatus != "completed" || packet.CommandStatus != "done" || packet.FoundryStatus != "completed" {
+		t.Fatalf("packet missing status summary: %+v", packet)
+	}
+	if packet.PromotionClaimed || !packet.RSIRemainsDenied || packet.ClaimsAuthorityAdvance {
+		t.Fatalf("packet widened promotion or RSI boundary: %+v", packet)
+	}
+}
+
 func TestFeatureDepthRecommendationsReturnAtLeastTenActionableTasks(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)

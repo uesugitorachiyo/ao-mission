@@ -1,0 +1,10 @@
+{
+  "schema": "ao.mission.node-gate-readback.v0.1",
+  "node_id": "node-07-final-reconciliation-packet",
+  "status": "passed",
+  "gate": "Mission builds a final reconciliation packet comparing Mission, Atlas, Foundry, Command, and promotion-boundary state.",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false
+}

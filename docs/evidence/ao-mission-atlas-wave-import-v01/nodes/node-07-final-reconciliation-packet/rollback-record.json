@@ -1,0 +1,7 @@
+{
+  "schema": "ao.mission.rollback-record.v0.1",
+  "node_id": "node-07-final-reconciliation-packet",
+  "rollback": "Remove MissionFinalReconciliationPacket, BuildFinalReconciliationPacket, and the regression test.",
+  "risk": "Low; additive readback-only packet.",
+  "requires_release": false
+}
