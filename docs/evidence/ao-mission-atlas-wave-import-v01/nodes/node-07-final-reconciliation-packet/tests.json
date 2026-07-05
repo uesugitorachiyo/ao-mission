@@ -1,0 +1,9 @@
+{
+  "schema": "ao.mission.tests-readback.v0.1",
+  "node_id": "node-07-final-reconciliation-packet",
+  "red": "go test ./internal/mission -run TestFinalReconciliationPacketAgreesAcrossAtlasFoundryAndCommand -count=1 failed because BuildFinalReconciliationPacket was undefined.",
+  "green": "go test ./internal/mission -run TestFinalReconciliationPacketAgreesAcrossAtlasFoundryAndCommand -count=1 passed after adding the packet builder.",
+  "regressions": [
+    "TestFinalReconciliationPacketAgreesAcrossAtlasFoundryAndCommand"
+  ]
+}

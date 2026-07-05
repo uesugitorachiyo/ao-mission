@@ -579,6 +579,30 @@ type CommandStatus struct {
 	GeneratedAtUTC      string                             `json:"generated_at_utc"`
 }
 
+type MissionFinalReconciliationPacket struct {
+	Schema                    string `json:"schema"`
+	MissionID                 string `json:"mission_id"`
+	Status                    string `json:"status"`
+	ArtifactsAgree            bool   `json:"artifacts_agree"`
+	MissionStatus             string `json:"mission_status"`
+	AtlasRecommendationStatus string `json:"atlas_recommendation_status,omitempty"`
+	FoundryStatus             string `json:"foundry_status,omitempty"`
+	CommandStatus             string `json:"command_status"`
+	CompletedNodes            int    `json:"completed_nodes"`
+	TotalNodes                int    `json:"total_nodes"`
+	ReadyNodes                int    `json:"ready_nodes"`
+	FinalResponseAllowed      bool   `json:"final_response_allowed"`
+	ReturnGateStatus          string `json:"return_gate_status"`
+	PromotionClaimed          bool   `json:"promotion_claimed"`
+	RSIRemainsDenied          bool   `json:"rsi_remains_denied"`
+	ClaimsAuthorityAdvance    bool   `json:"claims_authority_advance"`
+	SafeToExecute             bool   `json:"safe_to_execute"`
+	ExecutesWork              bool   `json:"executes_work"`
+	ApprovesWork              bool   `json:"approves_work"`
+	MutatesRepositories       bool   `json:"mutates_repositories"`
+	GeneratedAtUTC            string `json:"generated_at_utc"`
+}
+
 type GovernanceSnapshotDiff struct {
 	Schema         string   `json:"schema"`
 	Status         string   `json:"status"`

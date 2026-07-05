@@ -1,0 +1,11 @@
+{
+  "schema": "ao.mission.implementation-evidence.v0.1",
+  "node_id": "node-07-final-reconciliation-packet",
+  "status": "implemented_locally",
+  "files": [
+    "internal/mission/reconciliation.go",
+    "internal/mission/types.go",
+    "internal/mission/mission_test.go"
+  ],
+  "behavior": "BuildFinalReconciliationPacket reports artifact agreement, Mission status, Atlas recommendation status, Foundry status, Command status, final-response gate, and no-promotion/RSI-denied boundaries."
+}

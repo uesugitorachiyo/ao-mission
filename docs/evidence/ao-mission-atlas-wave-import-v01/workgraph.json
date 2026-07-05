@@ -5,11 +5,11 @@
   "minimum_nodes": 25,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 6,
-  "ready_nodes": 19,
+  "completed_nodes": 7,
+  "ready_nodes": 18,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue with node-07: add final reconciliation packet for Mission, Atlas, Foundry, Promoter, and Command.",
+  "exact_next_action": "Continue with node-08: update operator runbook and next prompt for the expanded long-run wave.",
   "nodes": [
     {
       "node_id": "node-01-atlas-recommendation-readback-import",
@@ -46,6 +46,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Expose Atlas recommendation summary in compact AO Command-compatible Mission status."
+    },
+    {
+      "node_id": "node-07-final-reconciliation-packet",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Compare Mission, Atlas recommendation, Foundry rollup, Command status, and promotion boundaries in one packet."
     }
   ]
 }
