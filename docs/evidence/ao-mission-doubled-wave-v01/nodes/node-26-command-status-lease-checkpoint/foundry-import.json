@@ -1,0 +1,19 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-26-command-status-lease-checkpoint",
+  "owner": "ao-mission",
+  "task": "Implement only the Command status lease/checkpoint freshness binding node.",
+  "inputs": [
+    "internal/mission/readback.go",
+    "internal/mission/types.go",
+    "internal/mission/cli.go",
+    "examples/valid/command-status-lease-checkpoint-readback.json"
+  ],
+  "constraints": [
+    "readback only",
+    "no provider calls",
+    "no promotion claim",
+    "RSI remains denied"
+  ]
+}

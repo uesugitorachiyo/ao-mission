@@ -1,0 +1,12 @@
+{
+  "schema": "ao.evidence.candidate-record.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-26-command-status-lease-checkpoint",
+  "selected_candidate": "Extend CommandStatus with goal lease, checkpoint count, checkpoint freshness, and return-gate status, plus a stable fixture.",
+  "rejected_candidates": [
+    "Only add a fixture without code; rejected because live command status did not expose the fields.",
+    "Add Command import routing now; rejected because node 41 owns Command compact import into route reconciliation.",
+    "Treat checkpoint freshness as a doctor-only concern; rejected because Command readback is the compact operator view."
+  ],
+  "decision_basis": "Long-run operators need compact Command status to show whether the lease and checkpoint state are current before final response is considered."
+}

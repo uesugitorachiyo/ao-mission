@@ -1,0 +1,19 @@
+{
+  "schema": "ao.evidence.rollback-record.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-26-command-status-lease-checkpoint",
+  "branch": "codex/doubled-wave-node-26-command-status-lease-checkpoint",
+  "rollback_scope": [
+    "internal/mission/types.go",
+    "internal/mission/readback.go",
+    "internal/mission/cli.go",
+    "internal/mission/mission_test.go",
+    "examples/valid/command-status-lease-checkpoint-readback.json",
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-doubled-wave-v01/workgraph.json",
+    "docs/evidence/ao-mission-doubled-wave-v01/README.md",
+    "docs/evidence/ao-mission-doubled-wave-v01/nodes/node-26-command-status-lease-checkpoint"
+  ],
+  "rollback_action": "Revert the node-26 branch or remove CommandStatus lease/checkpoint fields, tests, fixture, readiness assertion, and evidence before merge.",
+  "operator_data_migration": "none"
+}
