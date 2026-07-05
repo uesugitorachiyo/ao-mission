@@ -1,0 +1,11 @@
+{
+  "schema": "ao.mission.implementation-evidence.v0.1",
+  "node_id": "node-04-atlas-terminal-blocker-readbacks",
+  "status": "implemented_locally",
+  "files": [
+    "internal/mission/imports.go",
+    "internal/mission/types.go",
+    "internal/mission/mission_test.go"
+  ],
+  "behavior": "Denied and blocked Atlas recommendation readbacks set Mission status=blocked, route=ao-atlas, blocker text, and hard-blocker return gate."
+}

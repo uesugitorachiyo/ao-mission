@@ -1,0 +1,7 @@
+{
+  "schema": "ao.mission.rollback-record.v0.1",
+  "node_id": "node-04-atlas-terminal-blocker-readbacks",
+  "rollback": "Remove Atlas recommendation denied/blocked blocker mapping and its regression test.",
+  "risk": "Low; change only makes terminal blockers more explicit.",
+  "requires_release": false
+}

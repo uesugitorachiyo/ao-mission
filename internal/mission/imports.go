@@ -70,12 +70,20 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 				Completed: readback.CompletedNodes,
 			}
 			rec.ExactNextAction = readback.ExactNextAction
-			if atlasRecommendationReadbackClosesMission(readback) {
+			switch {
+			case atlasRecommendationReadbackClosesMission(readback):
 				rec.Status = "done"
 				rec.CurrentRoute = "complete"
 				rec.CurrentPhase = "complete"
 				rec.ExactNextAction = "mission complete; read final rollup and recommended next tasks"
-			} else {
+			case atlasRecommendationReadbackTerminalBlocker(readback):
+				rec.Status = "blocked"
+				rec.CurrentRoute = "ao-atlas"
+				rec.CurrentPhase = "atlas_recommendation_" + readback.Status
+				blocker := atlasRecommendationBlocker(readback)
+				rec.Blockers = appendMissingString(rec.Blockers, blocker)
+				rec.ExactNextAction = "Atlas recommendation readback " + readback.Status + ": " + blocker
+			default:
 				rec.CurrentRoute = "ao-atlas"
 				rec.CurrentPhase = "atlas_recommendation_readback_recorded"
 				if rec.ExactNextAction == "" {
@@ -275,6 +283,8 @@ func parseAtlasRecommendationReadbackCounts(doc map[string]any) AtlasRecommendat
 		LeaseTimeStatus:      stringFromAny(doc["lease_time_status"]),
 		ReturnGateStatus:     stringFromAny(doc["return_gate_status"]),
 		FinalResponseAllowed: boolFromAny(doc["final_response_allowed"]),
+		Blocker:              stringFromAny(doc["blocker"]),
+		RSIRemainsDenied:     boolFromAny(doc["rsi_remains_denied"]),
 		ExactNextAction:      stringFromAny(doc["exact_next_action"]),
 	}
 }
@@ -289,6 +299,20 @@ func atlasRecommendationReadbackClosesMission(readback AtlasRecommendationReadba
 		readback.LeaseTimeStatus == "minimum_minutes_met" &&
 		readback.ReturnGateStatus == "final_response_allowed" &&
 		readback.FinalResponseAllowed
+}
+
+func atlasRecommendationReadbackTerminalBlocker(readback AtlasRecommendationReadbackCounts) bool {
+	return readback.Status == "denied" || readback.Status == "blocked"
+}
+
+func atlasRecommendationBlocker(readback AtlasRecommendationReadbackCounts) string {
+	if readback.Blocker != "" {
+		return readback.Blocker
+	}
+	if readback.ReturnGateStatus != "" {
+		return "return gate status " + readback.ReturnGateStatus
+	}
+	return "terminal Atlas recommendation status " + readback.Status
 }
 
 func appendMissingString(values []string, value string) []string {

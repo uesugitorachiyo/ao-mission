@@ -699,6 +699,46 @@ func TestImportAtlasRecommendationReadbackRejectsAuthorityAdvanceClaim(t *testin
 	}
 }
 
+func TestImportAtlasRecommendationReadbackDeniedAndBlockedBecomeExactBlockers(t *testing.T) {
+	for _, tc := range []struct {
+		status string
+		reason string
+	}{
+		{status: "denied", reason: "missing stop-gate evidence for node-17"},
+		{status: "blocked", reason: "Command readback disagreement"},
+	} {
+		t.Run(tc.status, func(t *testing.T) {
+			dir := t.TempDir()
+			s := NewStore(dir)
+			rec, err := s.Start("import terminal Atlas blocker")
+			if err != nil {
+				t.Fatal(err)
+			}
+			readbackPath := filepath.Join(dir, "recommendation-readback-"+tc.status+".json")
+			readback := `{"schema":"ao.atlas.recommendation-readback.v0.1","status":"` + tc.status + `","total_nodes":40,"completed_nodes":39,"ready_nodes":0,"checkpoint_count":39,"elapsed_minutes":141,"min_minutes_met":true,"lease_time_status":"minimum_minutes_met","return_gate_status":"` + tc.status + `","final_response_allowed":true,"blocker":"` + tc.reason + `","safe_to_execute":false,"executes_work":false,"approves_work":false,"mutates_repositories":false,"provider_calls":false,"release_or_publish":false,"credential_use":false,"direct_main_mutation":false,"concurrent_mutation":false,"claims_authority_advance":false,"rsi_remains_denied":true,"exact_next_action":"Repair exact blocker through AO Atlas before final response."}`
+			if err := os.WriteFile(readbackPath, []byte(readback), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := ImportArtifact(s, rec.MissionID, "atlas-recommendation-readback", readbackPath); err != nil {
+				t.Fatal(err)
+			}
+			blocked, err := s.Load(rec.MissionID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if blocked.Status != "blocked" || blocked.CurrentRoute != "ao-atlas" {
+				t.Fatalf("terminal Atlas %s should block Mission: %+v", tc.status, blocked)
+			}
+			if !strings.Contains(strings.Join(blocked.Blockers, ";"), tc.reason) {
+				t.Fatalf("missing exact blocker %q in %+v", tc.reason, blocked.Blockers)
+			}
+			if blocked.ReturnGate == nil || !blocked.ReturnGate.HardBlocker || !strings.Contains(blocked.ReturnGate.Reason, "terminal hard blocker") {
+				t.Fatalf("terminal Atlas blocker should set hard-blocker gate: %+v", blocked.ReturnGate)
+			}
+		})
+	}
+}
+
 func TestPromotedFoundryRollupClosesMission(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)

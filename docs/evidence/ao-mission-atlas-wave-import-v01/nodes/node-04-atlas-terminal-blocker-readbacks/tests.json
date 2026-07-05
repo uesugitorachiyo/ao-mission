@@ -1,0 +1,9 @@
+{
+  "schema": "ao.mission.tests-readback.v0.1",
+  "node_id": "node-04-atlas-terminal-blocker-readbacks",
+  "red": "go test ./internal/mission -run TestImportAtlasRecommendationReadbackDeniedAndBlockedBecomeExactBlockers -count=1 failed because denied/blocked readbacks stayed active without blockers.",
+  "green": "go test ./internal/mission -run TestImportAtlasRecommendationReadbackDeniedAndBlockedBecomeExactBlockers -count=1 passed after terminal blocker mapping.",
+  "regressions": [
+    "TestImportAtlasRecommendationReadbackDeniedAndBlockedBecomeExactBlockers"
+  ]
+}
