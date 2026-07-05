@@ -1,0 +1,22 @@
+{
+  "schema": "ao.mission.doubled-wave.node-evidence.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-07-atlas-prompt-packet",
+  "status": "recorded",
+  "evidence_key": "rollback_record",
+  "rollback_scope": [
+    "internal/mission/atlas_prompt.go",
+    "internal/mission/types.go",
+    "internal/mission/cli.go",
+    "internal/mission/mission_test.go",
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-doubled-wave-v01/workgraph.json",
+    "docs/evidence/ao-mission-doubled-wave-v01/nodes/node-07-atlas-prompt-packet"
+  ],
+  "rollback_action": "Revert the node-07 commit if Atlas prompt packet generation regresses before merge.",
+  "data_migration_required": false,
+  "schedules_work": false,
+  "executes_work": false,
+  "approves_work": false,
+  "rsi_remains_denied": true
+}

@@ -1,0 +1,29 @@
+{
+  "schema": "ao.mission.record.v0.1",
+  "mission_id": "mission-f7de6572e85e3620",
+  "objective": "node 7 atlas prompt packet",
+  "objective_digest": "sha256:f585965b1cd183c694e4c791428c5678b6b81df8c2377c0315b6e46c511712e0",
+  "status": "active",
+  "created_at_utc": "2026-07-05T02:35:44Z",
+  "updated_at_utc": "2026-07-05T02:35:44Z",
+  "current_route": "ao-atlas",
+  "current_phase": "routing",
+  "blockers": [],
+  "exact_next_action": "send authorized pack to AO Atlas",
+  "artifact_refs": [],
+  "steps": [],
+  "route_history": [
+    {
+      "schema": "ao.mission.route-decision.v0.1",
+      "mission_id": "mission-f7de6572e85e3620",
+      "route": "ao-atlas",
+      "reason": "objective requires workgraph, context, or long-running task management",
+      "safe_to_request": true,
+      "safe_to_execute": false,
+      "safe_to_promote": false,
+      "exact_next_action": "send authorized pack to AO Atlas",
+      "generated_at_utc": "2026-07-05T02:35:44Z"
+    }
+  ],
+  "evidence": {}
+}

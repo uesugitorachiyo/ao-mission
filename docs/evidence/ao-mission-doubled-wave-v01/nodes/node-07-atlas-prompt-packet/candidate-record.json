@@ -1,0 +1,17 @@
+{
+  "schema": "ao.mission.doubled-wave.node-evidence.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-07-atlas-prompt-packet",
+  "status": "selected",
+  "evidence_key": "candidate_record",
+  "branch": "codex/doubled-wave-node-07-atlas-prompt-packet",
+  "selected_candidate": "Add a digest-bound Atlas continuation prompt packet generated from Mission record, final rollup, and event index.",
+  "alternatives_rejected": [
+    "Keep the generic final rollup prompt only; rejected because it does not bind event index and final rollup digests.",
+    "Route through Blueprint; rejected because current readiness and final rollup evidence are sufficient for Atlas sequencing."
+  ],
+  "schedules_work": false,
+  "executes_work": false,
+  "approves_work": false,
+  "rsi_remains_denied": true
+}

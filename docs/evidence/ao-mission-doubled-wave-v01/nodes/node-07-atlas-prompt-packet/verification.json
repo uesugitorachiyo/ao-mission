@@ -1,0 +1,23 @@
+{
+  "schema": "ao.mission.doubled-wave.node-evidence.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-07-atlas-prompt-packet",
+  "status": "passed",
+  "evidence_key": "verification",
+  "commands": [
+    "go test ./... -count=1",
+    "go vet ./...",
+    "go build ./cmd/ao-mission",
+    "scripts/production-readiness.sh"
+  ],
+  "command_output_summary": [
+    "go test ./... -count=1: passed",
+    "go vet ./...: passed",
+    "go build ./cmd/ao-mission: passed",
+    "scripts/production-readiness.sh: AO Mission production readiness: 100/100 status=ready"
+  ],
+  "schedules_work": false,
+  "executes_work": false,
+  "approves_work": false,
+  "rsi_remains_denied": true
+}
