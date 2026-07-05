@@ -852,6 +852,61 @@ func TestFoundryTerminalStateBindingFixtureCoversClosureAndBlockers(t *testing.T
 	}
 }
 
+func TestCommandCompactTimelineFixtureCoversAtlasAndReconciliationEvents(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("..", "..", "examples", "valid", "command-compact-timeline-readback.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Schema              string         `json:"schema"`
+		Status              string         `json:"status"`
+		Compact             bool           `json:"compact"`
+		IncludesKinds       []string       `json:"includes_event_kinds"`
+		RecentEvents        []MissionEvent `json:"recent_events"`
+		SafeToExecute       bool           `json:"safe_to_execute"`
+		ExecutesWork        bool           `json:"executes_work"`
+		ApprovesWork        bool           `json:"approves_work"`
+		MutatesRepositories bool           `json:"mutates_repositories"`
+		RSIRemainsDenied    bool           `json:"rsi_remains_denied"`
+		ExactNextAction     string         `json:"exact_next_action"`
+	}
+	if err := json.Unmarshal(body, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	if fixture.Schema != "ao.command.compact-timeline-readback.v0.1" || fixture.Status != "ready" || !fixture.Compact {
+		t.Fatalf("unexpected command timeline fixture header: %+v", fixture)
+	}
+	for _, want := range []string{"atlas_recommendation", "final_reconciliation"} {
+		foundKind := false
+		for _, kind := range fixture.IncludesKinds {
+			if kind == want {
+				foundKind = true
+			}
+		}
+		if !foundKind {
+			t.Fatalf("fixture missing included kind %q: %+v", want, fixture.IncludesKinds)
+		}
+		foundEvent := false
+		for _, event := range fixture.RecentEvents {
+			if event.Kind == want {
+				foundEvent = true
+				if event.Status == "" || event.Summary == "" {
+					t.Fatalf("event %q missing status or summary: %+v", want, event)
+				}
+			}
+		}
+		if !foundEvent {
+			t.Fatalf("fixture missing recent event %q: %+v", want, fixture.RecentEvents)
+		}
+	}
+	if fixture.SafeToExecute || fixture.ExecutesWork || fixture.ApprovesWork || fixture.MutatesRepositories {
+		t.Fatalf("command timeline fixture widened authority: %+v", fixture)
+	}
+	if !fixture.RSIRemainsDenied || !strings.Contains(fixture.ExactNextAction, "continue node 19") {
+		t.Fatalf("fixture should preserve RSI denial and exact next action: %+v", fixture)
+	}
+}
+
 func TestEventIndexSearchesSupervisorEvidence(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)

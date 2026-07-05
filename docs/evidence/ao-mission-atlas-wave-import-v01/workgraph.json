@@ -5,11 +5,11 @@
   "minimum_nodes": 25,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 17,
-  "ready_nodes": 8,
+  "completed_nodes": 18,
+  "ready_nodes": 7,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue with node-18: add Command compact timeline fixture.",
+  "exact_next_action": "Continue with node-19: document command status and final reconcile operator flow.",
   "nodes": [
     {
       "node_id": "node-01-atlas-recommendation-readback-import",
@@ -112,6 +112,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Bind Foundry completed, promoted, denied, and blocked terminal states to exact Mission outcomes."
+    },
+    {
+      "node_id": "node-18-command-compact-timeline-fixture",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Add a compact Command timeline fixture over Atlas recommendation and final reconciliation events."
     }
   ]
 }

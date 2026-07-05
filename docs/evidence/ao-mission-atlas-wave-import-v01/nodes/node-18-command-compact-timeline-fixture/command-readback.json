@@ -1,0 +1,7 @@
+{
+  "schema": "ao.command.readback.v0.1",
+  "node_id": "node-18-command-compact-timeline-fixture",
+  "status": "ready_for_review",
+  "summary": "Compact Command timeline fixture includes Atlas recommendation and final reconciliation events.",
+  "exact_next_action": "merge node 18 after CI, then continue node 19"
+}

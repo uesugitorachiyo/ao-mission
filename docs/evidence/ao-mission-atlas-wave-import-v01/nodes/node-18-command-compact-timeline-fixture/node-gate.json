@@ -1,0 +1,8 @@
+{
+  "schema": "ao.atlas.node-gate.v0.1",
+  "node_id": "node-18-command-compact-timeline-fixture",
+  "status": "passed",
+  "gate": "Command compact timeline readback must include Atlas recommendation and final reconciliation events without authority expansion.",
+  "active_mutation_node": "node-18-command-compact-timeline-fixture",
+  "exact_next_action": "verify fixture, open PR, wait for CI, merge, and continue node 19"
+}

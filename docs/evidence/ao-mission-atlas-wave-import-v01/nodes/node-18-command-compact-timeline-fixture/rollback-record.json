@@ -1,0 +1,6 @@
+{
+  "schema": "ao.foundry.rollback-record.v0.1",
+  "node_id": "node-18-command-compact-timeline-fixture",
+  "rollback": "Remove command-compact-timeline-readback.json, its regression test, and its production-readiness assertion.",
+  "safe_to_revert": true
+}
