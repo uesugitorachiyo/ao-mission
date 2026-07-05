@@ -1,0 +1,16 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-19-final-response-ready-nodes-cli",
+  "route": "ao-mission",
+  "owning_supervisor": "ao-atlas",
+  "implementation_owner": "ao-mission",
+  "status": "imported",
+  "task": "Add CLI regression proving final response is denied while ready nodes remain.",
+  "acceptance": [
+    "test satisfies completed-node minimum before adding ready nodes",
+    "test calls ao-mission final rollup through the CLI",
+    "test asserts final_response_allowed=false and ready_nodes_remaining=2",
+    "test asserts no execution, approval, or provider authority"
+  ]
+}

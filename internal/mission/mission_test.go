@@ -1812,6 +1812,49 @@ func TestFinalRollupDeniesFinalResponseWhenReadyNodesRemain(t *testing.T) {
 	}
 }
 
+func TestCLIFinalRollupDeniesFinalResponseWhenReadyNodesRemain(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "final response ready nodes regression"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	workgraphPath := filepath.Join(dir, "atlas-workgraph-ready.json")
+	workgraph := `{"schema":"ao.atlas.workgraph.v0.1","nodes":[` +
+		`{"id":"node-1","status":"completed"},{"id":"node-2","status":"completed"},{"id":"node-3","status":"completed"},{"id":"node-4","status":"completed"},{"id":"node-5","status":"completed"},` +
+		`{"id":"node-6","status":"completed"},{"id":"node-7","status":"completed"},{"id":"node-8","status":"completed"},{"id":"node-9","status":"completed"},{"id":"node-10","status":"completed"},` +
+		`{"id":"node-11","status":"ready"},{"id":"node-12","status":"ready"}]}`
+	if err := os.WriteFile(workgraphPath, []byte(workgraph), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	errb.Reset()
+	if code := Run([]string{"--home", dir, "import", "atlas-workgraph", "--mission", rec.MissionID, "--path", workgraphPath}, &out, &errb); code != 0 {
+		t.Fatalf("import atlas workgraph: %s", errb.String())
+	}
+	out.Reset()
+	errb.Reset()
+	if code := Run([]string{"--home", dir, "final", "rollup", "--mission", rec.MissionID}, &out, &errb); code != 0 {
+		t.Fatalf("final rollup: %s", errb.String())
+	}
+	var rollup FinalRollup
+	if err := json.Unmarshal(out.Bytes(), &rollup); err != nil {
+		t.Fatal(err)
+	}
+	if rollup.FinalResponseAllowed || rollup.ReturnGateStatus != "early_return_denied" || rollup.ReadyNodesRemaining != 2 {
+		t.Fatalf("CLI final rollup should deny final response while ready nodes remain: %+v", rollup)
+	}
+	if rollup.CompletedNodes != 10 || rollup.TotalNodes != 12 || !strings.Contains(rollup.ExactNextAction, "continue") {
+		t.Fatalf("CLI final rollup did not preserve ready-work continuation context: %+v", rollup)
+	}
+	if rollup.SafeToExecute || rollup.ExecutesWork || rollup.ApprovesWork || rollup.ProviderCalls {
+		t.Fatalf("final rollup widened authority: %+v", rollup)
+	}
+}
+
 func TestTelegramCommandFixtureMatrix(t *testing.T) {
 	allowlist := map[string]string{"1001": "admin", "1002": "user"}
 	matrix, err := LoadTelegramCommandMatrix(filepath.Join("..", "..", "examples", "valid", "telegram-command-matrix.json"))

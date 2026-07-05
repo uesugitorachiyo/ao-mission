@@ -1,0 +1,19 @@
+{
+  "schema": "ao.evidence.candidate-record.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-19-final-response-ready-nodes-cli",
+  "candidate": {
+    "repo": "ao-mission",
+    "branch": "codex/doubled-wave-node-19-final-response-ready-nodes-cli",
+    "summary": "Add CLI regression coverage proving final rollup denies final response while ready Atlas nodes remain.",
+    "reason": "Final responses were allowed too early in short runs. The operator-facing final rollup must deny completion when exact ready work remains."
+  },
+  "expected_behavior": [
+    "CLI imports an Atlas workgraph with 10 completed nodes and 2 ready nodes.",
+    "CLI final rollup reports completed_nodes=10 and total_nodes=12.",
+    "CLI final rollup reports ready_nodes_remaining=2, return_gate_status=early_return_denied, and final_response_allowed=false.",
+    "The exact next action remains a continuation action."
+  ],
+  "risk": "Low: test-only change.",
+  "rollback": "Revert the added CLI test and node evidence."
+}
