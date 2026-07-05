@@ -1,0 +1,7 @@
+{
+  "schema": "ao.mission.rollback-record.v0.1",
+  "node_id": "node-08-runbook-next-prompt",
+  "rollback": "Remove the runbook wave paragraph, next-recommended-prompt.md, readiness grep checks, and node evidence.",
+  "risk": "Low; docs and readiness assertion only.",
+  "requires_release": false
+}

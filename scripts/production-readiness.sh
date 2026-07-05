@@ -29,4 +29,6 @@ jq -e '.kind == "atlas-recommendation-readback" and .safe_to_execute == false an
 ./ao-mission --home "$tmp_home" mission inspect --mission "$mission_id" --json >"$inspect_json"
 jq -e '.status == "done" and .current_route == "complete" and .current_phase == "complete" and .evidence.atlas_recommendation.completed_nodes == 40 and .return_gate.final_response_allowed == true' "$inspect_json" >/dev/null
 rm -rf "$tmp_home" "$mission_json" "$import_json" "$inspect_json" ao-mission
+grep -q "25-node Atlas recommendation import wave" docs/operator-next-actions.md
+grep -q "Do not stop before 25 completed nodes" docs/evidence/ao-mission-atlas-wave-import-v01/next-recommended-prompt.md
 echo "AO Mission production readiness: 100/100 status=ready"

@@ -1,0 +1,11 @@
+{
+  "schema": "ao.mission.implementation-evidence.v0.1",
+  "node_id": "node-08-runbook-next-prompt",
+  "status": "implemented_locally",
+  "files": [
+    "docs/operator-next-actions.md",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/next-recommended-prompt.md",
+    "scripts/production-readiness.sh"
+  ],
+  "behavior": "Production readiness now asserts the 25-node runbook wording and next prompt stop gate."
+}

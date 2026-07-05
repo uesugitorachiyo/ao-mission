@@ -1,0 +1,10 @@
+{
+  "schema": "ao.mission.node-gate-readback.v0.1",
+  "node_id": "node-08-runbook-next-prompt",
+  "status": "passed",
+  "gate": "Operator runbook and next prompt explicitly deny stopping before the 25-node Atlas recommendation import wave gate.",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false
+}

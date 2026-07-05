@@ -1,0 +1,10 @@
+{
+  "schema": "ao.mission.tests-readback.v0.1",
+  "node_id": "node-08-runbook-next-prompt",
+  "red": "scripts/production-readiness.sh failed after adding checks for the 25-node runbook phrase and next prompt before the docs existed.",
+  "green": "scripts/production-readiness.sh passed after adding the runbook paragraph and next-recommended-prompt.md.",
+  "regressions": [
+    "production-readiness runbook phrase check",
+    "production-readiness next prompt stop-gate check"
+  ]
+}

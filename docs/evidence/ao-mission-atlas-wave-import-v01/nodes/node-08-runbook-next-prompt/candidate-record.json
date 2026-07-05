@@ -1,0 +1,20 @@
+{
+  "schema": "ao.mission.candidate-record.v0.1",
+  "node_id": "node-08-runbook-next-prompt",
+  "candidate": "Add runbook and next-prompt wording for the 25-node Atlas recommendation import wave.",
+  "bounded_scope": [
+    "docs/operator-next-actions.md",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/next-recommended-prompt.md",
+    "scripts/production-readiness.sh",
+    "node evidence readbacks"
+  ],
+  "forbidden_scope": [
+    "provider calls",
+    "credential inspection",
+    "release/deploy/publish/upload/tag",
+    "dependency updates",
+    "policy/auth/config widening",
+    "direct main mutation",
+    "RSI promotion"
+  ]
+}
