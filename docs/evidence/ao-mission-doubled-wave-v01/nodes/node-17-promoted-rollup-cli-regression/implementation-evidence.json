@@ -1,0 +1,11 @@
+{
+  "schema": "ao.evidence.implementation.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-17-promoted-rollup-cli-regression",
+  "repo": "ao-mission",
+  "status": "implemented_local",
+  "changed_surfaces": [
+    "internal/mission/mission_test.go: added TestCLIImportPromotedFoundryRollupClosesMission"
+  ],
+  "behavioral_summary": "The operator-facing CLI import path now has direct regression coverage that promoted Foundry rollups close missions when completed and total node counts agree."
+}

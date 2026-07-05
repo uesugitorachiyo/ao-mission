@@ -1,0 +1,19 @@
+{
+  "schema": "ao.evidence.candidate-record.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-17-promoted-rollup-cli-regression",
+  "candidate": {
+    "repo": "ao-mission",
+    "branch": "codex/doubled-wave-node-17-promoted-rollup-cli-regression",
+    "summary": "Add CLI regression coverage proving a promoted Foundry final rollup can close a mission when counts agree.",
+    "reason": "Foundry rollup imports must not preserve stale denial when terminal promoted evidence satisfies closure counts."
+  },
+  "expected_behavior": [
+    "CLI import of a promoted Foundry rollup records kind=foundry-final-rollup.",
+    "Mission inspect reports status=done, current_route=complete, current_phase=complete.",
+    "Foundry rollup evidence normalizes to status=promoted with completed_nodes=total_nodes.",
+    "Return gate and checkpoint bundle allow final response only after closure."
+  ],
+  "risk": "Low: test-only change.",
+  "rollback": "Revert the added CLI test and node evidence."
+}

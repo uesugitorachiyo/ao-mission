@@ -1,0 +1,15 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-17-promoted-rollup-cli-regression",
+  "route": "ao-mission",
+  "owning_supervisor": "ao-atlas",
+  "implementation_owner": "ao-mission",
+  "status": "imported",
+  "task": "Add CLI regression proving promoted Foundry final rollup closure.",
+  "acceptance": [
+    "test imports an Atlas workgraph with completed counts",
+    "test imports status=promoted Foundry final rollup with matching counts",
+    "test inspects Mission closure and checkpoint bundle final-response allowance"
+  ]
+}
