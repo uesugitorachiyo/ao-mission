@@ -521,6 +521,101 @@ func TestImportAtlasWorkgraphCountsAndFoundryFinalRollupCompletion(t *testing.T)
 	}
 }
 
+func TestImportAtlasRecommendationReadbackCompletesMission(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("import completed Atlas recommendation wave")
+	if err != nil {
+		t.Fatal(err)
+	}
+	readbackPath := filepath.Join(dir, "recommendation-readback.json")
+	readback := `{
+		"schema":"ao.atlas.recommendation-readback.v0.1",
+		"status":"completed",
+		"total_nodes":40,
+		"completed_nodes":40,
+		"ready_nodes":0,
+		"checkpoint_count":40,
+		"elapsed_minutes":491,
+		"min_minutes_met":true,
+		"lease_time_status":"minimum_minutes_met",
+		"return_gate_status":"final_response_allowed",
+		"final_response_allowed":true,
+		"safe_to_execute":false,
+		"executes_work":false,
+		"approves_work":false,
+		"mutates_repositories":false,
+		"provider_calls":false,
+		"release_or_publish":false,
+		"credential_use":false,
+		"direct_main_mutation":false,
+		"concurrent_mutation":false,
+		"exact_next_action":"Finalize AO Atlas long-run wave with Promoter, Command, and public-safety readbacks."
+	}`
+	if err := os.WriteFile(readbackPath, []byte(readback), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	importReadback, err := ImportArtifact(s, rec.MissionID, "atlas-recommendation-readback", readbackPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if importReadback.SafeToExecute || importReadback.ExecutesWork || importReadback.ApprovesWork {
+		t.Fatalf("import widened authority: %+v", importReadback)
+	}
+	done, err := s.Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if done.Status != "done" || done.CurrentRoute != "complete" || done.CurrentPhase != "complete" {
+		t.Fatalf("completed Atlas readback should close mission: %+v", done)
+	}
+	if done.Evidence.AtlasRecommendation == nil || done.Evidence.AtlasRecommendation.CompletedNodes != 40 {
+		t.Fatalf("Atlas recommendation evidence missing: %+v", done.Evidence.AtlasRecommendation)
+	}
+	if done.ReturnGate == nil || !done.ReturnGate.FinalResponseAllowed || done.ReturnGate.ReadyNodesRemaining != 0 {
+		t.Fatalf("terminal return gate not allowed: %+v", done.ReturnGate)
+	}
+}
+
+func TestCLIImportsAtlasRecommendationReadback(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "import completed Atlas recommendation wave"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	readbackPath := filepath.Join(dir, "recommendation-readback.json")
+	readback := `{"schema":"ao.atlas.recommendation-readback.v0.1","status":"completed","total_nodes":40,"completed_nodes":40,"ready_nodes":0,"checkpoint_count":40,"elapsed_minutes":491,"min_minutes_met":true,"lease_time_status":"minimum_minutes_met","return_gate_status":"final_response_allowed","final_response_allowed":true,"safe_to_execute":false,"executes_work":false,"approves_work":false,"mutates_repositories":false,"provider_calls":false,"release_or_publish":false,"credential_use":false,"direct_main_mutation":false,"concurrent_mutation":false,"exact_next_action":"Finalize AO Atlas long-run wave."}`
+	if err := os.WriteFile(readbackPath, []byte(readback), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "import", "atlas-recommendation-readback", "--mission", rec.MissionID, "--path", readbackPath}, &out, &errb); code != 0 {
+		t.Fatalf("import: %s", errb.String())
+	}
+	var importReadback ImportReadback
+	if err := json.Unmarshal(out.Bytes(), &importReadback); err != nil {
+		t.Fatal(err)
+	}
+	if importReadback.Kind != "atlas-recommendation-readback" || importReadback.ExecutesWork || importReadback.ApprovesWork {
+		t.Fatalf("bad import readback: %+v", importReadback)
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "mission", "inspect", "--mission", rec.MissionID, "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("inspect: %s", errb.String())
+	}
+	var done Record
+	if err := json.Unmarshal(out.Bytes(), &done); err != nil {
+		t.Fatal(err)
+	}
+	if done.Status != "done" || done.Evidence.AtlasRecommendation == nil || done.Evidence.AtlasRecommendation.TotalNodes != 40 {
+		t.Fatalf("CLI import did not complete mission: %+v", done)
+	}
+}
+
 func TestPromotedFoundryRollupClosesMission(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)

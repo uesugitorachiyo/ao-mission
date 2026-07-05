@@ -1,0 +1,33 @@
+{
+  "schema": "ao.atlas.workgraph.v0.1",
+  "mission": "ao-mission-atlas-wave-import-v01",
+  "status": "active",
+  "minimum_nodes": 25,
+  "target_minutes": 120,
+  "max_minutes": 180,
+  "completed_nodes": 1,
+  "ready_nodes": 24,
+  "blocked_nodes": 0,
+  "final_response_allowed": false,
+  "exact_next_action": "Continue with node-02: add Mission nonterminal Atlas recommendation readback tests.",
+  "nodes": [
+    {
+      "node_id": "node-01-atlas-recommendation-readback-import",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Import completed Atlas 40/40 recommendation readbacks into Mission as terminal readback-only evidence."
+    },
+    {
+      "node_id": "node-02-nonterminal-atlas-readback-gate",
+      "owner": "ao-mission",
+      "status": "ready",
+      "objective": "Keep Mission routed to Atlas when Atlas recommendation readback still has ready nodes or unmet lease timing."
+    },
+    {
+      "node_id": "node-03-atlas-readback-authority-rejection",
+      "owner": "ao-mission",
+      "status": "ready",
+      "objective": "Reject Atlas recommendation readbacks that claim execution, approval, provider, release, credential, or direct-main authority."
+    }
+  ]
+}

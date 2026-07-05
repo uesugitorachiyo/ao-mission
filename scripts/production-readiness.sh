@@ -3,7 +3,6 @@ set -eu
 go test ./... -count=1 >/tmp/ao-mission-go-test.log
 go vet ./... >/tmp/ao-mission-go-vet.log
 go build ./cmd/ao-mission
-rm -f ao-mission
 gofmt -w cmd internal
 git diff --check
 local_path="/""Users/"
@@ -19,4 +18,15 @@ for f in README.md docs examples internal cmd scripts; do
     exit 1
   fi
 done
+tmp_home="$(mktemp -d)"
+mission_json="$(mktemp)"
+import_json="$(mktemp)"
+inspect_json="$(mktemp)"
+./ao-mission --home "$tmp_home" start "import completed Atlas recommendation wave" >"$mission_json"
+mission_id="$(jq -r '.mission_id' "$mission_json")"
+./ao-mission --home "$tmp_home" import atlas-recommendation-readback --mission "$mission_id" --path examples/valid/atlas-recommendation-readback.json >"$import_json"
+jq -e '.kind == "atlas-recommendation-readback" and .safe_to_execute == false and .executes_work == false and .approves_work == false' "$import_json" >/dev/null
+./ao-mission --home "$tmp_home" mission inspect --mission "$mission_id" --json >"$inspect_json"
+jq -e '.status == "done" and .current_route == "complete" and .current_phase == "complete" and .evidence.atlas_recommendation.completed_nodes == 40 and .return_gate.final_response_allowed == true' "$inspect_json" >/dev/null
+rm -rf "$tmp_home" "$mission_json" "$import_json" "$inspect_json" ao-mission
 echo "AO Mission production readiness: 100/100 status=ready"

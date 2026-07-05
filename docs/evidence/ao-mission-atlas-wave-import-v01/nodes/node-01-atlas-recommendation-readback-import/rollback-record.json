@@ -1,0 +1,7 @@
+{
+  "schema": "ao.mission.rollback-record.v0.1",
+  "node_id": "node-01-atlas-recommendation-readback-import",
+  "rollback": "Revert the node branch or remove atlas-recommendation-readback handling, fixture, docs, readiness smoke, and tests.",
+  "risk": "Low; readback-only import path with no provider calls or execution authority.",
+  "requires_release": false
+}

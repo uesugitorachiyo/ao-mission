@@ -1,0 +1,20 @@
+{
+  "schema": "ao.mission.candidate-record.v0.1",
+  "node_id": "node-01-atlas-recommendation-readback-import",
+  "candidate": "Add atlas-recommendation-readback import support to AO Mission.",
+  "bounded_scope": [
+    "internal/mission imports, types, supervisor gate, CLI help, tests",
+    "Mission README and operator next actions",
+    "valid Atlas recommendation readback fixture",
+    "production readiness CLI smoke"
+  ],
+  "forbidden_scope": [
+    "provider calls",
+    "credential inspection",
+    "release/deploy/publish/upload/tag",
+    "dependency updates",
+    "policy/auth/config widening",
+    "direct main mutation",
+    "RSI promotion"
+  ]
+}

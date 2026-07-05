@@ -1,0 +1,16 @@
+{
+  "schema": "ao.mission.implementation-evidence.v0.1",
+  "node_id": "node-01-atlas-recommendation-readback-import",
+  "status": "implemented_locally",
+  "files": [
+    "internal/mission/types.go",
+    "internal/mission/imports.go",
+    "internal/mission/supervisor.go",
+    "internal/mission/cli.go",
+    "internal/mission/mission_test.go",
+    "examples/valid/atlas-recommendation-readback.json",
+    "README.md",
+    "docs/operator-next-actions.md",
+    "scripts/production-readiness.sh"
+  ]
+}

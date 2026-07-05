@@ -51,11 +51,12 @@ type Record struct {
 }
 
 type EvidenceSummary struct {
-	AtlasWorkgraph    *NodeCounts              `json:"atlas_workgraph,omitempty"`
-	FoundryRollup     *FoundryRollupCounts     `json:"foundry_rollup,omitempty"`
-	SchedulerReadback *SchedulerEvidenceCounts `json:"scheduler_readback,omitempty"`
-	SchedulerRecovery *SchedulerRecoveryCounts `json:"scheduler_recovery,omitempty"`
-	LedgerCompaction  *LedgerCompactionCounts  `json:"ledger_compaction,omitempty"`
+	AtlasWorkgraph      *NodeCounts                        `json:"atlas_workgraph,omitempty"`
+	AtlasRecommendation *AtlasRecommendationReadbackCounts `json:"atlas_recommendation,omitempty"`
+	FoundryRollup       *FoundryRollupCounts               `json:"foundry_rollup,omitempty"`
+	SchedulerReadback   *SchedulerEvidenceCounts           `json:"scheduler_readback,omitempty"`
+	SchedulerRecovery   *SchedulerRecoveryCounts           `json:"scheduler_recovery,omitempty"`
+	LedgerCompaction    *LedgerCompactionCounts            `json:"ledger_compaction,omitempty"`
 }
 
 type NodeCounts struct {
@@ -70,6 +71,20 @@ type FoundryRollupCounts struct {
 	Status         string `json:"status"`
 	CompletedNodes int    `json:"completed_nodes"`
 	TotalNodes     int    `json:"total_nodes"`
+}
+
+type AtlasRecommendationReadbackCounts struct {
+	Status               string `json:"status"`
+	TotalNodes           int    `json:"total_nodes"`
+	CompletedNodes       int    `json:"completed_nodes"`
+	ReadyNodes           int    `json:"ready_nodes"`
+	CheckpointCount      int    `json:"checkpoint_count"`
+	ElapsedMinutes       int    `json:"elapsed_minutes"`
+	MinMinutesMet        bool   `json:"min_minutes_met"`
+	LeaseTimeStatus      string `json:"lease_time_status"`
+	ReturnGateStatus     string `json:"return_gate_status"`
+	FinalResponseAllowed bool   `json:"final_response_allowed"`
+	ExactNextAction      string `json:"exact_next_action"`
 }
 
 type GoalLease struct {

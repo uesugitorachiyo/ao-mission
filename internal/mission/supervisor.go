@@ -175,6 +175,9 @@ func completedEvidenceNodes(r Record) int {
 	if r.Evidence.AtlasWorkgraph != nil && r.Evidence.AtlasWorkgraph.Completed > completed {
 		completed = r.Evidence.AtlasWorkgraph.Completed
 	}
+	if r.Evidence.AtlasRecommendation != nil && r.Evidence.AtlasRecommendation.CompletedNodes > completed {
+		completed = r.Evidence.AtlasRecommendation.CompletedNodes
+	}
 	if r.Evidence.FoundryRollup != nil && r.Evidence.FoundryRollup.CompletedNodes > completed {
 		completed = r.Evidence.FoundryRollup.CompletedNodes
 	}
@@ -182,6 +185,9 @@ func completedEvidenceNodes(r Record) int {
 }
 
 func readyNodesRemaining(r Record) int {
+	if r.Evidence.AtlasRecommendation != nil {
+		return r.Evidence.AtlasRecommendation.ReadyNodes
+	}
 	if r.Evidence.AtlasWorkgraph == nil {
 		return 0
 	}

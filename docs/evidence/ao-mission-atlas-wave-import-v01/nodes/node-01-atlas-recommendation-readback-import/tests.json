@@ -1,0 +1,10 @@
+{
+  "schema": "ao.mission.tests-readback.v0.1",
+  "node_id": "node-01-atlas-recommendation-readback-import",
+  "red": "go test ./internal/mission -run TestImportAtlasRecommendationReadbackCompletesMission -count=1 failed before implementation because AtlasRecommendation evidence did not exist.",
+  "green": "go test ./internal/mission -run 'TestImportAtlasRecommendationReadbackCompletesMission|TestCLIImportsAtlasRecommendationReadback' -count=1 passed after implementation.",
+  "regressions": [
+    "TestImportAtlasRecommendationReadbackCompletesMission",
+    "TestCLIImportsAtlasRecommendationReadback"
+  ]
+}
