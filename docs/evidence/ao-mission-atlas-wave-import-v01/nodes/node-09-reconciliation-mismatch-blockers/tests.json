@@ -1,0 +1,10 @@
+{
+  "schema": "ao.mission.tests-readback.v0.1",
+  "node_id": "node-09-reconciliation-mismatch-blockers",
+  "red": "go test ./internal/mission -run TestFinalReconciliationPacketReportsFoundryAtlasMismatch -count=1 failed because MissionFinalReconciliationPacket lacked Blocker.",
+  "green": "go test ./internal/mission -run 'TestFinalReconciliationPacketReportsFoundryAtlasMismatch|TestFinalReconciliationPacketAgreesAcrossAtlasFoundryAndCommand' -count=1 passed after exact blocker generation.",
+  "regressions": [
+    "TestFinalReconciliationPacketReportsFoundryAtlasMismatch",
+    "TestFinalReconciliationPacketAgreesAcrossAtlasFoundryAndCommand"
+  ]
+}

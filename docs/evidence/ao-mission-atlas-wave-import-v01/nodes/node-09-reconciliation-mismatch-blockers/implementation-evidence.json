@@ -1,0 +1,11 @@
+{
+  "schema": "ao.mission.implementation-evidence.v0.1",
+  "node_id": "node-09-reconciliation-mismatch-blockers",
+  "status": "implemented_locally",
+  "files": [
+    "internal/mission/reconciliation.go",
+    "internal/mission/types.go",
+    "internal/mission/mission_test.go"
+  ],
+  "behavior": "Final reconciliation packets now include exact blockers for Mission/Command/final-response mismatches, missing Atlas evidence, incomplete Atlas evidence, Foundry/Atlas count disagreement, and promotion boundary mismatch."
+}

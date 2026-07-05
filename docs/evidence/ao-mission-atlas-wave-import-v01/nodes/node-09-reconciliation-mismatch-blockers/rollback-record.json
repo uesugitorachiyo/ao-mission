@@ -1,0 +1,7 @@
+{
+  "schema": "ao.mission.rollback-record.v0.1",
+  "node_id": "node-09-reconciliation-mismatch-blockers",
+  "rollback": "Remove MissionFinalReconciliationPacket.Blocker, finalReconciliationBlocker, and the mismatch regression.",
+  "risk": "Low; readback-only blocker specificity.",
+  "requires_release": false
+}
