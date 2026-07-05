@@ -7,6 +7,10 @@ import (
 )
 
 func BuildAtlasContinuationPromptPacket(r Record, index MissionEventIndex) (AtlasContinuationPromptPacket, error) {
+	return buildAtlasContinuationPromptPacket(r, index, BuildFinalRollup(r))
+}
+
+func buildAtlasContinuationPromptPacket(r Record, index MissionEventIndex, rollup FinalRollup) (AtlasContinuationPromptPacket, error) {
 	if err := ValidateMissionEventIndexDigest(index); err != nil {
 		return AtlasContinuationPromptPacket{}, err
 	}
@@ -19,7 +23,9 @@ func BuildAtlasContinuationPromptPacket(r Record, index MissionEventIndex) (Atla
 	if missionEventCount == 0 {
 		return AtlasContinuationPromptPacket{}, fmt.Errorf("event index does not contain mission %s", r.MissionID)
 	}
-	rollup := BuildFinalRollup(r)
+	if err := ValidateFeatureDepthRecommendations(rollup.FeatureDepthRecommendations, defaultMinNodes); err != nil {
+		return AtlasContinuationPromptPacket{}, fmt.Errorf("atlas continuation prompt feature depth invalid: %w", err)
+	}
 	rollupDigest, err := digestJSONValue(rollup)
 	if err != nil {
 		return AtlasContinuationPromptPacket{}, err

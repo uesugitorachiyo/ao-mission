@@ -1,0 +1,12 @@
+{
+  "schema": "ao.evidence.candidate-record.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-24-atlas-prompt-depth-regression",
+  "selected_candidate": "Refactor Atlas prompt packet construction through an internal rollup-aware helper and validate Feature Depth recommendations before packet emission.",
+  "rejected_candidates": [
+    "Only validate Feature Depth in production readiness; rejected because callers could still emit shallow packets outside readiness.",
+    "Raise the default recommendation count globally; rejected because the missing gate was at prompt packet emission.",
+    "Route to Blueprint for new requirements; rejected because the existing requirement is clear and implementation-bounded."
+  ],
+  "decision_basis": "Final prompts must not be generated from shallow recommendation output, because that is a direct cause of short continuation batches."
+}

@@ -38,6 +38,8 @@ keeps RSI denied, and does not request promotion.
   Atlas final-synthesis readback import.
 - node-23-doctor-command-risk-fixture: doctor JSON fixture binding Command
   compact early-return risk.
+- node-24-atlas-prompt-depth-regression: final Atlas prompt rejects shallow
+  Feature Depth recommendations before packet emission.
 
 ## Root Evidence
 

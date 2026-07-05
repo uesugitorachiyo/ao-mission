@@ -1,0 +1,15 @@
+{
+  "schema": "ao.evidence.rollback-record.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-24-atlas-prompt-depth-regression",
+  "branch": "codex/doubled-wave-node-24-atlas-prompt-depth-regression",
+  "rollback_scope": [
+    "internal/mission/atlas_prompt.go",
+    "internal/mission/mission_test.go",
+    "docs/evidence/ao-mission-doubled-wave-v01/workgraph.json",
+    "docs/evidence/ao-mission-doubled-wave-v01/README.md",
+    "docs/evidence/ao-mission-doubled-wave-v01/nodes/node-24-atlas-prompt-depth-regression"
+  ],
+  "rollback_action": "Revert the node-24 branch or remove the internal prompt-packet helper, Feature Depth validation gate, regression test, and evidence before merge.",
+  "operator_data_migration": "none"
+}

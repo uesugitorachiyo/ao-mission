@@ -1,0 +1,19 @@
+{
+  "schema": "ao.evidence.implementation.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-24-atlas-prompt-depth-regression",
+  "status": "implemented",
+  "changes": [
+    "Refactored BuildAtlasContinuationPromptPacket through buildAtlasContinuationPromptPacket so tests can inject rollup evidence.",
+    "Added ValidateFeatureDepthRecommendations gate before Atlas prompt packet emission.",
+    "Added regression proving shallow Feature Depth recommendations are rejected.",
+    "Kept existing valid Atlas prompt packet behavior green."
+  ],
+  "authority": {
+    "safe_to_execute": false,
+    "executes_work": false,
+    "approves_work": false,
+    "mutates_repositories": false,
+    "rsi_remains_denied": true
+  }
+}

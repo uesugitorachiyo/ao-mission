@@ -1,0 +1,18 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-24-atlas-prompt-depth-regression",
+  "owner": "ao-mission",
+  "task": "Implement only the final Atlas prompt shallow Feature Depth rejection regression.",
+  "inputs": [
+    "internal/mission/atlas_prompt.go",
+    "internal/mission/supervisor.go",
+    "internal/mission/mission_test.go"
+  ],
+  "constraints": [
+    "no execution authority",
+    "no provider calls",
+    "no promotion claim",
+    "RSI remains denied"
+  ]
+}
