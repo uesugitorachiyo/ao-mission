@@ -1,0 +1,25 @@
+{
+  "schema": "ao.evidence.node-gate.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-25-final-rollup-ready-denial",
+  "owner": "ao-mission",
+  "status": "completed",
+  "objective": "Add a final rollup schema fixture proving ready-node denial.",
+  "gate": {
+    "single_mutation_node_active": true,
+    "branch": "codex/doubled-wave-node-25-final-rollup-ready-denial",
+    "direct_main_mutation": false,
+    "provider_calls": false,
+    "credential_or_token_inspection": false,
+    "release_deploy_publish_upload_or_tag": false,
+    "dependency_update": false,
+    "auth_policy_or_config_widening": false,
+    "hidden_instruction_mutation": false,
+    "rsi_remains_denied": true
+  },
+  "exit_criteria": [
+    "fixture validates against ao.mission.final-rollup.v0.1",
+    "final_response_allowed=false while ready_nodes_remaining=2",
+    "fixture carries at least 10 actionable Feature Depth recommendations"
+  ]
+}

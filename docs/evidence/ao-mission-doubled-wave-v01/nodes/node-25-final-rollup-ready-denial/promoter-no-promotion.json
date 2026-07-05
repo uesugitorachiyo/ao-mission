@@ -1,0 +1,12 @@
+{
+  "schema": "ao.promoter.no-promotion-readback.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-25-final-rollup-ready-denial",
+  "status": "no_promotion_requested",
+  "reason": "Ready-node denial requires continuation, not promotion evaluation.",
+  "promotion_claimed": false,
+  "claims_authority_advance": false,
+  "rsi_remains_denied": true,
+  "executes_work": false,
+  "approves_work": false
+}

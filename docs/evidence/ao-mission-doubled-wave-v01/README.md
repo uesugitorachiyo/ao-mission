@@ -40,6 +40,8 @@ keeps RSI denied, and does not request promotion.
   compact early-return risk.
 - node-24-atlas-prompt-depth-regression: final Atlas prompt rejects shallow
   Feature Depth recommendations before packet emission.
+- node-25-final-rollup-ready-denial: final rollup schema fixture proving
+  ready-node denial keeps final_response_allowed=false.
 
 ## Root Evidence
 

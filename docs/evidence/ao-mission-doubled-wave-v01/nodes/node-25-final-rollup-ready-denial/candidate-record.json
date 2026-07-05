@@ -1,0 +1,12 @@
+{
+  "schema": "ao.evidence.candidate-record.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-25-final-rollup-ready-denial",
+  "selected_candidate": "Add a dedicated final-rollup ready-node denial fixture and regression validating schema, denial fields, and Feature Depth actionability.",
+  "rejected_candidates": [
+    "Reuse the older final-rollup fixture; rejected because it lacks the current Feature Depth contract fields.",
+    "Only rely on CLI-generated rollups; rejected because a checked fixture gives stable readback contract coverage.",
+    "Treat ready nodes as terminal blocker; rejected because ready work requires continuation, not final blocker closure."
+  ],
+  "decision_basis": "Ready-node denial is a core premature-return guard and needs a fixture that validates the public final rollup shape."
+}
