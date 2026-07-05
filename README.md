@@ -68,6 +68,7 @@ ao-mission import scheduler-readback --mission <id> --path <json>
 ao-mission import scheduler-recovery-readback --mission <id> --path <json>
 ao-mission import ledger-compaction-readback --mission <id> --path <json>
 ao-mission final rollup --mission <id>
+ao-mission final reconcile --mission <id>
 ```
 
 By default state is stored under `.ao-mission/`. Use `AO_MISSION_HOME` to choose another state root.

@@ -1167,7 +1167,15 @@ func run(args []string, stdout io.Writer) error {
 			}
 			return printJSON(stdout, BuildFinalRollup(r))
 		}
-		return errors.New("final requires rollup --mission <id>")
+		if len(args) >= 2 && args[1] == "reconcile" {
+			id := missionFlag(args[2:])
+			r, err := s.Load(id)
+			if err != nil {
+				return err
+			}
+			return printJSON(stdout, BuildFinalReconciliationPacket(r))
+		}
+		return errors.New("final requires rollup --mission <id> or reconcile --mission <id>")
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}

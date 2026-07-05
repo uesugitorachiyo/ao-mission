@@ -1,0 +1,21 @@
+{
+  "schema": "ao.mission.candidate-record.v0.1",
+  "node_id": "node-10-final-reconcile-cli",
+  "candidate": "Add ao-mission final reconcile --mission <id> command and readiness smoke.",
+  "bounded_scope": [
+    "internal/mission/cli.go",
+    "internal/mission/mission_test.go",
+    "README.md",
+    "scripts/production-readiness.sh",
+    "node evidence readbacks"
+  ],
+  "forbidden_scope": [
+    "provider calls",
+    "credential inspection",
+    "release/deploy/publish/upload/tag",
+    "dependency updates",
+    "policy/auth/config widening",
+    "direct main mutation",
+    "RSI promotion"
+  ]
+}

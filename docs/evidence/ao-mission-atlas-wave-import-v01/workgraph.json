@@ -5,11 +5,11 @@
   "minimum_nodes": 25,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 9,
-  "ready_nodes": 16,
+  "completed_nodes": 10,
+  "ready_nodes": 15,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue with node-10: expose final reconciliation packets in CLI/readiness.",
+  "exact_next_action": "Continue with node-11: index final reconciliation packet evidence.",
   "nodes": [
     {
       "node_id": "node-01-atlas-recommendation-readback-import",
@@ -64,6 +64,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Report exact blocker reasons when Mission final reconciliation artifacts disagree."
+    },
+    {
+      "node_id": "node-10-final-reconcile-cli",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Expose Mission final reconciliation packets through CLI and production readiness."
     }
   ]
 }

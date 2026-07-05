@@ -1,0 +1,10 @@
+{
+  "schema": "ao.mission.tests-readback.v0.1",
+  "node_id": "node-10-final-reconcile-cli",
+  "red": "go test ./internal/mission -run TestCLIFinalReconcileEmitsPacket -count=1 failed because final reconcile was unsupported.",
+  "green": "go test ./internal/mission -run TestCLIFinalReconcileEmitsPacket -count=1 passed after CLI implementation.",
+  "regressions": [
+    "TestCLIFinalReconcileEmitsPacket",
+    "production-readiness final reconcile smoke"
+  ]
+}
