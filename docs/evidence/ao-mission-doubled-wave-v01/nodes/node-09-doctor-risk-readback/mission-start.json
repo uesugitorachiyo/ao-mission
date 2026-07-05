@@ -1,0 +1,29 @@
+{
+  "schema": "ao.mission.record.v0.1",
+  "mission_id": "mission-2a44c7ac133c947b",
+  "objective": "node 09 doctor risk readback",
+  "objective_digest": "sha256:e7e6762ec90a812226ba4fbde8a470f80c6037d2f8a78e11c8835385b41b6288",
+  "status": "active",
+  "created_at_utc": "2026-07-05T02:52:12Z",
+  "updated_at_utc": "2026-07-05T02:52:12Z",
+  "current_route": "ao-atlas",
+  "current_phase": "routing",
+  "blockers": [],
+  "exact_next_action": "send objective to AO Atlas for workgraph sequencing",
+  "artifact_refs": [],
+  "steps": [],
+  "route_history": [
+    {
+      "schema": "ao.mission.route-decision.v0.1",
+      "mission_id": "mission-2a44c7ac133c947b",
+      "route": "ao-atlas",
+      "reason": "specified objective should be sequenced by AO Atlas before Foundry execution",
+      "safe_to_request": true,
+      "safe_to_execute": false,
+      "safe_to_promote": false,
+      "exact_next_action": "send objective to AO Atlas for workgraph sequencing",
+      "generated_at_utc": "2026-07-05T02:52:12Z"
+    }
+  ],
+  "evidence": {}
+}

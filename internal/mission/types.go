@@ -816,22 +816,36 @@ type MissionEventSearchReadback struct {
 }
 
 type MissionDoctorReadback struct {
-	Schema              string   `json:"schema"`
-	Status              string   `json:"status"`
-	Root                string   `json:"root"`
-	MissionCount        int      `json:"mission_count"`
-	EventCount          int      `json:"event_count"`
-	LeaseCount          int      `json:"lease_count"`
-	FreshCheckpoints    int      `json:"fresh_checkpoints"`
-	EarlyReturnRisks    int      `json:"early_return_risks"`
-	StaleRoutes         int      `json:"stale_routes"`
-	Checks              []string `json:"checks"`
-	Blockers            []string `json:"blockers"`
-	SafeToExecute       bool     `json:"safe_to_execute"`
-	ExecutesWork        bool     `json:"executes_work"`
-	ApprovesWork        bool     `json:"approves_work"`
-	MutatesRepositories bool     `json:"mutates_repositories"`
-	GeneratedAtUTC      string   `json:"generated_at_utc"`
+	Schema                    string              `json:"schema"`
+	Status                    string              `json:"status"`
+	Root                      string              `json:"root"`
+	MissionCount              int                 `json:"mission_count"`
+	EventCount                int                 `json:"event_count"`
+	LeaseCount                int                 `json:"lease_count"`
+	LeaseHealthStatus         string              `json:"lease_health_status"`
+	FreshCheckpoints          int                 `json:"fresh_checkpoints"`
+	CheckpointFreshnessStatus string              `json:"checkpoint_freshness_status"`
+	EarlyReturnRisks          int                 `json:"early_return_risks"`
+	EarlyReturnRiskStatus     string              `json:"early_return_risk_status"`
+	StaleRoutes               int                 `json:"stale_routes"`
+	StaleRouteDecisionStatus  string              `json:"stale_route_decision_status"`
+	RiskMissions              []MissionDoctorRisk `json:"risk_missions"`
+	ExactNextAction           string              `json:"exact_next_action"`
+	Checks                    []string            `json:"checks"`
+	Blockers                  []string            `json:"blockers"`
+	SafeToExecute             bool                `json:"safe_to_execute"`
+	ExecutesWork              bool                `json:"executes_work"`
+	ApprovesWork              bool                `json:"approves_work"`
+	MutatesRepositories       bool                `json:"mutates_repositories"`
+	GeneratedAtUTC            string              `json:"generated_at_utc"`
+}
+
+type MissionDoctorRisk struct {
+	MissionID       string `json:"mission_id"`
+	Kind            string `json:"kind"`
+	Status          string `json:"status"`
+	Reason          string `json:"reason"`
+	ExactNextAction string `json:"exact_next_action"`
 }
 
 type MissionReadinessBundleInput struct {

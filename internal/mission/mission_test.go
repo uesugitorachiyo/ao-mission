@@ -121,6 +121,58 @@ func TestContinueWritesCheckpointBundleAndDoctorSupervisorHealth(t *testing.T) {
 	}
 }
 
+func TestDoctorReadbackReportsDetailedLongRunRisks(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("doctor detailed long-run risk mission")
+	if err != nil {
+		t.Fatal(err)
+	}
+	continued, err := Continue(s, rec.MissionID, ContinueOptions{UntilDone: true, MaxIterations: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	continued.CurrentRoute = "ao-mission"
+	continued.Reconciliation = &RouteReconciliation{
+		Schema:          RouteReconciliationSchema,
+		MissionID:       rec.MissionID,
+		Status:          "stale_route_detected",
+		CurrentRoute:    "ao-mission",
+		LatestRoute:     "ao-atlas",
+		ExactNextAction: "refresh route decision before final response",
+	}
+	if err := s.Save(continued); err != nil {
+		t.Fatal(err)
+	}
+
+	doctor := BuildMissionDoctorReadback(s)
+	if doctor.LeaseHealthStatus != "healthy" ||
+		doctor.CheckpointFreshnessStatus != "fresh" ||
+		doctor.StaleRouteDecisionStatus != "stale_route_detected" ||
+		doctor.EarlyReturnRiskStatus != "risk_detected" ||
+		doctor.ExactNextAction != "refresh route decision before final response" {
+		t.Fatalf("doctor missing detailed long-run statuses: %+v", doctor)
+	}
+	if len(doctor.RiskMissions) < 2 {
+		t.Fatalf("doctor should include stale route and early-return risk records: %+v", doctor)
+	}
+	if !doctorHasRiskKind(doctor, "stale_route") || !doctorHasRiskKind(doctor, "early_return") {
+		t.Fatalf("doctor risk records missing expected kinds: %+v", doctor.RiskMissions)
+	}
+	if doctor.SafeToExecute || doctor.ExecutesWork || doctor.ApprovesWork || doctor.MutatesRepositories {
+		t.Fatalf("doctor widened authority: %+v", doctor)
+	}
+}
+
+func doctorHasRiskKind(readback MissionDoctorReadback, kind string) bool {
+	for _, risk := range readback.RiskMissions {
+		if risk.Kind == kind {
+			return true
+		}
+	}
+	return false
+}
+
 func TestSchedulerFailsClosedWhenCronMissing(t *testing.T) {
 	old := os.Getenv("PATH")
 	t.Cleanup(func() { os.Setenv("PATH", old) })

@@ -1,0 +1,12 @@
+{
+  "schema": "ao.mission.doubled-wave.node-evidence.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-09-doctor-risk-readback",
+  "status": "ready",
+  "rollback": "Revert the node branch or remove MissionDoctorRisk, detailed doctor status fields, builder risk derivation, production-readiness doctor smoke, and node 09 evidence.",
+  "state_to_preserve": "Doctor remains readback-only and never executes, approves, promotes, or mutates work.",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "rsi_remains_denied": true
+}

@@ -112,16 +112,22 @@ func SearchMissionEvents(index MissionEventIndex, filters MissionEventSearchFilt
 
 func BuildMissionDoctorReadback(s Store) MissionDoctorReadback {
 	readback := MissionDoctorReadback{
-		Schema:              "ao.mission.doctor-readback.v0.1",
-		Status:              "ready",
-		Root:                s.Root,
-		Checks:              []string{},
-		Blockers:            []string{},
-		SafeToExecute:       false,
-		ExecutesWork:        false,
-		ApprovesWork:        false,
-		MutatesRepositories: false,
-		GeneratedAtUTC:      now(s.Clock),
+		Schema:                    "ao.mission.doctor-readback.v0.1",
+		Status:                    "ready",
+		Root:                      s.Root,
+		LeaseHealthStatus:         "healthy",
+		CheckpointFreshnessStatus: "fresh",
+		EarlyReturnRiskStatus:     "clear",
+		StaleRouteDecisionStatus:  "clear",
+		RiskMissions:              []MissionDoctorRisk{},
+		ExactNextAction:           "doctor checks passed; continue the latest Mission exact next action or final synthesis",
+		Checks:                    []string{},
+		Blockers:                  []string{},
+		SafeToExecute:             false,
+		ExecutesWork:              false,
+		ApprovesWork:              false,
+		MutatesRepositories:       false,
+		GeneratedAtUTC:            now(s.Clock),
 	}
 	if err := s.Init(); err != nil {
 		readback.Status = "blocked"
@@ -146,17 +152,60 @@ func BuildMissionDoctorReadback(s Store) MissionDoctorReadback {
 	for _, record := range records {
 		if record.GoalLease != nil {
 			readback.LeaseCount++
+			if record.GoalLease.MinNodes <= 0 || record.GoalLease.MinMinutes <= 0 || record.GoalLease.MaxMinutes <= 0 || strings.TrimSpace(record.GoalLease.ReturnOnlyWhen) == "" || strings.TrimSpace(record.GoalLease.CheckpointPolicy) == "" {
+				readback.LeaseHealthStatus = "invalid"
+				readback.RiskMissions = append(readback.RiskMissions, missionDoctorRisk(record.MissionID, "lease_health", "invalid", "goal lease is missing minimums or stop/checkpoint policy", "repair goal lease before continuation"))
+				readback.Status = "blocked"
+				readback.Blockers = append(readback.Blockers, "invalid goal lease for "+record.MissionID)
+				readback.ExactNextAction = "repair goal lease before continuation"
+			}
+		} else if missionDoctorShouldExpectLease(record) {
+			readback.LeaseHealthStatus = "missing"
+			readback.RiskMissions = append(readback.RiskMissions, missionDoctorRisk(record.MissionID, "lease_health", "missing", "active long-run state has no goal lease", "run ao-mission continue --mission "+record.MissionID+" --until-done to create a governed lease"))
 		}
 		if len(record.Checkpoints) > 0 {
 			readback.FreshCheckpoints++
+		} else if record.ReturnGate != nil && !record.ReturnGate.FinalResponseAllowed {
+			readback.CheckpointFreshnessStatus = "stale_or_missing"
+			readback.RiskMissions = append(readback.RiskMissions, missionDoctorRisk(record.MissionID, "checkpoint_freshness", "stale_or_missing", "return gate is blocking but no checkpoint is recorded", "write checkpoint/resume bundle before final response"))
 		}
-		if record.ReturnGate != nil && !record.ReturnGate.FinalResponseAllowed {
+		gate := record.ReturnGate
+		if gate == nil {
+			evaluated := EvaluateReturnGate(record)
+			gate = &evaluated
+		}
+		if gate != nil && !gate.FinalResponseAllowed {
 			readback.EarlyReturnRisks++
+			readback.EarlyReturnRiskStatus = "risk_detected"
+			next := strings.TrimSpace(gate.ExactNextAction)
+			if next == "" {
+				next = "continue governed mission loop until return gate clears"
+			}
+			reason := strings.TrimSpace(gate.Reason)
+			if reason == "" {
+				reason = gate.Status
+			}
+			readback.RiskMissions = append(readback.RiskMissions, missionDoctorRisk(record.MissionID, "early_return", gate.Status, reason, next))
+			if readback.ExactNextAction == "" || readback.ExactNextAction == "doctor checks passed; continue the latest Mission exact next action or final synthesis" {
+				readback.ExactNextAction = next
+			}
 		}
-		if record.Reconciliation != nil && record.Reconciliation.Status == "stale_route_detected" {
+		reconciliation := record.Reconciliation
+		if reconciliation == nil {
+			computed := BuildRouteReconciliation(record)
+			reconciliation = &computed
+		}
+		if reconciliation != nil && reconciliation.Status == "stale_route_detected" {
 			readback.StaleRoutes++
+			readback.StaleRouteDecisionStatus = "stale_route_detected"
 			readback.Status = "blocked"
 			readback.Blockers = append(readback.Blockers, "stale route reconciliation for "+record.MissionID)
+			next := strings.TrimSpace(reconciliation.ExactNextAction)
+			if next == "" {
+				next = "refresh route decision before final response"
+			}
+			readback.RiskMissions = append(readback.RiskMissions, missionDoctorRisk(record.MissionID, "stale_route", reconciliation.Status, "latest route decision does not match current route/readback", next))
+			readback.ExactNextAction = next
 		}
 	}
 	readback.Checks = append(readback.Checks,
@@ -164,11 +213,32 @@ func BuildMissionDoctorReadback(s Store) MissionDoctorReadback {
 		"mission_event_index_readable",
 		"authority_flags_false",
 		"lease_health_checked",
+		"lease_minimums_validated",
 		"checkpoint_freshness_checked",
+		"checkpoint_resume_bundle_freshness_validated",
 		"stale_route_reconciliation_checked",
+		"stale_route_decision_bound",
 		"early_return_risk_checked",
+		"early_return_risk_exact_next_action_bound",
 	)
 	return readback
+}
+
+func missionDoctorShouldExpectLease(record Record) bool {
+	if record.Status == "done" || record.Status == "blocked" {
+		return false
+	}
+	return len(record.Steps) > 0 || len(record.Checkpoints) > 0 || record.ReturnGate != nil || record.Evidence.AtlasWorkgraph != nil || record.Evidence.AtlasRecommendation != nil
+}
+
+func missionDoctorRisk(missionID, kind, status, reason, exactNextAction string) MissionDoctorRisk {
+	return MissionDoctorRisk{
+		MissionID:       missionID,
+		Kind:            kind,
+		Status:          status,
+		Reason:          reason,
+		ExactNextAction: exactNextAction,
+	}
 }
 
 func BuildMissionReadinessBundleReadback(inputs []MissionReadinessBundleInput) (MissionReadinessBundleReadback, error) {

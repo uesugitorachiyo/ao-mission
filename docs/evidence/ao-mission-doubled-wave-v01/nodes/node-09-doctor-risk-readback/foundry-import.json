@@ -1,0 +1,18 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-09-doctor-risk-readback",
+  "owner": "ao-mission",
+  "bounded_task": "Implement only the AO Mission doctor detailed long-run risk readback node.",
+  "inputs": [
+    "internal/mission/event_index.go",
+    "internal/mission/types.go",
+    "internal/mission/mission_test.go",
+    "scripts/production-readiness.sh"
+  ],
+  "stop_after": "doctor risk readback tests, production-readiness smoke, and evidence are complete",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false
+}

@@ -27,6 +27,7 @@ event_index_json="$(mktemp)"
 event_search_json="$(mktemp)"
 atlas_prompt_json="$(mktemp)"
 synthesis_json="$(mktemp)"
+doctor_json="$(mktemp)"
 final_synthesis_import_json="$(mktemp)"
 final_synthesis_inspect_json="$(mktemp)"
 final_synthesis_checkpoint_json="$(mktemp)"
@@ -44,7 +45,7 @@ jq -e '.schema == "ao.mission.event-search-readback.v0.1" and .status == "ready"
 ./ao-mission --home "$tmp_home" final atlas-prompt --mission "$mission_id" --event-index "$event_index_json" --out "$atlas_prompt_json" >/dev/null
 jq -e '.schema == "ao.mission.atlas-continuation-prompt-packet.v0.1" and .status == "ready" and .mission_id == "'"$mission_id"'" and (.event_index_digest | test("^sha256:[0-9a-f]{64}$")) and (.final_rollup_digest | test("^sha256:[0-9a-f]{64}$")) and (.prompt | contains("AO Atlas")) and (.prompt | contains("Do not produce a final response if ready_nodes > 0 or exact_next_action remains.")) and (.feature_depth_recommendations | length >= 10) and ([.feature_depth_recommendations[] | select((.gate | length > 0) and (.continuation_command | length > 0) and (.estimated_minutes >= 6) and (.evidence_required | length >= 3))] | length >= 10) and ([.feature_depth_recommendations[].estimated_minutes] | add >= 60) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false' "$atlas_prompt_json" >/dev/null
 ./ao-mission --home "$tmp_home" final synthesize --mission "$mission_id" --evidence-root docs/evidence/ao-mission-doubled-wave-v01 >"$synthesis_json"
-jq -e '.schema == "ao.mission.atlas-wave-final-synthesis.v0.1" and .mission == "ao-mission-doubled-wave-v01" and .completed_nodes >= 8 and .ready_nodes >= 52 and .final_response_allowed == false and (.feature_depth_recommendations | length >= 20) and ([.feature_depth_recommendations[] | select((.gate | length > 0) and (.continuation_command | length > 0) and (.estimated_minutes >= 6) and (.evidence_required | length >= 3))] | length >= 20) and ([.feature_depth_recommendations[].estimated_minutes] | add >= 120) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .rsi_remains_denied == true' "$synthesis_json" >/dev/null
+jq -e '.schema == "ao.mission.atlas-wave-final-synthesis.v0.1" and .mission == "ao-mission-doubled-wave-v01" and .completed_nodes >= 9 and .ready_nodes >= 51 and .final_response_allowed == false and (.feature_depth_recommendations | length >= 20) and ([.feature_depth_recommendations[] | select((.gate | length > 0) and (.continuation_command | length > 0) and (.estimated_minutes >= 6) and (.evidence_required | length >= 3))] | length >= 20) and ([.feature_depth_recommendations[].estimated_minutes] | add >= 120) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .rsi_remains_denied == true' "$synthesis_json" >/dev/null
 ./ao-mission --home "$tmp_home" start "import Atlas final synthesis readback" >"$mission_json"
 final_synthesis_mission_id="$(jq -r '.mission_id' "$mission_json")"
 ./ao-mission --home "$tmp_home" import atlas-final-synthesis-readback --mission "$final_synthesis_mission_id" --path examples/valid/atlas-final-synthesis-readback.json >"$final_synthesis_import_json"
@@ -53,7 +54,12 @@ jq -e '.kind == "atlas-final-synthesis-readback" and .safe_to_execute == false a
 jq -e '.status == "done" and .current_route == "complete" and .current_phase == "complete" and .evidence.atlas_final_synthesis.command_readback == "ready" and .evidence.atlas_final_synthesis.promoter_status == "no_promotion_requested" and .route_reconciliation.command_readback_bound == true and .route_reconciliation.promoter_readback_bound == true and .route_reconciliation.atlas_ready_nodes == 0 and .return_gate.final_response_allowed == true' "$final_synthesis_inspect_json" >/dev/null
 cp "$tmp_home/missions/$final_synthesis_mission_id.checkpoint-resume-bundle.json" "$final_synthesis_checkpoint_json"
 jq -e '.schema == "ao.mission.checkpoint-resume-bundle.v0.3" and .mission_id == "'"$final_synthesis_mission_id"'" and .status == "ready" and .return_gate.final_response_allowed == true and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false' "$final_synthesis_checkpoint_json" >/dev/null
-rm -rf "$tmp_home" "$mission_json" "$import_json" "$inspect_json" "$reconcile_json" "$event_index_json" "$event_search_json" "$atlas_prompt_json" "$synthesis_json" "$final_synthesis_import_json" "$final_synthesis_inspect_json" "$final_synthesis_checkpoint_json" ao-mission
+./ao-mission --home "$tmp_home" start "doctor active lease health smoke" >"$mission_json"
+doctor_mission_id="$(jq -r '.mission_id' "$mission_json")"
+./ao-mission --home "$tmp_home" continue --mission "$doctor_mission_id" --until-done --max-iterations 2 >/dev/null
+./ao-mission --home "$tmp_home" doctor --json >"$doctor_json"
+jq -e '.schema == "ao.mission.doctor-readback.v0.1" and .status == "ready" and .lease_health_status == "healthy" and .checkpoint_freshness_status == "fresh" and .early_return_risk_status == "risk_detected" and .stale_route_decision_status == "clear" and ([.risk_missions[].kind] | index("early_return")) and (.exact_next_action | length > 0) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false' "$doctor_json" >/dev/null
+rm -rf "$tmp_home" "$mission_json" "$import_json" "$inspect_json" "$reconcile_json" "$event_index_json" "$event_search_json" "$atlas_prompt_json" "$synthesis_json" "$doctor_json" "$final_synthesis_import_json" "$final_synthesis_inspect_json" "$final_synthesis_checkpoint_json" ao-mission
 grep -q "25-node Atlas recommendation import wave" docs/operator-next-actions.md
 grep -q "Do not stop before 25 completed nodes" docs/evidence/ao-mission-atlas-wave-import-v01/next-recommended-prompt.md
 grep -q "final-reconciliation-packet.json" docs/operator-next-actions.md
