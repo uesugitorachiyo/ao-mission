@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.candidate-record.v0.1",
+  "node_id": "node-20-final-reconciliation-event-search-smoke",
+  "status": "selected",
+  "candidate": "Add production-readiness smoke coverage for CLI event search of final reconciliation evidence.",
+  "owner": "ao-mission",
+  "why_now": "Final reconciliation evidence must be visible through the same event-search path the operator and Command use."
+}

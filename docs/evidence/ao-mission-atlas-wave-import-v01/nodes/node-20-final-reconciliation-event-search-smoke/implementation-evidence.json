@@ -1,0 +1,12 @@
+{
+  "schema": "ao.foundry.implementation-evidence.v0.1",
+  "node_id": "node-20-final-reconciliation-event-search-smoke",
+  "status": "implemented",
+  "changed_files": [
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/event-search-production-smoke.json",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/workgraph.json",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/README.md"
+  ],
+  "behavior": "Production readiness now builds a Mission event index and searches final_reconciliation through the CLI before passing."
+}

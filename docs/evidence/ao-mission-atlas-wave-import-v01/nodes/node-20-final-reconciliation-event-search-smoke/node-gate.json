@@ -1,0 +1,8 @@
+{
+  "schema": "ao.atlas.node-gate.v0.1",
+  "node_id": "node-20-final-reconciliation-event-search-smoke",
+  "status": "passed",
+  "gate": "Production readiness must search final_reconciliation events through the CLI before wave closure.",
+  "active_mutation_node": "node-20-final-reconciliation-event-search-smoke",
+  "exact_next_action": "verify smoke, open PR, wait for CI, merge, and continue node 21"
+}

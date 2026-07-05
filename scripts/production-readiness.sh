@@ -23,6 +23,8 @@ mission_json="$(mktemp)"
 import_json="$(mktemp)"
 inspect_json="$(mktemp)"
 reconcile_json="$(mktemp)"
+event_index_json="$(mktemp)"
+event_search_json="$(mktemp)"
 ./ao-mission --home "$tmp_home" start "import completed Atlas recommendation wave" >"$mission_json"
 mission_id="$(jq -r '.mission_id' "$mission_json")"
 ./ao-mission --home "$tmp_home" import atlas-recommendation-readback --mission "$mission_id" --path examples/valid/atlas-recommendation-readback.json >"$import_json"
@@ -31,7 +33,10 @@ jq -e '.kind == "atlas-recommendation-readback" and .safe_to_execute == false an
 jq -e '.status == "done" and .current_route == "complete" and .current_phase == "complete" and .evidence.atlas_recommendation.completed_nodes == 40 and .return_gate.final_response_allowed == true' "$inspect_json" >/dev/null
 ./ao-mission --home "$tmp_home" final reconcile --mission "$mission_id" >"$reconcile_json"
 jq -e '.schema == "ao.mission.final-reconciliation-packet.v0.1" and .artifacts_agree == true and .final_response_allowed == true and .claims_authority_advance == false and .rsi_remains_denied == true' "$reconcile_json" >/dev/null
-rm -rf "$tmp_home" "$mission_json" "$import_json" "$inspect_json" "$reconcile_json" ao-mission
+./ao-mission --home "$tmp_home" mission events index --out "$event_index_json" >/dev/null
+./ao-mission --home "$tmp_home" mission events search --mission "$mission_id" --kind final_reconciliation --index "$event_index_json" --json >"$event_search_json"
+jq -e '.schema == "ao.mission.event-search-readback.v0.1" and .status == "ready" and .total_matches >= 1 and .events[0].kind == "final_reconciliation" and .safe_to_execute == false and .executes_work == false and .approves_work == false' "$event_search_json" >/dev/null
+rm -rf "$tmp_home" "$mission_json" "$import_json" "$inspect_json" "$reconcile_json" "$event_index_json" "$event_search_json" ao-mission
 grep -q "25-node Atlas recommendation import wave" docs/operator-next-actions.md
 grep -q "Do not stop before 25 completed nodes" docs/evidence/ao-mission-atlas-wave-import-v01/next-recommended-prompt.md
 grep -q "final-reconciliation-packet.json" docs/operator-next-actions.md
@@ -42,4 +47,5 @@ jq -e '.schema == "ao.mission.production-readiness-branch-cleanup.v0.1" and .sta
 jq -e '.schema == "ao.promoter.no-promotion-readback.v0.1" and .status == "no_promotion_requested" and .mission_id == "ao-mission-atlas-wave-import-v01" and .completed_nodes_at_recording == 16 and .safe_to_promote == false and .promotion_claimed == false and .claims_authority_advance == false and .broad_RSI == "denied" and .rsi_remains_denied == true and .executes_work == false and .approves_work == false' docs/evidence/ao-mission-atlas-wave-import-v01/promoter-no-promotion-summary.json >/dev/null
 jq -e '.schema == "ao.foundry.terminal-state-binding.v0.1" and (.states | length == 4) and ([.states[].status] | index("completed") and index("promoted") and index("denied") and index("blocked")) and ([.states[] | select(.status == "completed" or .status == "promoted") | .expected_mission_status] | all(. == "done")) and ([.states[] | select(.status == "denied" or .status == "blocked") | .expected_mission_status] | all(. == "blocked")) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .rsi_remains_denied == true' examples/valid/foundry-terminal-state-binding.json >/dev/null
 jq -e '.schema == "ao.command.compact-timeline-readback.v0.1" and .status == "ready" and .compact == true and (.includes_event_kinds | index("atlas_recommendation")) and (.includes_event_kinds | index("final_reconciliation")) and ([.recent_events[].kind] | index("atlas_recommendation") and index("final_reconciliation")) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false and .rsi_remains_denied == true' examples/valid/command-compact-timeline-readback.json >/dev/null
+jq -e '.schema == "ao.mission.event-search-production-smoke.v0.1" and .status == "passed" and .mission == "ao-mission-atlas-wave-import-v01" and .searched_kind == "final_reconciliation" and .total_matches_minimum == 1 and .safe_to_execute == false and .executes_work == false and .approves_work == false and .rsi_remains_denied == true' docs/evidence/ao-mission-atlas-wave-import-v01/event-search-production-smoke.json >/dev/null
 echo "AO Mission production readiness: 100/100 status=ready"

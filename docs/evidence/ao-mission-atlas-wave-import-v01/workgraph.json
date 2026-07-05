@@ -5,11 +5,11 @@
   "minimum_nodes": 25,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 19,
-  "ready_nodes": 6,
+  "completed_nodes": 20,
+  "ready_nodes": 5,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue with node-20: add event search production-readiness smoke for final reconciliation.",
+  "exact_next_action": "Continue with node-21: add final reconciliation mismatch fixture and readiness validation.",
   "nodes": [
     {
       "node_id": "node-01-atlas-recommendation-readback-import",
@@ -124,6 +124,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Document the Command status, event search, and final reconciliation closure check before final response."
+    },
+    {
+      "node_id": "node-20-final-reconciliation-event-search-smoke",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Add production-readiness smoke coverage for event-searching final reconciliation evidence."
     }
   ]
 }

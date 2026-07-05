@@ -1,0 +1,6 @@
+{
+  "schema": "ao.foundry.rollback-record.v0.1",
+  "node_id": "node-20-final-reconciliation-event-search-smoke",
+  "rollback": "Remove the production-readiness event-search commands, event-search-production-smoke.json, and this node evidence.",
+  "safe_to_revert": true
+}
