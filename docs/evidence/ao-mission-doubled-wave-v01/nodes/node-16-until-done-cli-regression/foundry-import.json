@@ -1,0 +1,14 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-16-until-done-cli-regression",
+  "route": "ao-mission",
+  "owning_supervisor": "ao-atlas",
+  "implementation_owner": "ao-mission",
+  "status": "imported",
+  "task": "Add CLI regression proving --until-done continues past one governed handoff.",
+  "acceptance": [
+    "CLI test uses --until-done and max-iterations 5",
+    "test asserts five steps, five checkpoints, fifth event-loop decision, checkpoint bundle, lease fields, and final-response denial"
+  ]
+}

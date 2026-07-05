@@ -89,6 +89,67 @@ func TestContinueUntilDoneDoesNotStopAfterOneHandoff(t *testing.T) {
 	}
 }
 
+func TestCLIContinueUntilDonePersistsMultipleHandoffs(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "supervise long-running atlas workgraph mission"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	errb.Reset()
+	if code := Run([]string{
+		"--home", dir,
+		"continue",
+		"--mission", rec.MissionID,
+		"--until-done",
+		"--max-iterations", "5",
+		"--min-nodes", "15",
+		"--min-minutes", "120",
+		"--max-minutes", "180",
+		"--return-only-when", "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action",
+		"--checkpoint-policy", "after_each_node_or_timed_interval",
+	}, &out, &errb); code != 0 {
+		t.Fatalf("continue: %s", errb.String())
+	}
+	var continued Record
+	if err := json.Unmarshal(out.Bytes(), &continued); err != nil {
+		t.Fatal(err)
+	}
+	if len(continued.Steps) != 5 || len(continued.Checkpoints) != 5 {
+		t.Fatalf("until-done CLI stopped early or skipped checkpoints: steps=%d checkpoints=%d", len(continued.Steps), len(continued.Checkpoints))
+	}
+	if continued.GoalLease == nil ||
+		continued.GoalLease.MinNodes != 15 ||
+		continued.GoalLease.MinMinutes != 120 ||
+		continued.GoalLease.MaxMinutes != 180 ||
+		continued.GoalLease.MaxIterations != 5 ||
+		continued.GoalLease.CheckpointPolicy != "after_each_node_or_timed_interval" {
+		t.Fatalf("CLI lease did not preserve long-run contract: %+v", continued.GoalLease)
+	}
+	if continued.ReturnGate == nil || continued.ReturnGate.FinalResponseAllowed {
+		t.Fatalf("CLI should deny final response while lease and ready work remain: %+v", continued.ReturnGate)
+	}
+	store := NewStore(dir)
+	decision, err := store.LoadEventLoopDecision(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decision.Iteration != 5 || decision.Status != "handoff_required" || decision.Route != "ao-atlas" {
+		t.Fatalf("event loop decision should record fifth handoff, got %+v", decision)
+	}
+	bundle, err := store.LoadCheckpointBundle(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bundle.CheckpointCount != 5 || bundle.ReturnGate == nil || bundle.ReturnGate.FinalResponseAllowed {
+		t.Fatalf("checkpoint bundle should bind five handoffs and early-return denial: %+v", bundle)
+	}
+}
+
 func TestContinueWritesCheckpointBundleAndDoctorSupervisorHealth(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)

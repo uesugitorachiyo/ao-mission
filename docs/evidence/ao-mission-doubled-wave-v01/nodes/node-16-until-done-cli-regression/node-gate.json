@@ -1,0 +1,30 @@
+{
+  "schema": "ao.evidence.node-gate.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-16-until-done-cli-regression",
+  "owner": "ao-mission",
+  "status": "local_verified",
+  "route": "ao-mission",
+  "active_mutation_node": true,
+  "bounded_scope": [
+    "internal/mission/mission_test.go",
+    "docs/evidence/ao-mission-doubled-wave-v01/nodes/node-16-until-done-cli-regression"
+  ],
+  "required_checks": [
+    "go test ./internal/mission -run 'TestContinueUntilDoneDoesNotStopAfterOneHandoff|TestCLIContinueUntilDonePersistsMultipleHandoffs' -count=1",
+    "go test ./... -count=1",
+    "go vet ./...",
+    "go build ./cmd/ao-mission",
+    "scripts/production-readiness.sh"
+  ],
+  "safety_boundaries": {
+    "direct_main_mutation": false,
+    "credential_or_token_inspection": false,
+    "provider_calls": false,
+    "release_deploy_publish_upload_or_tag": false,
+    "dependency_updates": false,
+    "auth_policy_or_config_widening": false,
+    "hidden_instruction_mutation": false,
+    "broad_rsi_claim": false
+  }
+}
