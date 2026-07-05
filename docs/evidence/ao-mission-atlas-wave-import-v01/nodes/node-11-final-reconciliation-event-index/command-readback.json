@@ -1,0 +1,8 @@
+{
+  "schema": "ao.command.compact-mission-readback.v0.1",
+  "node_id": "node-11-final-reconciliation-event-index",
+  "status": "verified_locally",
+  "summary": "Mission event search can now find final reconciliation packet evidence.",
+  "final_response_allowed": false,
+  "exact_next_action": "Open PR, wait for CI, merge, then continue node 12."
+}

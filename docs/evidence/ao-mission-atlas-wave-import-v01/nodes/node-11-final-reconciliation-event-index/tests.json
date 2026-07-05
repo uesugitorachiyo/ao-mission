@@ -1,0 +1,9 @@
+{
+  "schema": "ao.mission.tests-readback.v0.1",
+  "node_id": "node-11-final-reconciliation-event-index",
+  "red": "go test ./internal/mission -run TestEventIndexSearchesFinalReconciliationEvidence -count=1 failed because no final_reconciliation event existed.",
+  "green": "go test ./internal/mission -run TestEventIndexSearchesFinalReconciliationEvidence -count=1 passed after event binding.",
+  "regressions": [
+    "TestEventIndexSearchesFinalReconciliationEvidence"
+  ]
+}

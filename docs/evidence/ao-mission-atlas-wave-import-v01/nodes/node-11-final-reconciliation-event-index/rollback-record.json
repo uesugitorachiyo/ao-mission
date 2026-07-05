@@ -1,0 +1,7 @@
+{
+  "schema": "ao.mission.rollback-record.v0.1",
+  "node_id": "node-11-final-reconciliation-event-index",
+  "rollback": "Remove final_reconciliation event generation and its event-search regression.",
+  "risk": "Low; readback-only event index extension.",
+  "requires_release": false
+}

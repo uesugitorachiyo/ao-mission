@@ -1,0 +1,10 @@
+{
+  "schema": "ao.mission.implementation-evidence.v0.1",
+  "node_id": "node-11-final-reconciliation-event-index",
+  "status": "implemented_locally",
+  "files": [
+    "internal/mission/event_index.go",
+    "internal/mission/mission_test.go"
+  ],
+  "behavior": "Mission event index now emits final_reconciliation events summarizing artifact agreement, final response gate, blockers, RSI denied, and authority-advance denial."
+}
