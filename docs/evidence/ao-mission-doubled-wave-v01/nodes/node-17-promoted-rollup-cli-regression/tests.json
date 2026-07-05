@@ -1,0 +1,27 @@
+{
+  "schema": "ao.evidence.tests.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-17-promoted-rollup-cli-regression",
+  "tests": [
+    {
+      "name": "TestCLIImportPromotedFoundryRollupClosesMission",
+      "path": "internal/mission/mission_test.go",
+      "asserts": [
+        "CLI imports Atlas workgraph counts before Foundry closure",
+        "CLI imports promoted Foundry final rollup",
+        "import readback preserves no execution or approval authority",
+        "mission inspect reports done and complete route",
+        "return gate and checkpoint bundle allow final response after promoted closure"
+      ]
+    },
+    {
+      "name": "TestPromotedFoundryRollupClosesMission",
+      "path": "internal/mission/mission_test.go",
+      "asserts": [
+        "store-level promoted Foundry rollup closes Mission"
+      ]
+    }
+  ],
+  "focused_command": "go test ./internal/mission -run 'TestPromotedFoundryRollupClosesMission|TestCLIImportPromotedFoundryRollupClosesMission' -count=1",
+  "focused_result": "passed"
+}

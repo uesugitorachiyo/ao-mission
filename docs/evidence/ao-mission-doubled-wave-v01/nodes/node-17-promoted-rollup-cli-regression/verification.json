@@ -1,0 +1,32 @@
+{
+  "schema": "ao.evidence.verification.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-17-promoted-rollup-cli-regression",
+  "status": "local_checks_passed",
+  "completed_checks": [
+    {
+      "command": "go test ./internal/mission -run 'TestPromotedFoundryRollupClosesMission|TestCLIImportPromotedFoundryRollupClosesMission' -count=1",
+      "result": "passed"
+    },
+    {
+      "command": "go test ./... -count=1",
+      "result": "passed"
+    },
+    {
+      "command": "go vet ./...",
+      "result": "passed"
+    },
+    {
+      "command": "go build ./cmd/ao-mission",
+      "result": "passed"
+    },
+    {
+      "command": "scripts/production-readiness.sh",
+      "result": "passed",
+      "summary": "AO Mission production readiness: 100/100 status=ready"
+    }
+  ],
+  "remaining_checks": [
+    "GitHub CI after PR"
+  ]
+}

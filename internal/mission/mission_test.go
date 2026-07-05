@@ -876,6 +876,70 @@ func TestPromotedFoundryRollupClosesMission(t *testing.T) {
 	}
 }
 
+func TestCLIImportPromotedFoundryRollupClosesMission(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "build atlas workgraph for promoted rollup"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	workgraphPath := filepath.Join(dir, "atlas-workgraph.json")
+	workgraph := `{"schema":"ao.atlas.workgraph.v0.1","nodes":[{"id":"node-1","status":"completed"},{"id":"node-2","status":"completed"}]}`
+	if err := os.WriteFile(workgraphPath, []byte(workgraph), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	errb.Reset()
+	if code := Run([]string{"--home", dir, "import", "atlas-workgraph", "--mission", rec.MissionID, "--path", workgraphPath}, &out, &errb); code != 0 {
+		t.Fatalf("import atlas workgraph: %s", errb.String())
+	}
+	rollupPath := filepath.Join(dir, "foundry-final-rollup.json")
+	rollup := `{"schema":"ao.foundry.final-rollup.v0.1","status":"promoted","completed_nodes":2,"total_nodes":2}`
+	if err := os.WriteFile(rollupPath, []byte(rollup), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	errb.Reset()
+	if code := Run([]string{"--home", dir, "import", "foundry-final-rollup", "--mission", rec.MissionID, "--path", rollupPath}, &out, &errb); code != 0 {
+		t.Fatalf("import promoted rollup: %s", errb.String())
+	}
+	var imported ImportReadback
+	if err := json.Unmarshal(out.Bytes(), &imported); err != nil {
+		t.Fatal(err)
+	}
+	if imported.Kind != "foundry-final-rollup" || imported.ExactNextAction != "mission complete; read final rollup and recommended next tasks" || imported.ExecutesWork || imported.ApprovesWork {
+		t.Fatalf("bad promoted rollup import readback: %+v", imported)
+	}
+	out.Reset()
+	errb.Reset()
+	if code := Run([]string{"--home", dir, "mission", "inspect", "--mission", rec.MissionID, "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("mission inspect: %s", errb.String())
+	}
+	var done Record
+	if err := json.Unmarshal(out.Bytes(), &done); err != nil {
+		t.Fatal(err)
+	}
+	if done.Status != "done" || done.CurrentRoute != "complete" || done.CurrentPhase != "complete" {
+		t.Fatalf("promoted rollup should close mission through CLI import: %+v", done)
+	}
+	if done.Evidence.FoundryRollup == nil || done.Evidence.FoundryRollup.Status != "promoted" || done.Evidence.FoundryRollup.CompletedNodes != 2 || done.Evidence.FoundryRollup.TotalNodes != 2 {
+		t.Fatalf("promoted rollup evidence not normalized: %+v", done.Evidence.FoundryRollup)
+	}
+	if done.ReturnGate == nil || !done.ReturnGate.FinalResponseAllowed {
+		t.Fatalf("promoted rollup closure should allow final response: %+v", done.ReturnGate)
+	}
+	bundle, err := NewStore(dir).LoadCheckpointBundle(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bundle.ReturnGate == nil || !bundle.ReturnGate.FinalResponseAllowed {
+		t.Fatalf("checkpoint bundle should bind promoted closure: %+v", bundle.ReturnGate)
+	}
+}
+
 func TestDeniedFoundryRollupBlocksMissionWithExactNextAction(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)
