@@ -1,0 +1,28 @@
+{
+  "schema": "ao.evidence.tests.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-21-event-alias-fixture",
+  "red_test": "go test ./internal/mission -run TestEventEvidenceAliasSearchReadbacksFixtureCoversAllAliases -count=1 failed before fixture creation because examples/valid/event-evidence-alias-search-readbacks.json was missing.",
+  "tests": [
+    {
+      "name": "TestEventEvidenceAliasSearchReadbacksFixtureCoversAllAliases",
+      "path": "internal/mission/mission_test.go",
+      "asserts": [
+        "fixture has schema ao.mission.event-evidence-alias-search-readbacks.v0.1",
+        "fixture includes route, node, PR, CI, rollup, and blocker evidence kinds",
+        "each search has total_matches >= 1",
+        "authority flags are false and RSI remains denied",
+        "fixture is public-safe"
+      ]
+    },
+    {
+      "name": "TestEventIndexSearchesRouteNodePRCIRollupAndBlockerEvidence",
+      "path": "internal/mission/mission_test.go",
+      "asserts": [
+        "runtime event index still emits all six alias kinds"
+      ]
+    }
+  ],
+  "focused_command": "go test ./internal/mission -run 'TestEventIndexSearchesRouteNodePRCIRollupAndBlockerEvidence|TestEventEvidenceAliasSearchReadbacksFixtureCoversAllAliases' -count=1",
+  "focused_result": "passed"
+}

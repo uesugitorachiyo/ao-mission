@@ -1,0 +1,33 @@
+{
+  "schema": "ao.evidence.node-gate.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-21-event-alias-fixture",
+  "owner": "ao-mission",
+  "status": "focused_verified_pending_full_checks",
+  "route": "ao-mission",
+  "active_mutation_node": true,
+  "bounded_scope": [
+    "internal/mission/mission_test.go",
+    "examples/valid/event-evidence-alias-search-readbacks.json",
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-doubled-wave-v01/workgraph.json",
+    "docs/evidence/ao-mission-doubled-wave-v01/nodes/node-21-event-alias-fixture"
+  ],
+  "required_checks": [
+    "go test ./internal/mission -run 'TestEventIndexSearchesRouteNodePRCIRollupAndBlockerEvidence|TestEventEvidenceAliasSearchReadbacksFixtureCoversAllAliases' -count=1",
+    "go test ./... -count=1",
+    "go vet ./...",
+    "go build ./cmd/ao-mission",
+    "scripts/production-readiness.sh"
+  ],
+  "safety_boundaries": {
+    "direct_main_mutation": false,
+    "credential_or_token_inspection": false,
+    "provider_calls": false,
+    "release_deploy_publish_upload_or_tag": false,
+    "dependency_updates": false,
+    "auth_policy_or_config_widening": false,
+    "hidden_instruction_mutation": false,
+    "broad_rsi_claim": false
+  }
+}

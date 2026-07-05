@@ -1,0 +1,16 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-21-event-alias-fixture",
+  "route": "ao-mission",
+  "owning_supervisor": "ao-atlas",
+  "implementation_owner": "ao-mission",
+  "status": "imported",
+  "task": "Add event-search fixture proving route/node/PR/CI/rollup/blocker aliases.",
+  "acceptance": [
+    "fixture includes all six alias kinds",
+    "focused test validates fixture shape and no-authority flags",
+    "production readiness validates fixture",
+    "workgraph advances to 21 completed nodes"
+  ]
+}

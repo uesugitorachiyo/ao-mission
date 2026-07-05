@@ -1,0 +1,19 @@
+{
+  "schema": "ao.evidence.candidate-record.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-21-event-alias-fixture",
+  "candidate": {
+    "repo": "ao-mission",
+    "branch": "codex/doubled-wave-node-21-event-alias-fixture",
+    "summary": "Add a durable event-search fixture proving route, node, PR, CI, rollup, and blocker aliases.",
+    "reason": "Node 10 added alias generation; node 21 adds an operator-facing fixture and production-readiness guard so alias evidence remains searchable across the long-run wave."
+  },
+  "expected_behavior": [
+    "Fixture covers route_evidence, node_evidence, pr_evidence, ci_evidence, rollup_evidence, and blocker_evidence.",
+    "Each search readback has at least one match.",
+    "Fixture and production-readiness guard keep all execution, approval, and mutation authority flags false.",
+    "RSI remains denied."
+  ],
+  "risk": "Low: fixture, test, readiness assertion, and evidence update only.",
+  "rollback": "Revert the fixture, test, production-readiness assertion, workgraph update, and node evidence."
+}

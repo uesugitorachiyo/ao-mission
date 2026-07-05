@@ -1,0 +1,19 @@
+{
+  "schema": "ao.evidence.rollback-record.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-21-event-alias-fixture",
+  "rollback_ready": true,
+  "rollback_scope": [
+    "internal/mission/mission_test.go",
+    "examples/valid/event-evidence-alias-search-readbacks.json",
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-doubled-wave-v01/workgraph.json",
+    "docs/evidence/ao-mission-doubled-wave-v01/nodes/node-21-event-alias-fixture"
+  ],
+  "rollback_command": "git revert <merge-commit-for-node-21>",
+  "post_rollback_checks": [
+    "go test ./... -count=1",
+    "go vet ./...",
+    "go build ./cmd/ao-mission"
+  ]
+}

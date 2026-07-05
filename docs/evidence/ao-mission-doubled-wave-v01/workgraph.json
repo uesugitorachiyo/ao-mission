@@ -5,11 +5,11 @@
   "minimum_nodes": 60,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 20,
-  "ready_nodes": 40,
+  "completed_nodes": 21,
+  "ready_nodes": 39,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue node-21 through the next Atlas-owned Feature Depth wave.",
+  "exact_next_action": "Continue node-22: AO Mission checkpoint-resume replay smoke after Atlas readback import.",
   "nodes": [
     {
       "node_id": "node-01-final-synthesis-cli",
@@ -130,6 +130,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Record production readiness verification and public-safety wording scans over changed docs, fixtures, and evidence."
+    },
+    {
+      "node_id": "node-21-event-alias-fixture",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Add event-search fixture proving route, node, PR, CI, rollup, and blocker aliases."
     }
   ]
 }

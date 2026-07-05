@@ -32,6 +32,8 @@ keeps RSI denied, and does not request promotion.
 - node-19-final-response-ready-nodes-cli: merged in PR #60.
 - node-20-readiness-safety-closure: production readiness and public-safety
   closure node for the first 20-node segment.
+- node-21-event-alias-fixture: event-search fixture proving route, node, PR,
+  CI, rollup, and blocker aliases.
 
 ## Root Evidence
 

@@ -1,0 +1,38 @@
+{
+  "schema": "ao.evidence.verification.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-21-event-alias-fixture",
+  "status": "local_checks_passed",
+  "completed_checks": [
+    {
+      "command": "go test ./internal/mission -run 'TestEventIndexSearchesRouteNodePRCIRollupAndBlockerEvidence|TestEventEvidenceAliasSearchReadbacksFixtureCoversAllAliases' -count=1",
+      "result": "passed"
+    },
+    {
+      "command": "go test ./... -count=1",
+      "result": "passed",
+      "output": "? github.com/uesugitorachiyo/ao-mission/cmd/ao-mission [no test files]; ok github.com/uesugitorachiyo/ao-mission/internal/mission 0.409s"
+    },
+    {
+      "command": "go vet ./...",
+      "result": "passed"
+    },
+    {
+      "command": "go build ./cmd/ao-mission",
+      "result": "passed"
+    },
+    {
+      "command": "scripts/production-readiness.sh",
+      "result": "passed",
+      "output": "AO Mission production readiness: 100/100 status=ready"
+    },
+    {
+      "command": "public-safety wording scans over fixture and node evidence",
+      "result": "passed",
+      "output": "No credential, authority-widening, provider-call, direct-main-mutation, release/deploy/publish/upload/tag, hidden-instruction, or broad-RSI wording matches."
+    }
+  ],
+  "remaining_checks": [
+    "GitHub CI after PR"
+  ]
+}
