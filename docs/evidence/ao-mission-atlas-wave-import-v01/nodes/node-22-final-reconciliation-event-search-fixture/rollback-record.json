@@ -1,0 +1,6 @@
+{
+  "schema": "ao.foundry.rollback-record.v0.1",
+  "node_id": "node-22-final-reconciliation-event-search-fixture",
+  "rollback": "Remove final-reconciliation-event-search-readback.json, its regression test, and its production-readiness assertion.",
+  "safe_to_revert": true
+}

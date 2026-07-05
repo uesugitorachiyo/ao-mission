@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "node_id": "node-22-final-reconciliation-event-search-fixture",
+  "status": "imported",
+  "bounded_task": "Add final_reconciliation event-search fixture and validation.",
+  "executes_one_node": true,
+  "safe_to_execute": false
+}
