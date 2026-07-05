@@ -1,0 +1,7 @@
+{
+  "schema": "ao.command.readback.v0.1",
+  "node_id": "node-03-session-duration-readback",
+  "status": "ready_for_review",
+  "summary": "Codex session-duration readback records metadata only; log contents and secrets were not read.",
+  "exact_next_action": "merge node 03 after CI, then continue node 04"
+}

@@ -1,0 +1,6 @@
+{
+  "schema": "ao.foundry.rollback-record.v0.1",
+  "node_id": "node-03-session-duration-readback",
+  "rollback": "Remove codex-session-duration-readback.json and its production-readiness assertion.",
+  "safe_to_revert": true
+}

@@ -1,0 +1,12 @@
+{
+  "schema": "ao.foundry.implementation-evidence.v0.1",
+  "node_id": "node-03-session-duration-readback",
+  "status": "implemented",
+  "changed_files": [
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-doubled-wave-v01/codex-session-duration-readback.json",
+    "docs/evidence/ao-mission-doubled-wave-v01/workgraph.json",
+    "docs/evidence/ao-mission-doubled-wave-v01/README.md"
+  ],
+  "behavior": "Production readiness now requires a session-duration readback that records only metadata and explicitly denies content or secret inspection."
+}

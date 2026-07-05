@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "node_id": "node-03-session-duration-readback",
+  "status": "imported",
+  "bounded_task": "Record metadata-only Codex session-duration readback without reading log contents.",
+  "executes_one_node": true,
+  "safe_to_execute": false
+}
