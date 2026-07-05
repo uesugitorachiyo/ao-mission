@@ -2200,6 +2200,31 @@ func TestOperatorNextActionsDocsAreConcreteAndPublicSafe(t *testing.T) {
 	if err := ValidatePublicSafeText(text); err != nil {
 		t.Fatal(err)
 	}
+
+	runbookPath := filepath.Join("..", "..", "docs", "long-run-operator-runbook.md")
+	runbookBody, err := os.ReadFile(runbookPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runbook := string(runbookBody)
+	for _, want := range []string{
+		"Target 2-3 hours",
+		"--min-nodes 30 --min-minutes 120 --max-minutes 180",
+		"AO Mission owns the long-run lease",
+		"AO Atlas owns the workgraph",
+		"AO Foundry owns exactly one bounded implementation node",
+		"AO Blueprint is not a batching queue",
+		"final_response_allowed=false",
+		"Feature Depth Recommendations",
+		"Do not stop after one PR",
+	} {
+		if !strings.Contains(runbook, want) {
+			t.Fatalf("long-run operator runbook missing %q", want)
+		}
+	}
+	if err := ValidatePublicSafeText(runbook); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestArtifactManifestCommandWritesOutFile(t *testing.T) {

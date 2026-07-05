@@ -4,6 +4,11 @@ AO Mission should leave the operator with a concrete command, not only a
 generated artifact path. Use this short sequence when checking or continuing a
 mission.
 
+For doubled 2-3 hour waves, use the dedicated
+[Long-Run Operator Runbook](long-run-operator-runbook.md). It defines the
+30-node request shape, role routing, stop gate, per-node evidence, and Atlas
+continuation prompt template.
+
 ## Start And Inspect
 
 ```sh
@@ -166,3 +171,7 @@ rollup.
 Use AO Blueprint only for missing requirements, missing authorization, or an
 underspecified objective. Blueprint should not be used to split ordinary ready
 implementation batches.
+
+For doubled waves, Blueprint is not a batching queue. Use the long-run runbook
+and route ready Atlas nodes directly to Foundry one bounded implementation node
+at a time.

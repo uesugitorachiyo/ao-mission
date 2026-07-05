@@ -1,0 +1,13 @@
+{
+  "schema": "ao.evidence.implementation.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-15-operator-long-run-runbook",
+  "repo": "ao-mission",
+  "status": "implemented_local",
+  "changed_surfaces": [
+    "docs/long-run-operator-runbook.md: new operator runbook with lease, routing, stop gate, per-node evidence, continuation commands, and Atlas prompt template",
+    "docs/operator-next-actions.md: link to the long-run runbook and reinforce Blueprint is not a batching queue",
+    "README.md: link to the long-run runbook from the gateway/readback references",
+    "internal/mission/mission_test.go: extend docs regression coverage for doubled 2-3 hour wave language"
+  ]
+}

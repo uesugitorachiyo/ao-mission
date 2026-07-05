@@ -80,7 +80,7 @@ The messaging surface follows the same split used by Hermes-style gateways: CLI 
 
 Telegram is disabled by default. A config file may name the environment variable that contains the real token and a chat allowlist, but ao-mission never prints or persists the token value.
 
-See [Gateway Readback Runbook](docs/gateway-readback-runbook.md) for the fixture-backed command matrix, denied command examples, A2A JSON-RPC parameter checks, and intent-only authority boundary. See [Operator Next Actions](docs/operator-next-actions.md) for concrete next commands after Mission emits route readback.
+See [Gateway Readback Runbook](docs/gateway-readback-runbook.md) for the fixture-backed command matrix, denied command examples, A2A JSON-RPC parameter checks, and intent-only authority boundary. See [Operator Next Actions](docs/operator-next-actions.md) for concrete next commands after Mission emits route readback, and [Long-Run Operator Runbook](docs/long-run-operator-runbook.md) for doubled 2-3 hour Atlas/Foundry waves.
 
 ## Readback Surfaces
 
