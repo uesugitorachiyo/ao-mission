@@ -1,0 +1,23 @@
+{
+  "schema": "ao.evidence.tests.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-24-atlas-prompt-depth-regression",
+  "red_test": {
+    "command": "go test ./internal/mission -run TestAtlasContinuationPromptPacketRejectsShallowFeatureDepthRecommendations -count=1",
+    "result": "failed_before_implementation",
+    "output": "undefined: buildAtlasContinuationPromptPacket"
+  },
+  "green_tests": [
+    {
+      "command": "go test ./internal/mission -run 'TestAtlasContinuationPromptPacketRejectsShallowFeatureDepthRecommendations|TestAtlasContinuationPromptPacketBindsRollupReadinessAndEventIndex' -count=1",
+      "result": "passed"
+    }
+  ],
+  "remaining_checks": [
+    "go test ./... -count=1",
+    "go vet ./...",
+    "go build ./cmd/ao-mission",
+    "scripts/production-readiness.sh",
+    "GitHub CI after PR"
+  ]
+}

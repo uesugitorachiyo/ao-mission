@@ -5,11 +5,11 @@
   "minimum_nodes": 60,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 23,
-  "ready_nodes": 37,
+  "completed_nodes": 24,
+  "ready_nodes": 36,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue node-24: AO Mission final atlas-prompt regression rejecting shallow Feature Depth output.",
+  "exact_next_action": "Continue node-25: AO Mission final rollup schema fixture for ready-node denial.",
   "nodes": [
     {
       "node_id": "node-01-final-synthesis-cli",
@@ -148,6 +148,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Add doctor JSON fixture binding Command compact early-return risk."
+    },
+    {
+      "node_id": "node-24-atlas-prompt-depth-regression",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Add final atlas-prompt regression rejecting shallow Feature Depth output."
     }
   ]
 }

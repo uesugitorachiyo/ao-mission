@@ -1675,6 +1675,37 @@ func TestAtlasContinuationPromptPacketBindsRollupReadinessAndEventIndex(t *testi
 	}
 }
 
+func TestAtlasContinuationPromptPacketRejectsShallowFeatureDepthRecommendations(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("atlas prompt packet shallow feature depth")
+	if err != nil {
+		t.Fatal(err)
+	}
+	index, err := BuildMissionEventIndex(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rollup := BuildFinalRollup(rec)
+	rollup.FeatureDepthRecommendations = []FeatureDepthRecommendation{
+		{
+			ID:                  "shallow",
+			Owner:               "ao-atlas",
+			Task:                "Continue.",
+			Gate:                "too shallow",
+			EvidenceRequired:    []string{"one", "two", "three"},
+			EstimatedMinutes:    6,
+			ContinuationCommand: "ao-mission continue --mission " + rec.MissionID,
+			ExactNextAction:     "continue",
+			StopCondition:       defaultReturnOnlyWhen,
+		},
+	}
+	_, err = buildAtlasContinuationPromptPacket(rec, index, rollup)
+	if err == nil || !strings.Contains(err.Error(), "feature depth recommendations too shallow") {
+		t.Fatalf("expected shallow Feature Depth rejection, got %v", err)
+	}
+}
+
 func TestCLIAtlasContinuationPromptWritesPacket(t *testing.T) {
 	dir := t.TempDir()
 	var out, errb bytes.Buffer

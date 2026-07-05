@@ -1,0 +1,13 @@
+{
+  "schema": "ao.command.readback.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-24-atlas-prompt-depth-regression",
+  "status": "ready",
+  "summary": "Atlas continuation prompt packets now reject shallow Feature Depth recommendations before packet emission.",
+  "exact_next_action": "Continue node-25: AO Mission final rollup schema fixture for ready-node denial.",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false,
+  "rsi_remains_denied": true
+}

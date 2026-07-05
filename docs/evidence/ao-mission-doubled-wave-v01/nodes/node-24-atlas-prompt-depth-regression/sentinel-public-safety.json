@@ -1,0 +1,31 @@
+{
+  "schema": "ao.evidence.sentinel-public-safety.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-24-atlas-prompt-depth-regression",
+  "status": "local_scans_passed",
+  "scan_scope": [
+    "internal/mission/atlas_prompt.go",
+    "internal/mission/mission_test.go",
+    "docs/evidence/ao-mission-doubled-wave-v01/nodes/node-24-atlas-prompt-depth-regression"
+  ],
+  "safety_flags": {
+    "direct_main_mutation": false,
+    "credential_or_token_inspection": false,
+    "provider_calls": false,
+    "release_deploy_publish_upload_or_tag": false,
+    "dependency_updates": false,
+    "auth_policy_or_config_widening": false,
+    "hidden_instruction_mutation": false,
+    "broad_rsi_claim": false
+  },
+  "scan_results": [
+    {
+      "command": "credential and local-path pattern scan over node evidence",
+      "matches": 0
+    },
+    {
+      "command": "authority-widening and broad-RSI wording scan over node evidence",
+      "matches": 0
+    }
+  ]
+}
