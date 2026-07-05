@@ -1,0 +1,38 @@
+{
+  "schema": "ao.evidence.node-gate.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-20-readiness-safety-closure",
+  "owner": "ao-mission",
+  "status": "local_verified",
+  "route": "ao-mission",
+  "active_mutation_node": true,
+  "bounded_scope": [
+    "docs/evidence/ao-mission-doubled-wave-v01/README.md",
+    "docs/evidence/ao-mission-doubled-wave-v01/workgraph.json",
+    "docs/evidence/ao-mission-doubled-wave-v01/next-recommended-prompt.md",
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-doubled-wave-v01/nodes/node-20-readiness-safety-closure"
+  ],
+  "required_checks": [
+    "AO Mission go test ./... -count=1",
+    "AO Mission go vet ./...",
+    "AO Mission go build ./cmd/ao-mission",
+    "AO Mission scripts/production-readiness.sh",
+    "AO Mission production-readiness stale workgraph assertion repair",
+    "AO Command go test ./... -count=1",
+    "AO Command go vet ./...",
+    "AO Command go build ./cmd/ao-command",
+    "AO Command scripts/production-readiness-audit.sh",
+    "scoped public-safety scans over nodes 14-20 docs, fixtures, and evidence"
+  ],
+  "safety_boundaries": {
+    "direct_main_mutation": false,
+    "credential_or_token_inspection": false,
+    "provider_calls": false,
+    "release_deploy_publish_upload_or_tag": false,
+    "dependency_updates": false,
+    "auth_policy_or_config_widening": false,
+    "hidden_instruction_mutation": false,
+    "broad_rsi_claim": false
+  }
+}

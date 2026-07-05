@@ -5,11 +5,11 @@
   "minimum_nodes": 60,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 10,
-  "ready_nodes": 50,
+  "completed_nodes": 20,
+  "ready_nodes": 40,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue node-11: add Atlas continuation contract that refuses final response while ready nodes or exact next actions remain.",
+  "exact_next_action": "Continue node-21 through the next Atlas-owned Feature Depth wave.",
   "nodes": [
     {
       "node_id": "node-01-final-synthesis-cli",
@@ -70,6 +70,66 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Expose route, node, PR, CI, rollup, and blocker evidence as searchable Mission event aliases."
+    },
+    {
+      "node_id": "node-11-atlas-continuation-contract",
+      "owner": "ao-atlas",
+      "status": "completed",
+      "objective": "Require Atlas continuation contracts to refuse final response while ready nodes or exact next actions remain."
+    },
+    {
+      "node_id": "node-12-atlas-final-state-reconciliation-packet",
+      "owner": "ao-atlas",
+      "status": "completed",
+      "objective": "Emit Atlas final-state reconciliation packets comparing workgraph, Foundry rollup, Promoter verdict, and Command readback."
+    },
+    {
+      "node_id": "node-13-foundry-terminal-rollup-readiness-binding",
+      "owner": "ao-foundry",
+      "status": "completed",
+      "objective": "Bind Foundry final rollup readiness summaries for promoted, completed, denied, and blocked terminal states."
+    },
+    {
+      "node_id": "node-14-command-long-run-status-readback",
+      "owner": "ao-command",
+      "status": "completed",
+      "objective": "Expose compact AO Command long-run Mission status readback."
+    },
+    {
+      "node_id": "node-15-operator-long-run-runbook",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Document when to use Mission, Atlas, Blueprint, Foundry, and Command for 2-3 hour work."
+    },
+    {
+      "node_id": "node-16-until-done-cli-regression",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Add CLI regression proving continue --until-done does not stop after one governed handoff."
+    },
+    {
+      "node_id": "node-17-promoted-rollup-cli-regression",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Add CLI regression proving promoted Foundry rollups can close a mission when counts agree."
+    },
+    {
+      "node_id": "node-18-feature-depth-cli-regression",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Add CLI regression proving Feature Depth Recommendations return at least 10 actionable tasks."
+    },
+    {
+      "node_id": "node-19-final-response-ready-nodes-cli",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Add CLI regression proving final response is denied while ready nodes remain."
+    },
+    {
+      "node_id": "node-20-readiness-safety-closure",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Record production readiness verification and public-safety wording scans over changed docs, fixtures, and evidence."
     }
   ]
 }

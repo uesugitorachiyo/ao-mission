@@ -1,0 +1,17 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-20-readiness-safety-closure",
+  "route": "ao-mission",
+  "owning_supervisor": "ao-atlas",
+  "implementation_owner": "ao-mission",
+  "status": "imported",
+  "task": "Record readiness and public-safety closure for the first 20 nodes of the doubled wave.",
+  "acceptance": [
+    "AO Mission readiness passes",
+    "AO Command readiness passes after generated binary cleanup",
+    "workgraph counts update to 20 completed and 40 ready",
+    "next recommended prompt lists nodes 21-60",
+    "public-safety scans show no unsafe matches"
+  ]
+}

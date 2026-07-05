@@ -1,0 +1,42 @@
+{
+  "schema": "ao.evidence.tests.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-20-readiness-safety-closure",
+  "tests": [
+    {
+      "name": "AO Mission full verification",
+      "asserts": [
+        "go test ./... -count=1 passed",
+        "go vet ./... passed",
+        "go build ./cmd/ao-mission passed",
+        "scripts/production-readiness.sh passed"
+      ]
+    },
+    {
+      "name": "AO Command post-node-14 verification",
+      "asserts": [
+        "go test ./... -count=1 passed",
+        "go vet ./... passed",
+        "go build ./cmd/ao-command passed",
+        "production-readiness audit passed after removing generated ao-command binary"
+      ]
+    },
+    {
+      "name": "workgraph closure validation",
+      "asserts": [
+        "completed_nodes == 20",
+        "ready_nodes == 40",
+        "nodes length == 20",
+        "final_response_allowed == false"
+      ]
+    },
+    {
+      "name": "production readiness stale assertion repair",
+      "asserts": [
+        "production readiness no longer pins doubled-wave ready_nodes >= 50",
+        "production readiness requires completed_nodes >= 20",
+        "production readiness still requires final_response_allowed=false when ready nodes remain"
+      ]
+    }
+  ]
+}

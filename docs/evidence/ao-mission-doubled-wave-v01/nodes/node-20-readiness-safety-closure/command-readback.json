@@ -1,0 +1,12 @@
+{
+  "schema": "ao.command.node-readback.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-20-readiness-safety-closure",
+  "status": "ready_for_pr",
+  "summary": "First doubled-wave segment has 20 completed nodes, no blockers, readiness checks passing locally, and an exact next prompt for nodes 21-60.",
+  "completed_nodes": 20,
+  "ready_nodes": 40,
+  "blocked_nodes": 0,
+  "final_response_allowed": false,
+  "exact_next_action": "Open node 20 PR, wait for CI, merge, sync, delete codex branch, then use next-recommended-prompt.md for nodes 21-60."
+}
