@@ -5,11 +5,11 @@
   "minimum_nodes": 25,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 8,
-  "ready_nodes": 17,
+  "completed_nodes": 9,
+  "ready_nodes": 16,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue with node-09: run production readiness and public-safety final scan.",
+  "exact_next_action": "Continue with node-10: expose final reconciliation packets in CLI/readiness.",
   "nodes": [
     {
       "node_id": "node-01-atlas-recommendation-readback-import",
@@ -58,6 +58,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Document the 25-node Atlas recommendation import wave and generate the next recommended prompt."
+    },
+    {
+      "node_id": "node-09-reconciliation-mismatch-blockers",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Report exact blocker reasons when Mission final reconciliation artifacts disagree."
     }
   ]
 }

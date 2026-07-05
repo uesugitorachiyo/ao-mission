@@ -926,6 +926,37 @@ func TestFinalReconciliationPacketAgreesAcrossAtlasFoundryAndCommand(t *testing.
 	}
 }
 
+func TestFinalReconciliationPacketReportsFoundryAtlasMismatch(t *testing.T) {
+	rec := Record{
+		Schema:       RecordSchema,
+		MissionID:    "mission-reconcile-mismatch",
+		Status:       "done",
+		CurrentRoute: "complete",
+		CurrentPhase: "complete",
+		Evidence: EvidenceSummary{
+			AtlasRecommendation: &AtlasRecommendationReadbackCounts{
+				Status:               "completed",
+				TotalNodes:           40,
+				CompletedNodes:       40,
+				ReadyNodes:           0,
+				CheckpointCount:      40,
+				MinMinutesMet:        true,
+				LeaseTimeStatus:      "minimum_minutes_met",
+				ReturnGateStatus:     "final_response_allowed",
+				FinalResponseAllowed: true,
+			},
+			FoundryRollup: &FoundryRollupCounts{Status: "completed", CompletedNodes: 39, TotalNodes: 40},
+		},
+	}
+	packet := BuildFinalReconciliationPacket(rec)
+	if packet.Status != "blocked" || packet.ArtifactsAgree {
+		t.Fatalf("reconciliation mismatch should block: %+v", packet)
+	}
+	if !strings.Contains(packet.Blocker, "Foundry completed_nodes=39") || !strings.Contains(packet.Blocker, "Atlas completed_nodes=40") {
+		t.Fatalf("packet missing exact mismatch blocker: %+v", packet)
+	}
+}
+
 func TestFeatureDepthRecommendationsReturnAtLeastTenActionableTasks(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)

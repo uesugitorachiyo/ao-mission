@@ -593,6 +593,7 @@ type MissionFinalReconciliationPacket struct {
 	ReadyNodes                int    `json:"ready_nodes"`
 	FinalResponseAllowed      bool   `json:"final_response_allowed"`
 	ReturnGateStatus          string `json:"return_gate_status"`
+	Blocker                   string `json:"blocker,omitempty"`
 	PromotionClaimed          bool   `json:"promotion_claimed"`
 	RSIRemainsDenied          bool   `json:"rsi_remains_denied"`
 	ClaimsAuthorityAdvance    bool   `json:"claims_authority_advance"`
