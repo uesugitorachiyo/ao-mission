@@ -1178,7 +1178,24 @@ func run(args []string, stdout io.Writer) error {
 			}
 			return printJSON(stdout, BuildFinalReconciliationPacket(r))
 		}
-		return errors.New("final requires rollup --mission <id> or reconcile --mission <id>")
+		if len(args) >= 2 && args[1] == "synthesize" {
+			fs := flag.NewFlagSet("final synthesize", flag.ContinueOnError)
+			id := fs.String("mission", "", "")
+			evidenceRoot := fs.String("evidence-root", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			r, err := s.Load(*id)
+			if err != nil {
+				return err
+			}
+			synthesis, err := BuildAtlasWaveFinalSynthesis(r, *evidenceRoot)
+			if err != nil {
+				return err
+			}
+			return printJSON(stdout, synthesis)
+		}
+		return errors.New("final requires rollup --mission <id>, reconcile --mission <id>, or synthesize --mission <id> --evidence-root <path>")
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}

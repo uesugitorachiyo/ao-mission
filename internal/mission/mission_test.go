@@ -1220,6 +1220,48 @@ func TestCLIFinalReconcileEmitsPacket(t *testing.T) {
 	}
 }
 
+func TestCLIFinalSynthesizeEmitsEvidenceRootPacket(t *testing.T) {
+	dir := t.TempDir()
+	evidenceRoot := filepath.Join(dir, "evidence")
+	if err := os.MkdirAll(evidenceRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	workgraph := `{"schema":"ao.atlas.workgraph.v0.1","mission":"ao-mission-doubled-wave-v01","status":"completed","minimum_nodes":60,"target_minutes":120,"max_minutes":180,"completed_nodes":60,"ready_nodes":0,"blocked_nodes":0,"final_response_allowed":true,"exact_next_action":"read final synthesis"}`
+	if err := os.WriteFile(filepath.Join(evidenceRoot, "workgraph.json"), []byte(workgraph), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	closure := `{"schema":"ao.mission.post-merge-final-closure.v0.1","mission":"ao-mission-doubled-wave-v01","status":"completed","completed_nodes":60,"ready_nodes":0,"blocked_nodes":0,"merged_prs":[101,102],"stale_local_codex_branches_remaining":0,"stale_remote_codex_branches_remaining":0,"final_response_allowed":true,"rsi_remains_denied":true}`
+	if err := os.WriteFile(filepath.Join(evidenceRoot, "post-merge-final-closure.json"), []byte(closure), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "cli final synthesis"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "final", "synthesize", "--mission", rec.MissionID, "--evidence-root", evidenceRoot}, &out, &errb); code != 0 {
+		t.Fatalf("final synthesize: %s", errb.String())
+	}
+	var packet AtlasWaveFinalSynthesis
+	if err := json.Unmarshal(out.Bytes(), &packet); err != nil {
+		t.Fatal(err)
+	}
+	if packet.Schema != "ao.mission.atlas-wave-final-synthesis.v0.1" || packet.Mission != "ao-mission-doubled-wave-v01" || packet.CompletedNodes != 60 || packet.ReadyNodes != 0 || packet.BlockedNodes != 0 || !packet.FinalResponseAllowed {
+		t.Fatalf("bad final synthesis packet: %+v", packet)
+	}
+	if len(packet.FeatureDepthRecommendations) < 20 {
+		t.Fatalf("recommendations too shallow: %d", len(packet.FeatureDepthRecommendations))
+	}
+	if packet.CurrentNodePRPending || packet.PromotionClaimed || packet.ClaimsAuthorityAdvance || !packet.RSIRemainsDenied || packet.ExecutesWork || packet.ApprovesWork || packet.MutatesRepositories {
+		t.Fatalf("final synthesis widened authority or kept stale pending state: %+v", packet)
+	}
+}
+
 func TestFeatureDepthRecommendationsReturnAtLeastTenActionableTasks(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)

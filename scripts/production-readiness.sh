@@ -25,6 +25,7 @@ inspect_json="$(mktemp)"
 reconcile_json="$(mktemp)"
 event_index_json="$(mktemp)"
 event_search_json="$(mktemp)"
+synthesis_json="$(mktemp)"
 ./ao-mission --home "$tmp_home" start "import completed Atlas recommendation wave" >"$mission_json"
 mission_id="$(jq -r '.mission_id' "$mission_json")"
 ./ao-mission --home "$tmp_home" import atlas-recommendation-readback --mission "$mission_id" --path examples/valid/atlas-recommendation-readback.json >"$import_json"
@@ -36,7 +37,9 @@ jq -e '.schema == "ao.mission.final-reconciliation-packet.v0.1" and .artifacts_a
 ./ao-mission --home "$tmp_home" mission events index --out "$event_index_json" >/dev/null
 ./ao-mission --home "$tmp_home" mission events search --mission "$mission_id" --kind final_reconciliation --index "$event_index_json" --json >"$event_search_json"
 jq -e '.schema == "ao.mission.event-search-readback.v0.1" and .status == "ready" and .total_matches >= 1 and .events[0].kind == "final_reconciliation" and .safe_to_execute == false and .executes_work == false and .approves_work == false' "$event_search_json" >/dev/null
-rm -rf "$tmp_home" "$mission_json" "$import_json" "$inspect_json" "$reconcile_json" "$event_index_json" "$event_search_json" ao-mission
+./ao-mission --home "$tmp_home" final synthesize --mission "$mission_id" --evidence-root docs/evidence/ao-mission-doubled-wave-v01 >"$synthesis_json"
+jq -e '.schema == "ao.mission.atlas-wave-final-synthesis.v0.1" and .mission == "ao-mission-doubled-wave-v01" and .completed_nodes == 1 and .ready_nodes == 59 and .final_response_allowed == false and (.feature_depth_recommendations | length >= 20) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .rsi_remains_denied == true' "$synthesis_json" >/dev/null
+rm -rf "$tmp_home" "$mission_json" "$import_json" "$inspect_json" "$reconcile_json" "$event_index_json" "$event_search_json" "$synthesis_json" ao-mission
 grep -q "25-node Atlas recommendation import wave" docs/operator-next-actions.md
 grep -q "Do not stop before 25 completed nodes" docs/evidence/ao-mission-atlas-wave-import-v01/next-recommended-prompt.md
 grep -q "final-reconciliation-packet.json" docs/operator-next-actions.md

@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "node_id": "node-01-final-synthesis-cli",
+  "status": "imported",
+  "bounded_task": "Add generated final synthesis CLI readback from live Mission state and evidence-root workgraph.",
+  "executes_one_node": true,
+  "safe_to_execute": false
+}

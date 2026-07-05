@@ -1,0 +1,14 @@
+{
+  "schema": "ao.foundry.implementation-evidence.v0.1",
+  "node_id": "node-01-final-synthesis-cli",
+  "status": "implemented",
+  "changed_files": [
+    "internal/mission/types.go",
+    "internal/mission/final_synthesis.go",
+    "internal/mission/cli.go",
+    "internal/mission/mission_test.go",
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-doubled-wave-v01/workgraph.json"
+  ],
+  "behavior": "AO Mission final synthesize emits ao.mission.atlas-wave-final-synthesis.v0.1 from the live Mission record and evidence-root workgraph with at least 20 Feature Depth recommendations."
+}

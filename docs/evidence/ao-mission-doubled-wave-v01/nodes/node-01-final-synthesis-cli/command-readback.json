@@ -1,0 +1,7 @@
+{
+  "schema": "ao.command.readback.v0.1",
+  "node_id": "node-01-final-synthesis-cli",
+  "status": "ready_for_review",
+  "summary": "AO Mission final synthesize now emits final synthesis packets from live Mission state and evidence-root workgraph.",
+  "exact_next_action": "merge node 01 after CI, then continue node 02"
+}

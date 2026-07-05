@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.candidate-record.v0.1",
+  "node_id": "node-01-final-synthesis-cli",
+  "status": "selected",
+  "candidate": "Implement ao-mission final synthesize --mission <id> --evidence-root <path>.",
+  "owner": "ao-mission",
+  "why_now": "The previous wave ended with a hand-authored synthesis artifact; the next wave needs generated readback from live Mission state."
+}
