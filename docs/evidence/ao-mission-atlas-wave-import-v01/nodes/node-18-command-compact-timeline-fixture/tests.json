@@ -1,0 +1,7 @@
+{
+  "schema": "ao.foundry.tests.v0.1",
+  "node_id": "node-18-command-compact-timeline-fixture",
+  "status": "passed",
+  "red": "go test ./internal/mission -run TestCommandCompactTimelineFixtureCoversAtlasAndReconciliationEvents -count=1 failed because command-compact-timeline-readback.json was missing.",
+  "green": "The targeted test and full verification pass after adding the fixture and readiness assertion."
+}

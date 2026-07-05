@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "node_id": "node-18-command-compact-timeline-fixture",
+  "status": "imported",
+  "bounded_task": "Bind compact Command timeline fixture over Mission event-index evidence.",
+  "executes_one_node": true,
+  "safe_to_execute": false
+}

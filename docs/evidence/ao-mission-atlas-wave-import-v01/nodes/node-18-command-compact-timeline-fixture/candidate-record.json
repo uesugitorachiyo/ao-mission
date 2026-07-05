@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.candidate-record.v0.1",
+  "node_id": "node-18-command-compact-timeline-fixture",
+  "status": "selected",
+  "candidate": "Add a Command compact timeline fixture over Atlas recommendation and final reconciliation event evidence.",
+  "owner": "ao-mission",
+  "why_now": "Command readback should summarize the exact long-run closure evidence instead of requiring manual event-index inspection."
+}

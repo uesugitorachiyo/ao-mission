@@ -1,0 +1,13 @@
+{
+  "schema": "ao.foundry.implementation-evidence.v0.1",
+  "node_id": "node-18-command-compact-timeline-fixture",
+  "status": "implemented",
+  "changed_files": [
+    "internal/mission/mission_test.go",
+    "examples/valid/command-compact-timeline-readback.json",
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/workgraph.json",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/README.md"
+  ],
+  "behavior": "The fixture-backed regression requires compact Command readback to include Atlas recommendation and final reconciliation events while preserving no-authority flags."
+}
