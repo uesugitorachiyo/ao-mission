@@ -1,0 +1,8 @@
+{
+  "schema": "ao.atlas.node-gate.v0.1",
+  "node_id": "node-25-final-synthesis-next-recommendations",
+  "status": "passed",
+  "gate": "Final synthesis requires 25 completed nodes, zero ready nodes, zero blocked nodes, no promotion claim, RSI denied, and at least 10 next recommendations.",
+  "active_mutation_node": "node-25-final-synthesis-next-recommendations",
+  "exact_next_action": "verify final synthesis, open PR, wait for CI, merge, confirm cleanup, and report closure"
+}

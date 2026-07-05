@@ -1,0 +1,13 @@
+{
+  "schema": "ao.foundry.implementation-evidence.v0.1",
+  "node_id": "node-25-final-synthesis-next-recommendations",
+  "status": "implemented",
+  "changed_files": [
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/final-synthesis.json",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/next-wave-recommended-prompt.md",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/workgraph.json",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/README.md"
+  ],
+  "behavior": "Production readiness now requires completed final synthesis, zero ready nodes, final response allowed, and at least 10 next Feature Depth recommendations."
+}

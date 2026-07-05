@@ -1,0 +1,7 @@
+{
+  "schema": "ao.command.readback.v0.1",
+  "node_id": "node-25-final-synthesis-next-recommendations",
+  "status": "ready_for_review",
+  "summary": "Final synthesis closes the 25-node wave and supplies the next 30-node prompt.",
+  "exact_next_action": "merge node 25 after CI, confirm branch cleanup, and report final wave closure"
+}

@@ -1,0 +1,6 @@
+{
+  "schema": "ao.foundry.rollback-record.v0.1",
+  "node_id": "node-25-final-synthesis-next-recommendations",
+  "rollback": "Remove final-synthesis.json, next-wave-recommended-prompt.md, and their production-readiness assertions.",
+  "safe_to_revert": true
+}

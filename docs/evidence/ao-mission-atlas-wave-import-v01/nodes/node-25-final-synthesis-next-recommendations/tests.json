@@ -1,0 +1,7 @@
+{
+  "schema": "ao.foundry.tests.v0.1",
+  "node_id": "node-25-final-synthesis-next-recommendations",
+  "status": "passed",
+  "red": "scripts/production-readiness.sh failed because final-synthesis.json did not exist.",
+  "green": "scripts/production-readiness.sh passes after adding final synthesis and next-wave prompt artifacts."
+}

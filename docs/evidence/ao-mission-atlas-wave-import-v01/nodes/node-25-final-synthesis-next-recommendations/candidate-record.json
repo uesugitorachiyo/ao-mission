@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.candidate-record.v0.1",
+  "node_id": "node-25-final-synthesis-next-recommendations",
+  "status": "selected",
+  "candidate": "Add final synthesis and next Feature Depth recommendations for the 25-node Atlas recommendation import wave.",
+  "owner": "ao-mission",
+  "why_now": "All prior generated nodes are complete; final response needs durable synthesis and next prompt evidence."
+}
