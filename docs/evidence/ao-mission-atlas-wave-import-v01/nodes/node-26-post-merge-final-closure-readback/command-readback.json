@@ -1,0 +1,7 @@
+{
+  "schema": "ao.command.readback.v0.1",
+  "node_id": "node-26-post-merge-final-closure-readback",
+  "status": "ready_for_review",
+  "summary": "Post-merge closure evidence removes stale PR-pending final synthesis state.",
+  "exact_next_action": "merge node 26 after CI, confirm branch cleanup, and report final closure"
+}

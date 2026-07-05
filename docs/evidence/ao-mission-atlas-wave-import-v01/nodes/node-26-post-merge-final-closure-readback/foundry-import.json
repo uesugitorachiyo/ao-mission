@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "node_id": "node-26-post-merge-final-closure-readback",
+  "status": "imported",
+  "bounded_task": "Correct stale final synthesis after PR #45 merge and bind post-merge closure readback.",
+  "executes_one_node": true,
+  "safe_to_execute": false
+}

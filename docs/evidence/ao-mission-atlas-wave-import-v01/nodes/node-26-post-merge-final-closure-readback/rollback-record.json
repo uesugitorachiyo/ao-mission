@@ -1,0 +1,6 @@
+{
+  "schema": "ao.foundry.rollback-record.v0.1",
+  "node_id": "node-26-post-merge-final-closure-readback",
+  "rollback": "Restore the pre-node-26 final-synthesis fields and remove post-merge-final-closure.json plus its production-readiness assertion.",
+  "safe_to_revert": true
+}

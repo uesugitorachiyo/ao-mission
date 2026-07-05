@@ -5,11 +5,11 @@
   "minimum_nodes": 25,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 25,
+  "completed_nodes": 26,
   "ready_nodes": 0,
   "blocked_nodes": 0,
   "final_response_allowed": true,
-  "exact_next_action": "Wave complete after node 25; read final-synthesis.json and next-wave-recommended-prompt.md.",
+  "exact_next_action": "Wave complete after node 26 post-merge closure; read final-synthesis.json and next-wave-recommended-prompt.md.",
   "nodes": [
     {
       "node_id": "node-01-atlas-recommendation-readback-import",
@@ -160,6 +160,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Close the 25-node wave with final synthesis and next Feature Depth recommendations."
+    },
+    {
+      "node_id": "node-26-post-merge-final-closure-readback",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Update final synthesis and closure evidence after node 25 PR merge and branch cleanup."
     }
   ]
 }

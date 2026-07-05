@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.candidate-record.v0.1",
+  "node_id": "node-26-post-merge-final-closure-readback",
+  "status": "selected",
+  "candidate": "Update final synthesis and add post-merge closure evidence after node 25 merged.",
+  "owner": "ao-mission",
+  "why_now": "The final synthesis still had stale PR-pending wording after PR #45 merged; final response should point to the next wave prompt instead."
+}

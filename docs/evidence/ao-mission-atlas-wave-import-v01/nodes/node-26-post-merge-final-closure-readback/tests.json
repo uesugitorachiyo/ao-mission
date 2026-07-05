@@ -1,0 +1,7 @@
+{
+  "schema": "ao.foundry.tests.v0.1",
+  "node_id": "node-26-post-merge-final-closure-readback",
+  "status": "passed",
+  "red": "scripts/production-readiness.sh failed because final-synthesis.json still had current_node_pr_pending=true and post-merge-final-closure.json was missing.",
+  "green": "scripts/production-readiness.sh passes after updating final synthesis and adding post-merge closure evidence."
+}
