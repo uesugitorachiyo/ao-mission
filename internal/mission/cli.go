@@ -1054,6 +1054,9 @@ func run(args []string, stdout io.Writer) error {
 				return printJSON(stdout, status)
 			}
 			fmt.Fprintf(stdout, "mission=%s\nstatus=%s\nread_only=%t\nexecutes_work=%t\nnext=%s\n", status.MissionID, status.Status, status.ReadOnly, status.ExecutesWork, status.ExactNextAction)
+			if status.AtlasRecommendation != nil {
+				fmt.Fprintf(stdout, "atlas_recommendation=%s completed_nodes=%d total_nodes=%d ready_nodes=%d final_response_allowed=%t\n", status.AtlasRecommendation.Status, status.AtlasRecommendation.CompletedNodes, status.AtlasRecommendation.TotalNodes, status.AtlasRecommendation.ReadyNodes, status.AtlasRecommendation.FinalResponseAllowed)
+			}
 			return nil
 		}
 		return errors.New("command requires status")

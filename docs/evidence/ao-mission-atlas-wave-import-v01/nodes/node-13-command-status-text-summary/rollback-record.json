@@ -1,0 +1,7 @@
+{
+  "schema": "ao.mission.rollback-record.v0.1",
+  "node_id": "node-13-command-status-text-summary",
+  "rollback": "Remove the extra command status text line and CLI regression test.",
+  "risk": "Low; readback-only text output extension.",
+  "requires_release": false
+}
