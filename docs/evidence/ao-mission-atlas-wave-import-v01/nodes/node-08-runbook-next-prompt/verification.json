@@ -1,0 +1,31 @@
+{
+  "schema": "ao.mission.verification-readback.v0.1",
+  "node_id": "node-08-runbook-next-prompt",
+  "status": "full_local_verification_passed",
+  "commands": [
+    {
+      "command": "scripts/production-readiness.sh",
+      "result": "failed before implementation because required docs/prompt phrases were missing"
+    },
+    {
+      "command": "scripts/production-readiness.sh",
+      "result": "AO Mission production readiness: 100/100 status=ready"
+    },
+    {
+      "command": "find docs/evidence/ao-mission-atlas-wave-import-v01 -name '*.json' -print0 | xargs -0 -n1 jq -e . >/dev/null",
+      "result": "passed"
+    },
+    {
+      "command": "go test ./... -count=1",
+      "result": "passed"
+    },
+    {
+      "command": "go vet ./...",
+      "result": "passed"
+    },
+    {
+      "command": "go build ./cmd/ao-mission",
+      "result": "passed"
+    }
+  ]
+}

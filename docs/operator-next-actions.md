@@ -53,6 +53,13 @@ checkpoint evidence for the wave, the long-run lease minimum met, and
 `final_response_allowed=true`. If any of those are missing, Mission keeps the
 route on AO Atlas and preserves the exact next action for continuation.
 
+For the 25-node Atlas recommendation import wave, use Mission as the supervisor
+and keep importing Atlas readbacks after each bounded node. Do not stop at a
+green PR, a single rollup, or one completed import. Continue until at least 25
+nodes complete, all ready nodes are gone, the 120-minute lease minimum is met,
+and Mission, Atlas, Foundry, Command, and Promoter readbacks agree. This is the
+25-node Atlas recommendation import wave closure gate.
+
 ## Gateway Fixture Checks
 
 ```sh
