@@ -1,0 +1,6 @@
+{
+  "schema": "ao.foundry.rollback-record.v0.1",
+  "node_id": "node-21-final-reconciliation-mismatch-fixture",
+  "rollback": "Remove final-reconciliation-mismatch-packet.json, its regression test, and the production-readiness assertion.",
+  "safe_to_revert": true
+}

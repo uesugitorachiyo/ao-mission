@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.candidate-record.v0.1",
+  "node_id": "node-21-final-reconciliation-mismatch-fixture",
+  "status": "selected",
+  "candidate": "Add blocked final reconciliation mismatch fixture and production-readiness validation.",
+  "owner": "ao-mission",
+  "why_now": "The ready final reconciliation fixture exists; the blocked mismatch path needs durable fixture evidence too."
+}

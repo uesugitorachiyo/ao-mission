@@ -5,11 +5,11 @@
   "minimum_nodes": 25,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 20,
-  "ready_nodes": 5,
+  "completed_nodes": 21,
+  "ready_nodes": 4,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue with node-21: add final reconciliation mismatch fixture and readiness validation.",
+  "exact_next_action": "Continue with node-22: add event index fixture for final reconciliation search results.",
   "nodes": [
     {
       "node_id": "node-01-atlas-recommendation-readback-import",
@@ -130,6 +130,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Add production-readiness smoke coverage for event-searching final reconciliation evidence."
+    },
+    {
+      "node_id": "node-21-final-reconciliation-mismatch-fixture",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Add a blocked final reconciliation mismatch fixture with exact Foundry/Atlas blocker validation."
     }
   ]
 }

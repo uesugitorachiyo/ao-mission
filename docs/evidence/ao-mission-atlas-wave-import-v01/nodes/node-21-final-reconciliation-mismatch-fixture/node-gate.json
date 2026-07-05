@@ -1,0 +1,8 @@
+{
+  "schema": "ao.atlas.node-gate.v0.1",
+  "node_id": "node-21-final-reconciliation-mismatch-fixture",
+  "status": "passed",
+  "gate": "Final reconciliation mismatch fixtures must preserve exact blocker wording and no-authority boundaries.",
+  "active_mutation_node": "node-21-final-reconciliation-mismatch-fixture",
+  "exact_next_action": "verify fixture, open PR, wait for CI, merge, and continue node 22"
+}
