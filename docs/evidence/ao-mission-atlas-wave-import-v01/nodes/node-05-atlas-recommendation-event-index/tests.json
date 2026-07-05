@@ -1,0 +1,9 @@
+{
+  "schema": "ao.mission.tests-readback.v0.1",
+  "node_id": "node-05-atlas-recommendation-event-index",
+  "red": "go test ./internal/mission -run TestEventIndexSearchesAtlasRecommendationReadbackEvidence -count=1 failed because no atlas_recommendation events existed.",
+  "green": "go test ./internal/mission -run TestEventIndexSearchesAtlasRecommendationReadbackEvidence -count=1 passed after event construction.",
+  "regressions": [
+    "TestEventIndexSearchesAtlasRecommendationReadbackEvidence"
+  ]
+}
