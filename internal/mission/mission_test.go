@@ -1197,6 +1197,64 @@ func TestEventIndexSearchesRouteNodePRCIRollupAndBlockerEvidence(t *testing.T) {
 	}
 }
 
+func TestEventEvidenceAliasSearchReadbacksFixtureCoversAllAliases(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("..", "..", "examples", "valid", "event-evidence-alias-search-readbacks.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Schema     string   `json:"schema"`
+		Status     string   `json:"status"`
+		Mission    string   `json:"mission"`
+		EventKinds []string `json:"event_kinds"`
+		Searches   []struct {
+			Kind                string `json:"kind"`
+			Query               string `json:"query"`
+			TotalMatches        int    `json:"total_matches"`
+			SafeToExecute       bool   `json:"safe_to_execute"`
+			ExecutesWork        bool   `json:"executes_work"`
+			ApprovesWork        bool   `json:"approves_work"`
+			MutatesRepositories bool   `json:"mutates_repositories"`
+		} `json:"searches"`
+		SafeToExecute       bool `json:"safe_to_execute"`
+		ExecutesWork        bool `json:"executes_work"`
+		ApprovesWork        bool `json:"approves_work"`
+		MutatesRepositories bool `json:"mutates_repositories"`
+		RSIRemainsDenied    bool `json:"rsi_remains_denied"`
+	}
+	if err := json.Unmarshal(body, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	if fixture.Schema != "ao.mission.event-evidence-alias-search-readbacks.v0.1" || fixture.Status != "passed" || fixture.Mission != "ao-mission-doubled-wave-v01" {
+		t.Fatalf("bad fixture header: %+v", fixture)
+	}
+	expected := []string{"route_evidence", "node_evidence", "pr_evidence", "ci_evidence", "rollup_evidence", "blocker_evidence"}
+	for _, kind := range expected {
+		if !stringSliceContains(fixture.EventKinds, kind) {
+			t.Fatalf("fixture missing event kind %s: %+v", kind, fixture.EventKinds)
+		}
+		found := false
+		for _, search := range fixture.Searches {
+			if search.Kind != kind {
+				continue
+			}
+			found = true
+			if search.TotalMatches < 1 || search.SafeToExecute || search.ExecutesWork || search.ApprovesWork || search.MutatesRepositories {
+				t.Fatalf("bad %s search fixture: %+v", kind, search)
+			}
+		}
+		if !found {
+			t.Fatalf("fixture missing search readback for %s", kind)
+		}
+	}
+	if fixture.SafeToExecute || fixture.ExecutesWork || fixture.ApprovesWork || fixture.MutatesRepositories || !fixture.RSIRemainsDenied {
+		t.Fatalf("fixture widened authority or failed RSI denial: %+v", fixture)
+	}
+	if err := ValidatePublicSafeText(string(body)); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestEventIndexSearchesAtlasRecommendationReadbackEvidence(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)

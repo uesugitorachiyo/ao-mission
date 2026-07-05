@@ -1,0 +1,12 @@
+{
+  "schema": "ao.command.node-readback.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-21-event-alias-fixture",
+  "status": "ready_for_full_verification",
+  "summary": "AO Mission now has a durable event-search fixture proving route, node, PR, CI, rollup, and blocker aliases.",
+  "completed_nodes": 21,
+  "ready_nodes": 39,
+  "blocked_nodes": 0,
+  "final_response_allowed": false,
+  "exact_next_action": "Run full AO Mission verification, open PR, wait for CI, merge, sync, delete codex branch, then continue node 22."
+}

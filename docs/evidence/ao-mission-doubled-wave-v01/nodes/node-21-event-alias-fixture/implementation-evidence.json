@@ -1,0 +1,13 @@
+{
+  "schema": "ao.evidence.implementation.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-21-event-alias-fixture",
+  "repo": "ao-mission",
+  "status": "implemented_local",
+  "changed_surfaces": [
+    "internal/mission/mission_test.go: added fixture validation for all six event evidence aliases",
+    "examples/valid/event-evidence-alias-search-readbacks.json: added operator-facing readback fixture",
+    "scripts/production-readiness.sh: added fixture validation",
+    "docs/evidence/ao-mission-doubled-wave-v01/workgraph.json: advanced node count to 21"
+  ]
+}
