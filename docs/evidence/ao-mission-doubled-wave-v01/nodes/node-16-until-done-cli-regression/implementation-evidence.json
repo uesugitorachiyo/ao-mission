@@ -1,0 +1,11 @@
+{
+  "schema": "ao.evidence.implementation.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-16-until-done-cli-regression",
+  "repo": "ao-mission",
+  "status": "implemented_local",
+  "changed_surfaces": [
+    "internal/mission/mission_test.go: added TestCLIContinueUntilDonePersistsMultipleHandoffs"
+  ],
+  "behavioral_summary": "The operator-facing CLI path now has direct regression coverage for multi-handoff --until-done continuation and early-return denial."
+}

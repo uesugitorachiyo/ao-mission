@@ -1,0 +1,8 @@
+{
+  "schema": "ao.command.node-readback.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-16-until-done-cli-regression",
+  "status": "ready_for_full_verification",
+  "summary": "AO Mission CLI regression now proves --until-done continues through five governed handoffs and keeps final response denied while work remains.",
+  "exact_next_action": "Run full AO Mission verification, open PR, wait for CI, merge, sync, delete codex branch, then continue node 17."
+}

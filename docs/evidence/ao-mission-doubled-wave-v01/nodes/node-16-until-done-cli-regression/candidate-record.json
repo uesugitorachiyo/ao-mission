@@ -1,0 +1,20 @@
+{
+  "schema": "ao.evidence.candidate-record.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-16-until-done-cli-regression",
+  "candidate": {
+    "repo": "ao-mission",
+    "branch": "codex/doubled-wave-node-16-until-done-cli-regression",
+    "summary": "Add CLI regression coverage proving continue --until-done persists multiple handoffs instead of stopping after one.",
+    "reason": "The observed orchestration regression returned after short batches. Store-level coverage existed, but the operator-facing CLI path also needs a direct guard."
+  },
+  "expected_behavior": [
+    "ao-mission continue --until-done --max-iterations 5 emits five continuation steps.",
+    "The command persists five checkpoints and a checkpoint bundle.",
+    "The event-loop decision records iteration 5, not iteration 1.",
+    "The long-run lease fields from CLI flags are preserved.",
+    "Final response remains denied while lease and ready work remain."
+  ],
+  "risk": "Low: test-only change.",
+  "rollback": "Revert the added test and node evidence."
+}

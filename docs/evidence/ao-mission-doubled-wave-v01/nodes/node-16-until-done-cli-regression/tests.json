@@ -1,0 +1,27 @@
+{
+  "schema": "ao.evidence.tests.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-16-until-done-cli-regression",
+  "tests": [
+    {
+      "name": "TestCLIContinueUntilDonePersistsMultipleHandoffs",
+      "path": "internal/mission/mission_test.go",
+      "asserts": [
+        "CLI continue --until-done --max-iterations 5 produces five steps",
+        "five checkpoints and checkpoint bundle are persisted",
+        "event-loop decision records iteration 5",
+        "goal lease preserves min_nodes=15, min_minutes=120, max_minutes=180, max_iterations=5, and checkpoint policy",
+        "return gate denies final response while work remains"
+      ]
+    },
+    {
+      "name": "TestContinueUntilDoneDoesNotStopAfterOneHandoff",
+      "path": "internal/mission/mission_test.go",
+      "asserts": [
+        "store-level Continue remains multi-iteration under --until-done"
+      ]
+    }
+  ],
+  "focused_command": "go test ./internal/mission -run 'TestContinueUntilDoneDoesNotStopAfterOneHandoff|TestCLIContinueUntilDonePersistsMultipleHandoffs' -count=1",
+  "focused_result": "passed"
+}
