@@ -1,0 +1,12 @@
+{
+  "schema": "ao.promoter.no-promotion-readback.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-22-checkpoint-replay-smoke",
+  "status": "no_promotion_requested",
+  "reason": "Checkpoint inspect replay is readback-only support evidence and does not prove or request a new authority class.",
+  "promotion_claimed": false,
+  "claims_authority_advance": false,
+  "rsi_remains_denied": true,
+  "executes_work": false,
+  "approves_work": false
+}

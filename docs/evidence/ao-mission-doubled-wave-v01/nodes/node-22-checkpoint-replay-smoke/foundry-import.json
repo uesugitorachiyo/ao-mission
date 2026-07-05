@@ -1,0 +1,19 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-22-checkpoint-replay-smoke",
+  "owner": "ao-mission",
+  "task": "Implement only the checkpoint inspect replay smoke after Atlas readback import.",
+  "inputs": [
+    "examples/valid/atlas-final-synthesis-readback.json",
+    "internal/mission/imports.go",
+    "internal/mission/supervisor.go",
+    "scripts/production-readiness.sh"
+  ],
+  "constraints": [
+    "readback-only CLI path",
+    "no execution authority",
+    "no provider calls",
+    "RSI remains denied"
+  ]
+}

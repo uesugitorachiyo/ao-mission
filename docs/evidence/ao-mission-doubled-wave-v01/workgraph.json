@@ -5,11 +5,11 @@
   "minimum_nodes": 60,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 21,
-  "ready_nodes": 39,
+  "completed_nodes": 22,
+  "ready_nodes": 38,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue node-22: AO Mission checkpoint-resume replay smoke after Atlas readback import.",
+  "exact_next_action": "Continue node-23: AO Mission doctor JSON fixture binding Command compact early-return risk.",
   "nodes": [
     {
       "node_id": "node-01-final-synthesis-cli",
@@ -136,6 +136,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Add event-search fixture proving route, node, PR, CI, rollup, and blocker aliases."
+    },
+    {
+      "node_id": "node-22-checkpoint-replay-smoke",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Add checkpoint inspect replay smoke after Atlas readback import."
     }
   ]
 }

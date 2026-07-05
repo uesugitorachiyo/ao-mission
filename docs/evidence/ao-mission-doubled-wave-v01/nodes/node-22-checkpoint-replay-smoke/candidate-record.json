@@ -1,0 +1,12 @@
+{
+  "schema": "ao.evidence.candidate-record.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-22-checkpoint-replay-smoke",
+  "selected_candidate": "Expose readback-only checkpoint inspect and prove it replays the bundle written after Atlas final-synthesis readback import.",
+  "rejected_candidates": [
+    "Only test the private Store.LoadCheckpointBundle helper; rejected because docs and Feature Depth commands require an operator-facing CLI.",
+    "Add a mutation-style resume command; rejected because node 22 is readback/replay only and must not execute work.",
+    "Add a new provider-backed replay path; rejected because provider calls are outside the safety boundary."
+  ],
+  "decision_basis": "The existing code writes checkpoint bundles on import, but the documented checkpoint inspect command was missing from the CLI."
+}

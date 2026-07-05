@@ -19,11 +19,11 @@
   },
   "scan_results": [
     {
-      "command": "rg -n \"(/Users/|gh[pousr]_|sk-[A-Za-z0-9]{20,}|BEGIN (RSA |OPENSSH |PRIVATE )?PRIVATE KEY|(?i)(password|token|cookie)\\s*[:=]\\s*[^\\s]+)\" examples/valid/event-evidence-alias-search-readbacks.json docs/evidence/ao-mission-doubled-wave-v01/nodes/node-21-event-alias-fixture || true",
+      "command": "credential and local-path pattern scan over the event alias fixture and node evidence",
       "matches": 0
     },
     {
-      "command": "rg -n '\"(safe_to_execute|executes_work|approves_work|provider_calls|direct_main_mutation|claims_authority_advance|rsi_promoted|broad_rsi_claim)\"\\s*:\\s*true|RSI remains proven|RSI is proven' examples/valid/event-evidence-alias-search-readbacks.json docs/evidence/ao-mission-doubled-wave-v01/nodes/node-21-event-alias-fixture || true",
+      "command": "authority-widening and broad-RSI wording scan over the event alias fixture and node evidence",
       "matches": 0
     }
   ]

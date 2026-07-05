@@ -1507,6 +1507,49 @@ func TestImportArtifactWritesDurableCheckpointResumeBundle(t *testing.T) {
 	}
 }
 
+func TestCLICheckpointInspectReplaysAtlasImportCheckpointBundle(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "checkpoint replay after Atlas readback import"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	errb.Reset()
+	if code := Run([]string{
+		"--home", dir,
+		"import", "atlas-final-synthesis-readback",
+		"--mission", rec.MissionID,
+		"--path", filepath.Join("..", "..", "examples", "valid", "atlas-final-synthesis-readback.json"),
+	}, &out, &errb); code != 0 {
+		t.Fatalf("import: %s", errb.String())
+	}
+	out.Reset()
+	errb.Reset()
+	if code := Run([]string{"--home", dir, "checkpoint", "inspect", "--mission", rec.MissionID, "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("checkpoint inspect: %s", errb.String())
+	}
+	var bundle MissionCheckpointBundle
+	if err := json.Unmarshal(out.Bytes(), &bundle); err != nil {
+		t.Fatal(err)
+	}
+	if bundle.Schema != CheckpointBundleSchema ||
+		bundle.MissionID != rec.MissionID ||
+		bundle.Status != "ready" ||
+		bundle.ReturnGate == nil ||
+		!bundle.ReturnGate.FinalResponseAllowed ||
+		!strings.Contains(bundle.ResumePrompt, "ao-mission continue --mission "+rec.MissionID) ||
+		bundle.SafeToExecute ||
+		bundle.ExecutesWork ||
+		bundle.ApprovesWork ||
+		bundle.MutatesRepositories {
+		t.Fatalf("checkpoint inspect should replay readback-only import bundle: %+v", bundle)
+	}
+}
+
 func TestAtlasContinuationPromptPacketBindsRollupReadinessAndEventIndex(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)

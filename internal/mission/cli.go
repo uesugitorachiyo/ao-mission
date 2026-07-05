@@ -31,7 +31,7 @@ func printJSON(w io.Writer, v any) error {
 
 func run(args []string, stdout io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: ao-mission [--home <dir>] <init|start|mission|continue|status|next|stop|pause|resume|doctor|schedule|daemon|telegram|a2a|gateway|governance|command|artifacts|validate|import|final>")
+		return errors.New("usage: ao-mission [--home <dir>] <init|start|mission|continue|checkpoint|status|next|stop|pause|resume|doctor|schedule|daemon|telegram|a2a|gateway|governance|command|artifacts|validate|import|final>")
 	}
 	home, args, err := parseGlobalHome(args)
 	if err != nil {
@@ -456,6 +456,32 @@ func run(args []string, stdout io.Writer) error {
 			return err
 		}
 		return printJSON(stdout, r)
+	case "checkpoint":
+		if len(args) < 2 || args[1] != "inspect" {
+			return errors.New("checkpoint requires inspect")
+		}
+		fs := flag.NewFlagSet("checkpoint inspect", flag.ContinueOnError)
+		id := fs.String("mission", "", "")
+		jsonOut := fs.Bool("json", false, "")
+		if err := fs.Parse(args[2:]); err != nil {
+			return err
+		}
+		if strings.TrimSpace(*id) == "" {
+			return errors.New("checkpoint inspect requires --mission")
+		}
+		bundle, err := s.LoadCheckpointBundle(*id)
+		if err != nil {
+			return err
+		}
+		if *jsonOut {
+			return printJSON(stdout, bundle)
+		}
+		finalAllowed := false
+		if bundle.ReturnGate != nil {
+			finalAllowed = bundle.ReturnGate.FinalResponseAllowed
+		}
+		fmt.Fprintf(stdout, "mission=%s\nstatus=%s\ncheckpoints=%d\nfinal_response_allowed=%t\nresume=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", bundle.MissionID, bundle.Status, bundle.CheckpointCount, finalAllowed, bundle.ResumePrompt)
+		return nil
 	case "pause":
 		id := missionFlag(args[1:])
 		r, err := Pause(s, id)

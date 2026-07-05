@@ -1,0 +1,23 @@
+{
+  "schema": "ao.evidence.tests.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-22-checkpoint-replay-smoke",
+  "red_test": {
+    "command": "go test ./internal/mission -run TestCLICheckpointInspectReplaysAtlasImportCheckpointBundle -count=1",
+    "result": "failed_before_implementation",
+    "output": "checkpoint inspect: error: unknown command \"checkpoint\""
+  },
+  "green_tests": [
+    {
+      "command": "go test ./internal/mission -run TestCLICheckpointInspectReplaysAtlasImportCheckpointBundle -count=1",
+      "result": "passed"
+    }
+  ],
+  "remaining_checks": [
+    "go test ./... -count=1",
+    "go vet ./...",
+    "go build ./cmd/ao-mission",
+    "scripts/production-readiness.sh",
+    "GitHub CI after PR"
+  ]
+}

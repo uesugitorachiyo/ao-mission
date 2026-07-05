@@ -1,0 +1,13 @@
+{
+  "schema": "ao.command.readback.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-22-checkpoint-replay-smoke",
+  "status": "ready",
+  "summary": "AO Mission exposes checkpoint inspect readback after Atlas final-synthesis import, so operators can replay the latest checkpoint/resume bundle without direct file inspection.",
+  "exact_next_action": "Continue node-23: AO Mission doctor JSON fixture binding Command compact early-return risk.",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false,
+  "rsi_remains_denied": true
+}
