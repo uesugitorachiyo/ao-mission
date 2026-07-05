@@ -563,19 +563,20 @@ type TimelineCompactionReadback struct {
 }
 
 type CommandStatus struct {
-	Schema              string   `json:"schema"`
-	MissionID           string   `json:"mission_id"`
-	Status              string   `json:"status"`
-	CurrentRoute        string   `json:"current_route"`
-	CurrentPhase        string   `json:"current_phase"`
-	ExactNextAction     string   `json:"exact_next_action"`
-	ReadOnly            bool     `json:"read_only"`
-	SafeToExecute       bool     `json:"safe_to_execute"`
-	ExecutesWork        bool     `json:"executes_work"`
-	ApprovesWork        bool     `json:"approves_work"`
-	MutatesRepositories bool     `json:"mutates_repositories"`
-	Blockers            []string `json:"blockers"`
-	GeneratedAtUTC      string   `json:"generated_at_utc"`
+	Schema              string                             `json:"schema"`
+	MissionID           string                             `json:"mission_id"`
+	Status              string                             `json:"status"`
+	CurrentRoute        string                             `json:"current_route"`
+	CurrentPhase        string                             `json:"current_phase"`
+	ExactNextAction     string                             `json:"exact_next_action"`
+	ReadOnly            bool                               `json:"read_only"`
+	SafeToExecute       bool                               `json:"safe_to_execute"`
+	ExecutesWork        bool                               `json:"executes_work"`
+	ApprovesWork        bool                               `json:"approves_work"`
+	MutatesRepositories bool                               `json:"mutates_repositories"`
+	AtlasRecommendation *AtlasRecommendationReadbackCounts `json:"atlas_recommendation,omitempty"`
+	Blockers            []string                           `json:"blockers"`
+	GeneratedAtUTC      string                             `json:"generated_at_utc"`
 }
 
 type GovernanceSnapshotDiff struct {

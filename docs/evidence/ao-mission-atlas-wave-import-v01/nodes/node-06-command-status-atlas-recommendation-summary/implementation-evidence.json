@@ -1,0 +1,11 @@
+{
+  "schema": "ao.mission.implementation-evidence.v0.1",
+  "node_id": "node-06-command-status-atlas-recommendation-summary",
+  "status": "implemented_locally",
+  "files": [
+    "internal/mission/types.go",
+    "internal/mission/readback.go",
+    "internal/mission/mission_test.go"
+  ],
+  "behavior": "BuildCommandStatus now includes atlas_recommendation when Mission has imported Atlas recommendation evidence."
+}

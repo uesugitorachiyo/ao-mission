@@ -860,6 +860,37 @@ func TestEventIndexSearchesAtlasRecommendationReadbackEvidence(t *testing.T) {
 	}
 }
 
+func TestCommandStatusIncludesAtlasRecommendationSummary(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("command status over Atlas recommendation readback")
+	if err != nil {
+		t.Fatal(err)
+	}
+	readbackPath := filepath.Join(dir, "recommendation-readback.json")
+	readback := `{"schema":"ao.atlas.recommendation-readback.v0.1","status":"completed","total_nodes":40,"completed_nodes":40,"ready_nodes":0,"checkpoint_count":40,"elapsed_minutes":491,"min_minutes_met":true,"lease_time_status":"minimum_minutes_met","return_gate_status":"final_response_allowed","final_response_allowed":true,"safe_to_execute":false,"executes_work":false,"approves_work":false,"mutates_repositories":false,"provider_calls":false,"release_or_publish":false,"credential_use":false,"direct_main_mutation":false,"concurrent_mutation":false,"claims_authority_advance":false}`
+	if err := os.WriteFile(readbackPath, []byte(readback), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(s, rec.MissionID, "atlas-recommendation-readback", readbackPath); err != nil {
+		t.Fatal(err)
+	}
+	done, err := s.Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	status := BuildCommandStatus(done)
+	if status.AtlasRecommendation == nil {
+		t.Fatalf("command status missing Atlas recommendation summary: %+v", status)
+	}
+	if status.AtlasRecommendation.CompletedNodes != 40 || status.AtlasRecommendation.ReadyNodes != 0 || status.AtlasRecommendation.ReturnGateStatus != "final_response_allowed" || !status.AtlasRecommendation.FinalResponseAllowed {
+		t.Fatalf("bad Atlas recommendation summary: %+v", status.AtlasRecommendation)
+	}
+	if status.ExecutesWork || status.ApprovesWork || status.MutatesRepositories {
+		t.Fatalf("command status widened authority: %+v", status)
+	}
+}
+
 func TestFeatureDepthRecommendationsReturnAtLeastTenActionableTasks(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)

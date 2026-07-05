@@ -5,11 +5,11 @@
   "minimum_nodes": 25,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 5,
-  "ready_nodes": 20,
+  "completed_nodes": 6,
+  "ready_nodes": 19,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue with node-06: add Command compact status for Atlas recommendation evidence.",
+  "exact_next_action": "Continue with node-07: add final reconciliation packet for Mission, Atlas, Foundry, Promoter, and Command.",
   "nodes": [
     {
       "node_id": "node-01-atlas-recommendation-readback-import",
@@ -40,6 +40,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Expose Atlas recommendation readback evidence through Mission event index/search."
+    },
+    {
+      "node_id": "node-06-command-status-atlas-recommendation-summary",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Expose Atlas recommendation summary in compact AO Command-compatible Mission status."
     }
   ]
 }
