@@ -1,0 +1,10 @@
+{
+  "schema": "ao.mission.node-gate-readback.v0.1",
+  "node_id": "node-14-root-public-safety-scan",
+  "status": "passed",
+  "gate": "Root Sentinel/public-safety scan artifact is present and production readiness validates it.",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false
+}

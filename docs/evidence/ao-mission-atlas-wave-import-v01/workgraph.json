@@ -5,11 +5,11 @@
   "minimum_nodes": 25,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 13,
-  "ready_nodes": 12,
+  "completed_nodes": 14,
+  "ready_nodes": 11,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue with node-14: add public-safety scan over next prompt and reconciliation docs.",
+  "exact_next_action": "Continue with node-15: add production readiness and branch cleanup verification packet.",
   "nodes": [
     {
       "node_id": "node-01-atlas-recommendation-readback-import",
@@ -88,6 +88,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Add Atlas recommendation summary to compact text Command status output."
+    },
+    {
+      "node_id": "node-14-root-public-safety-scan",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Record root Sentinel public-safety scan for prompt, docs, and reconciliation fixtures."
     }
   ]
 }

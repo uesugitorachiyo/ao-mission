@@ -1,0 +1,7 @@
+{
+  "schema": "ao.mission.rollback-record.v0.1",
+  "node_id": "node-14-root-public-safety-scan",
+  "rollback": "Remove sentinel-public-safety-scan.json, readiness jq assertion, and node evidence.",
+  "risk": "Low; evidence-only scan artifact.",
+  "requires_release": false
+}

@@ -1,0 +1,10 @@
+{
+  "schema": "ao.mission.implementation-evidence.v0.1",
+  "node_id": "node-14-root-public-safety-scan",
+  "status": "implemented_locally",
+  "files": [
+    "docs/evidence/ao-mission-atlas-wave-import-v01/sentinel-public-safety-scan.json",
+    "scripts/production-readiness.sh"
+  ],
+  "behavior": "Production readiness validates the root Sentinel public-safety scan artifact."
+}

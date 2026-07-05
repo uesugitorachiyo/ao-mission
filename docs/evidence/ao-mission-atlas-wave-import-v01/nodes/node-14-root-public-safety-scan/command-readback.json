@@ -1,0 +1,8 @@
+{
+  "schema": "ao.command.compact-mission-readback.v0.1",
+  "node_id": "node-14-root-public-safety-scan",
+  "status": "verified_locally",
+  "summary": "Root Sentinel/public-safety scan artifact validates prompt, docs, and reconciliation fixtures.",
+  "final_response_allowed": false,
+  "exact_next_action": "Open PR, wait for CI, merge, then continue node 15."
+}
