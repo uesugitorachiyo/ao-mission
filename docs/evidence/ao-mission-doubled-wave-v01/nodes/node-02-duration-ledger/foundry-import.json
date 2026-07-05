@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "node_id": "node-02-duration-ledger",
+  "status": "imported",
+  "bounded_task": "Add duration ledger evidence for 2-3 hour lease auditing.",
+  "executes_one_node": true,
+  "safe_to_execute": false
+}

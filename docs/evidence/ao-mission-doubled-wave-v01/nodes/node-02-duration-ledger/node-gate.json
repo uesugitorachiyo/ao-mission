@@ -1,0 +1,8 @@
+{
+  "schema": "ao.atlas.node-gate.v0.1",
+  "node_id": "node-02-duration-ledger",
+  "status": "passed",
+  "gate": "Wave duration ledger records 120 minute minimum, 180 minute maximum, and final-response denial while duration evidence is unmet.",
+  "active_mutation_node": "node-02-duration-ledger",
+  "exact_next_action": "verify duration ledger, open PR, wait for CI, merge, and continue node 03"
+}
