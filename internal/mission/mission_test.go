@@ -828,6 +828,38 @@ func TestEventIndexSearchesSupervisorEvidence(t *testing.T) {
 	}
 }
 
+func TestEventIndexSearchesAtlasRecommendationReadbackEvidence(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("index Atlas recommendation readback evidence")
+	if err != nil {
+		t.Fatal(err)
+	}
+	readbackPath := filepath.Join(dir, "recommendation-readback-short.json")
+	readback := `{"schema":"ao.atlas.recommendation-readback.v0.1","status":"completed","total_nodes":40,"completed_nodes":40,"ready_nodes":0,"checkpoint_count":40,"elapsed_minutes":22,"min_minutes_met":false,"lease_time_status":"minimum_minutes_unmet","return_gate_status":"blocked_minimum_minutes_unmet","final_response_allowed":false,"safe_to_execute":false,"executes_work":false,"approves_work":false,"mutates_repositories":false,"provider_calls":false,"release_or_publish":false,"credential_use":false,"direct_main_mutation":false,"concurrent_mutation":false,"claims_authority_advance":false,"exact_next_action":"Continue AO Atlas wave until the minimum lease duration is met."}`
+	if err := os.WriteFile(readbackPath, []byte(readback), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(s, rec.MissionID, "atlas-recommendation-readback", readbackPath); err != nil {
+		t.Fatal(err)
+	}
+	index, err := BuildMissionEventIndex(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	results := SearchMissionEvents(index, MissionEventSearchFilters{MissionID: rec.MissionID, Kind: "atlas_recommendation", Query: "blocked_minimum_minutes_unmet"})
+	if results.TotalMatches != 1 {
+		t.Fatalf("expected one Atlas recommendation event, got %+v", results)
+	}
+	event := results.Events[0]
+	if event.Status != "completed" || !strings.Contains(event.Summary, "elapsed_minutes=22") || !strings.Contains(event.Summary, "ready_nodes=0") {
+		t.Fatalf("Atlas recommendation event missing terminal details: %+v", event)
+	}
+	if results.ExecutesWork || results.ApprovesWork || results.MutatesRepositories {
+		t.Fatalf("event search widened authority: %+v", results)
+	}
+}
+
 func TestFeatureDepthRecommendationsReturnAtLeastTenActionableTasks(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)

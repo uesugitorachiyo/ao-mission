@@ -1,0 +1,7 @@
+{
+  "schema": "ao.mission.rollback-record.v0.1",
+  "node_id": "node-05-atlas-recommendation-event-index",
+  "rollback": "Remove atlas_recommendation event construction and its event search regression.",
+  "risk": "Low; readback-only event index extension.",
+  "requires_release": false
+}

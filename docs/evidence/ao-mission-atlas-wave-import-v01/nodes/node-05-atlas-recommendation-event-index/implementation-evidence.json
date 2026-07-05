@@ -1,0 +1,10 @@
+{
+  "schema": "ao.mission.implementation-evidence.v0.1",
+  "node_id": "node-05-atlas-recommendation-event-index",
+  "status": "implemented_locally",
+  "files": [
+    "internal/mission/event_index.go",
+    "internal/mission/mission_test.go"
+  ],
+  "behavior": "BuildMissionEventIndex now emits atlas_recommendation events searchable by return gate, lease status, and elapsed minutes."
+}

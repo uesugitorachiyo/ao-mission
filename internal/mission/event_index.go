@@ -357,6 +357,29 @@ func missionEventsForRecord(record Record) []MissionEvent {
 			GeneratedAtUTC: record.UpdatedAtUTC,
 		})
 	}
+	if record.Evidence.AtlasRecommendation != nil {
+		events = append(events, MissionEvent{
+			Schema:    "ao.mission.event.v0.1",
+			MissionID: record.MissionID,
+			Kind:      "atlas_recommendation",
+			Sequence:  len(events) + 1,
+			Status:    record.Evidence.AtlasRecommendation.Status,
+			Route:     record.CurrentRoute,
+			Phase:     record.CurrentPhase,
+			Summary: fmt.Sprintf("atlas recommendation status %s completed_nodes=%d total_nodes=%d ready_nodes=%d checkpoint_count=%d elapsed_minutes=%d lease_time_status=%s return_gate_status=%s blocker=%s",
+				record.Evidence.AtlasRecommendation.Status,
+				record.Evidence.AtlasRecommendation.CompletedNodes,
+				record.Evidence.AtlasRecommendation.TotalNodes,
+				record.Evidence.AtlasRecommendation.ReadyNodes,
+				record.Evidence.AtlasRecommendation.CheckpointCount,
+				record.Evidence.AtlasRecommendation.ElapsedMinutes,
+				record.Evidence.AtlasRecommendation.LeaseTimeStatus,
+				record.Evidence.AtlasRecommendation.ReturnGateStatus,
+				record.Evidence.AtlasRecommendation.Blocker,
+			),
+			GeneratedAtUTC: record.UpdatedAtUTC,
+		})
+	}
 	if record.ReturnGate != nil {
 		events = append(events, MissionEvent{
 			Schema:         "ao.mission.event.v0.1",
