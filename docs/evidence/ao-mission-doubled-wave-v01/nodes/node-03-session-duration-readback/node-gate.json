@@ -1,0 +1,8 @@
+{
+  "schema": "ao.atlas.node-gate.v0.1",
+  "node_id": "node-03-session-duration-readback",
+  "status": "passed",
+  "gate": "Session-duration evidence records metadata only and confirms log contents and secret values were not read.",
+  "active_mutation_node": "node-03-session-duration-readback",
+  "exact_next_action": "verify readback, open PR, wait for CI, merge, and continue node 04"
+}

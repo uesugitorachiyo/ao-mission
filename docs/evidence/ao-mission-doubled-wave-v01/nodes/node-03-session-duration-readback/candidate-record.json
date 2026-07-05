@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.candidate-record.v0.1",
+  "node_id": "node-03-session-duration-readback",
+  "status": "selected",
+  "candidate": "Add metadata-only Codex session-duration readback.",
+  "owner": "ao-mission",
+  "why_now": "The operator needs evidence for short-run behavior, but log contents and secrets must not be inspected."
+}

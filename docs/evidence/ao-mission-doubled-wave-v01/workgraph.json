@@ -5,11 +5,11 @@
   "minimum_nodes": 60,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 2,
-  "ready_nodes": 58,
+  "completed_nodes": 3,
+  "ready_nodes": 57,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue node-03: add Codex session-duration readback from local session logs without exposing secrets.",
+  "exact_next_action": "Continue node-04: roundtrip Mission final synthesis into Atlas and verify zero ready nodes.",
   "nodes": [
     {
       "node_id": "node-01-final-synthesis-cli",
@@ -22,6 +22,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Record 2-3 hour lease timing fields and keep final response denied while the minimum duration is unmet."
+    },
+    {
+      "node_id": "node-03-session-duration-readback",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Record metadata-only Codex session-duration readback without reading log contents or secrets."
     }
   ]
 }
