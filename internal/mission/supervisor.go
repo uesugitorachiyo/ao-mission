@@ -148,6 +148,13 @@ func EvaluateReturnGate(r Record) ReturnGate {
 		gate.Reason = "mission status is done"
 	case hardBlocker:
 		gate.Reason = "mission has a terminal hard blocker for operator review"
+	case r.Evidence.AtlasRecommendation != nil && !r.Evidence.AtlasRecommendation.FinalResponseAllowed:
+		gate.Status = "early_return_denied"
+		gate.FinalResponseAllowed = false
+		gate.Reason = fmt.Sprintf("Atlas recommendation readback return gate blocked: %s lease_time_status=%s elapsed_minutes=%d", r.Evidence.AtlasRecommendation.ReturnGateStatus, r.Evidence.AtlasRecommendation.LeaseTimeStatus, r.Evidence.AtlasRecommendation.ElapsedMinutes)
+		if strings.TrimSpace(r.Evidence.AtlasRecommendation.ExactNextAction) != "" {
+			gate.ExactNextAction = r.Evidence.AtlasRecommendation.ExactNextAction
+		}
 	case completedNodes < minNodes:
 		gate.Status = "early_return_denied"
 		gate.FinalResponseAllowed = false

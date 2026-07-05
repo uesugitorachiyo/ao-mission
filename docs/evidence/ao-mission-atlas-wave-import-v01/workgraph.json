@@ -5,11 +5,11 @@
   "minimum_nodes": 25,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 1,
-  "ready_nodes": 24,
+  "completed_nodes": 2,
+  "ready_nodes": 23,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue with node-02: add Mission nonterminal Atlas recommendation readback tests.",
+  "exact_next_action": "Continue with node-03: reject unsafe authority flags on Atlas recommendation readbacks.",
   "nodes": [
     {
       "node_id": "node-01-atlas-recommendation-readback-import",
@@ -20,7 +20,7 @@
     {
       "node_id": "node-02-nonterminal-atlas-readback-gate",
       "owner": "ao-mission",
-      "status": "ready",
+      "status": "completed",
       "objective": "Keep Mission routed to Atlas when Atlas recommendation readback still has ready nodes or unmet lease timing."
     },
     {

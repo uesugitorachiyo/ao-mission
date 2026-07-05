@@ -1,0 +1,19 @@
+{
+  "schema": "ao.mission.candidate-record.v0.1",
+  "node_id": "node-02-nonterminal-atlas-readback-gate",
+  "candidate": "Preserve Atlas return_gate_status, lease_time_status, and elapsed_minutes in Mission's premature-return denial.",
+  "bounded_scope": [
+    "internal/mission/supervisor.go",
+    "internal/mission/mission_test.go",
+    "node evidence readbacks"
+  ],
+  "forbidden_scope": [
+    "provider calls",
+    "credential inspection",
+    "release/deploy/publish/upload/tag",
+    "dependency updates",
+    "policy/auth/config widening",
+    "direct main mutation",
+    "RSI promotion"
+  ]
+}
