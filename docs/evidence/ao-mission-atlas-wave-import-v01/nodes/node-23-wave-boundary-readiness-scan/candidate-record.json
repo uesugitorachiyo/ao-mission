@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.candidate-record.v0.1",
+  "node_id": "node-23-wave-boundary-readiness-scan",
+  "status": "selected",
+  "candidate": "Add production-readiness scans for per-node Promoter no-promotion and Sentinel public-safety evidence.",
+  "owner": "ao-mission",
+  "why_now": "The wave needs a root boundary packet proving promotion, authority advance, and RSI claims remain denied across node evidence."
+}

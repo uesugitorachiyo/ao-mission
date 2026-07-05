@@ -5,11 +5,11 @@
   "minimum_nodes": 25,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 22,
-  "ready_nodes": 3,
+  "completed_nodes": 23,
+  "ready_nodes": 2,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue with node-23: add no-promotion and RSI-denied readiness assertion over wave evidence.",
+  "exact_next_action": "Continue with node-24: add branch cleanup evidence artifact for merged wave PRs.",
   "nodes": [
     {
       "node_id": "node-01-atlas-recommendation-readback-import",
@@ -142,6 +142,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Add a final_reconciliation event-search readback fixture for Command and Atlas consumers."
+    },
+    {
+      "node_id": "node-23-wave-boundary-readiness-scan",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Add wave-level readiness assertions over Promoter no-promotion and Sentinel public-safety evidence."
     }
   ]
 }

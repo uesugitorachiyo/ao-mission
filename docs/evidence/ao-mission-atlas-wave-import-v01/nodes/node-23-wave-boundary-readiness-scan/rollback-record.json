@@ -1,0 +1,6 @@
+{
+  "schema": "ao.foundry.rollback-record.v0.1",
+  "node_id": "node-23-wave-boundary-readiness-scan",
+  "rollback": "Remove wave-boundary-readiness.json and the production-readiness scans over Promoter and Sentinel node evidence.",
+  "safe_to_revert": true
+}
