@@ -1,0 +1,18 @@
+{
+  "schema": "ao.evidence.candidate-record.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-18-feature-depth-cli-regression",
+  "candidate": {
+    "repo": "ao-mission",
+    "branch": "codex/doubled-wave-node-18-feature-depth-cli-regression",
+    "summary": "Add CLI regression coverage proving final rollup returns at least 10 actionable Feature Depth Recommendations.",
+    "reason": "Operators rely on final rollup output for continuation. The CLI output must not become shallow even if internal builders keep passing."
+  },
+  "expected_behavior": [
+    "ao-mission final rollup emits at least 10 recommendations.",
+    "Each recommendation has owner, task, gate, continuation command, exact next action, minimum estimated minutes, and evidence requirements.",
+    "The final rollup remains read-only and does not execute, approve, or call providers."
+  ],
+  "risk": "Low: test-only change.",
+  "rollback": "Revert the added CLI test and node evidence."
+}

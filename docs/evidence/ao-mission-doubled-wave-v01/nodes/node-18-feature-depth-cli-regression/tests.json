@@ -1,0 +1,26 @@
+{
+  "schema": "ao.evidence.tests.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-18-feature-depth-cli-regression",
+  "tests": [
+    {
+      "name": "TestCLIFinalRollupReturnsAtLeastTenActionableFeatureDepthRecommendations",
+      "path": "internal/mission/mission_test.go",
+      "asserts": [
+        "CLI final rollup emits schema ao.mission.final-rollup.v0.1",
+        "CLI final rollup includes at least 10 feature_depth_recommendations",
+        "recommendations pass ValidateFeatureDepthRecommendations with min=10",
+        "final rollup keeps safe_to_execute, executes_work, approves_work, and provider_calls false"
+      ]
+    },
+    {
+      "name": "TestFeatureDepthRecommendationsReturnAtLeastTenActionableTasks",
+      "path": "internal/mission/mission_test.go",
+      "asserts": [
+        "builder-level final rollup recommendations remain at least 10 and actionable"
+      ]
+    }
+  ],
+  "focused_command": "go test ./internal/mission -run 'TestFeatureDepthRecommendationsReturnAtLeastTenActionableTasks|TestCLIFinalRollupReturnsAtLeastTenActionableFeatureDepthRecommendations' -count=1",
+  "focused_result": "passed"
+}

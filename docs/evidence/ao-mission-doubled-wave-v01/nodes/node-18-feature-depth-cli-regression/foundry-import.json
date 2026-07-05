@@ -1,0 +1,16 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-18-feature-depth-cli-regression",
+  "route": "ao-mission",
+  "owning_supervisor": "ao-atlas",
+  "implementation_owner": "ao-mission",
+  "status": "imported",
+  "task": "Add CLI regression proving final rollup emits deep actionable Feature Depth Recommendations.",
+  "acceptance": [
+    "test calls ao-mission final rollup through the CLI",
+    "test asserts at least 10 recommendations",
+    "test validates recommendations through ValidateFeatureDepthRecommendations",
+    "test asserts no execution, approval, or provider authority"
+  ]
+}
