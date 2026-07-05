@@ -1,0 +1,9 @@
+{
+  "schema": "ao.mission.tests-readback.v0.1",
+  "node_id": "node-06-command-status-atlas-recommendation-summary",
+  "red": "go test ./internal/mission -run TestCommandStatusIncludesAtlasRecommendationSummary -count=1 failed because CommandStatus lacked AtlasRecommendation.",
+  "green": "go test ./internal/mission -run TestCommandStatusIncludesAtlasRecommendationSummary -count=1 passed after adding the summary field.",
+  "regressions": [
+    "TestCommandStatusIncludesAtlasRecommendationSummary"
+  ]
+}

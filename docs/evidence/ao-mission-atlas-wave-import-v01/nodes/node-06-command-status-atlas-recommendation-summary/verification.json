@@ -1,0 +1,35 @@
+{
+  "schema": "ao.mission.verification-readback.v0.1",
+  "node_id": "node-06-command-status-atlas-recommendation-summary",
+  "status": "full_local_verification_passed",
+  "commands": [
+    {
+      "command": "go test ./internal/mission -run TestCommandStatusIncludesAtlasRecommendationSummary -count=1",
+      "result": "failed before implementation because CommandStatus had no AtlasRecommendation field"
+    },
+    {
+      "command": "go test ./internal/mission -run TestCommandStatusIncludesAtlasRecommendationSummary -count=1",
+      "result": "passed"
+    },
+    {
+      "command": "find docs/evidence/ao-mission-atlas-wave-import-v01 -name '*.json' -print0 | xargs -0 -n1 jq -e . >/dev/null",
+      "result": "passed"
+    },
+    {
+      "command": "go test ./... -count=1",
+      "result": "passed"
+    },
+    {
+      "command": "go vet ./...",
+      "result": "passed"
+    },
+    {
+      "command": "go build ./cmd/ao-mission",
+      "result": "passed"
+    },
+    {
+      "command": "scripts/production-readiness.sh",
+      "result": "AO Mission production readiness: 100/100 status=ready"
+    }
+  ]
+}

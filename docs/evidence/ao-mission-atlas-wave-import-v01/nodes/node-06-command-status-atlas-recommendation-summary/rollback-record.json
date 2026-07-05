@@ -1,0 +1,7 @@
+{
+  "schema": "ao.mission.rollback-record.v0.1",
+  "node_id": "node-06-command-status-atlas-recommendation-summary",
+  "rollback": "Remove CommandStatus.AtlasRecommendation, its builder assignment, and the regression test.",
+  "risk": "Low; readback-only additive JSON field.",
+  "requires_release": false
+}

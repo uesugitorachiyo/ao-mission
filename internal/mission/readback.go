@@ -141,6 +141,11 @@ func normalizeTextArtifactDigestData(data []byte) []byte {
 }
 
 func BuildCommandStatus(r Record) CommandStatus {
+	var atlasRecommendation *AtlasRecommendationReadbackCounts
+	if r.Evidence.AtlasRecommendation != nil {
+		copy := *r.Evidence.AtlasRecommendation
+		atlasRecommendation = &copy
+	}
 	return CommandStatus{
 		Schema:              "ao.command.mission-status.v0.1",
 		MissionID:           r.MissionID,
@@ -153,6 +158,7 @@ func BuildCommandStatus(r Record) CommandStatus {
 		ExecutesWork:        false,
 		ApprovesWork:        false,
 		MutatesRepositories: false,
+		AtlasRecommendation: atlasRecommendation,
 		Blockers:            r.Blockers,
 		GeneratedAtUTC:      now(nil),
 	}

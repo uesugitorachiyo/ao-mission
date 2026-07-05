@@ -1,0 +1,20 @@
+{
+  "schema": "ao.mission.candidate-record.v0.1",
+  "node_id": "node-06-command-status-atlas-recommendation-summary",
+  "candidate": "Add Atlas recommendation summary to Mission Command status readback.",
+  "bounded_scope": [
+    "internal/mission/types.go",
+    "internal/mission/readback.go",
+    "internal/mission/mission_test.go",
+    "node evidence readbacks"
+  ],
+  "forbidden_scope": [
+    "provider calls",
+    "credential inspection",
+    "release/deploy/publish/upload/tag",
+    "dependency updates",
+    "policy/auth/config widening",
+    "direct main mutation",
+    "RSI promotion"
+  ]
+}
