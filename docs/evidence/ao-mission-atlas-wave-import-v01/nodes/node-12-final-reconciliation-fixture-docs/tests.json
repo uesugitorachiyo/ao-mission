@@ -1,0 +1,10 @@
+{
+  "schema": "ao.mission.tests-readback.v0.1",
+  "node_id": "node-12-final-reconciliation-fixture-docs",
+  "red": "scripts/production-readiness.sh failed after adding fixture/docs assertions before the fixture existed.",
+  "green": "scripts/production-readiness.sh passed after adding examples/valid/final-reconciliation-packet.json and docs reference.",
+  "regressions": [
+    "production-readiness final reconciliation fixture jq check",
+    "production-readiness docs reference grep check"
+  ]
+}

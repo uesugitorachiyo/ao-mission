@@ -32,6 +32,7 @@ ao-mission mission validate-archive --path tmp/<mission-id>-archive.json --out t
 ao-mission artifacts manifest --mission <mission-id> --out tmp/<mission-id>-artifact-manifest.json
 ao-mission import atlas-recommendation-readback --mission <mission-id> --path tmp/recommendation-readback.json
 ao-mission final rollup --mission <mission-id>
+ao-mission final reconcile --mission <mission-id>
 ```
 
 For 2-3 hour work, AO Mission owns the long-run supervisor lease and checkpoint
@@ -59,6 +60,11 @@ green PR, a single rollup, or one completed import. Continue until at least 25
 nodes complete, all ready nodes are gone, the 120-minute lease minimum is met,
 and Mission, Atlas, Foundry, Command, and Promoter readbacks agree. This is the
 25-node Atlas recommendation import wave closure gate.
+
+Use `examples/valid/final-reconciliation-packet.json` as the shape reference for
+the final Mission reconciliation packet. A valid packet keeps
+`promotion_claimed=false`, `rsi_remains_denied=true`,
+`claims_authority_advance=false`, and all execution/approval flags false.
 
 ## Gateway Fixture Checks
 

@@ -1,0 +1,20 @@
+{
+  "schema": "ao.mission.candidate-record.v0.1",
+  "node_id": "node-12-final-reconciliation-fixture-docs",
+  "candidate": "Add final reconciliation packet fixture and operator documentation.",
+  "bounded_scope": [
+    "examples/valid/final-reconciliation-packet.json",
+    "docs/operator-next-actions.md",
+    "scripts/production-readiness.sh",
+    "node evidence readbacks"
+  ],
+  "forbidden_scope": [
+    "provider calls",
+    "credential inspection",
+    "release/deploy/publish/upload/tag",
+    "dependency updates",
+    "policy/auth/config widening",
+    "direct main mutation",
+    "RSI promotion"
+  ]
+}
