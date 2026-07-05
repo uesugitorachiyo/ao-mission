@@ -1,6 +1,6 @@
 # AO Mission Atlas Wave Import v0.1
 
-Status: node 09 implementation and local verification complete; PR/CI pending.
+Status: node 10 implementation and local verification complete; PR/CI pending.
 
 This evidence root tracks the next long-run supervisor integration wave that
 imports the completed AO Atlas 40/40 recommendation readback into AO Mission.
@@ -19,7 +19,8 @@ mutation, unrestricted self-modification, unrestricted RSI, or broad_RSI.
 - node-06-command-status-atlas-recommendation-summary: merged in PR #26.
 - node-07-final-reconciliation-packet: merged in PR #27.
 - node-08-runbook-next-prompt: merged in PR #28.
-- node-09-reconciliation-mismatch-blockers: completed locally and verified; PR/CI pending.
+- node-09-reconciliation-mismatch-blockers: merged in PR #29.
+- node-10-final-reconcile-cli: completed locally and verified; PR/CI pending.
 - next recommended prompt: `next-recommended-prompt.md`.
 
 ## Evidence

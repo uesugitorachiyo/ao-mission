@@ -22,13 +22,16 @@ tmp_home="$(mktemp -d)"
 mission_json="$(mktemp)"
 import_json="$(mktemp)"
 inspect_json="$(mktemp)"
+reconcile_json="$(mktemp)"
 ./ao-mission --home "$tmp_home" start "import completed Atlas recommendation wave" >"$mission_json"
 mission_id="$(jq -r '.mission_id' "$mission_json")"
 ./ao-mission --home "$tmp_home" import atlas-recommendation-readback --mission "$mission_id" --path examples/valid/atlas-recommendation-readback.json >"$import_json"
 jq -e '.kind == "atlas-recommendation-readback" and .safe_to_execute == false and .executes_work == false and .approves_work == false' "$import_json" >/dev/null
 ./ao-mission --home "$tmp_home" mission inspect --mission "$mission_id" --json >"$inspect_json"
 jq -e '.status == "done" and .current_route == "complete" and .current_phase == "complete" and .evidence.atlas_recommendation.completed_nodes == 40 and .return_gate.final_response_allowed == true' "$inspect_json" >/dev/null
-rm -rf "$tmp_home" "$mission_json" "$import_json" "$inspect_json" ao-mission
+./ao-mission --home "$tmp_home" final reconcile --mission "$mission_id" >"$reconcile_json"
+jq -e '.schema == "ao.mission.final-reconciliation-packet.v0.1" and .artifacts_agree == true and .final_response_allowed == true and .claims_authority_advance == false and .rsi_remains_denied == true' "$reconcile_json" >/dev/null
+rm -rf "$tmp_home" "$mission_json" "$import_json" "$inspect_json" "$reconcile_json" ao-mission
 grep -q "25-node Atlas recommendation import wave" docs/operator-next-actions.md
 grep -q "Do not stop before 25 completed nodes" docs/evidence/ao-mission-atlas-wave-import-v01/next-recommended-prompt.md
 echo "AO Mission production readiness: 100/100 status=ready"

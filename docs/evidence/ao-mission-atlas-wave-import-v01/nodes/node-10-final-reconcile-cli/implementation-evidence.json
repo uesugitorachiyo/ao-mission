@@ -1,0 +1,12 @@
+{
+  "schema": "ao.mission.implementation-evidence.v0.1",
+  "node_id": "node-10-final-reconcile-cli",
+  "status": "implemented_locally",
+  "files": [
+    "internal/mission/cli.go",
+    "internal/mission/mission_test.go",
+    "README.md",
+    "scripts/production-readiness.sh"
+  ],
+  "behavior": "ao-mission final reconcile --mission <id> emits BuildFinalReconciliationPacket output."
+}

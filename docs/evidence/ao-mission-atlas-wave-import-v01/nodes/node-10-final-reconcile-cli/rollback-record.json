@@ -1,0 +1,7 @@
+{
+  "schema": "ao.mission.rollback-record.v0.1",
+  "node_id": "node-10-final-reconcile-cli",
+  "rollback": "Remove final reconcile CLI handling, README command, readiness smoke, and CLI regression.",
+  "risk": "Low; readback-only CLI surface.",
+  "requires_release": false
+}
