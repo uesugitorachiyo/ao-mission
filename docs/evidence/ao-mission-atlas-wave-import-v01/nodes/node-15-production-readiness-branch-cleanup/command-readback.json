@@ -1,0 +1,7 @@
+{
+  "schema": "ao.command.readback.v0.1",
+  "node_id": "node-15-production-readiness-branch-cleanup",
+  "status": "ready_for_review",
+  "summary": "Production-readiness and stale branch cleanup packet is now bound into wave readiness.",
+  "exact_next_action": "merge node 15 after CI, confirm branch deletion, then continue node 16"
+}

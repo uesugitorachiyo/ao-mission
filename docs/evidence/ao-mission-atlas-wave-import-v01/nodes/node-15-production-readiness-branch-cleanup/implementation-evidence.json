@@ -1,0 +1,12 @@
+{
+  "schema": "ao.foundry.implementation-evidence.v0.1",
+  "node_id": "node-15-production-readiness-branch-cleanup",
+  "status": "implemented",
+  "changed_files": [
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/production-readiness-branch-cleanup.json",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/workgraph.json",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/README.md"
+  ],
+  "behavior": "Production readiness now fails closed unless the wave records local verification, prior CI, stale branch cleanup, and no-promotion boundaries."
+}

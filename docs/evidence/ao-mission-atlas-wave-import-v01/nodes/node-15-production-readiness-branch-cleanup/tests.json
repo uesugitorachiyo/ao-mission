@@ -1,0 +1,7 @@
+{
+  "schema": "ao.foundry.tests.v0.1",
+  "node_id": "node-15-production-readiness-branch-cleanup",
+  "status": "passed",
+  "red": "scripts/production-readiness.sh failed because production-readiness-branch-cleanup.json did not exist.",
+  "green": "scripts/production-readiness.sh passes after adding the packet with stale branch cleanup and no-promotion fields."
+}
