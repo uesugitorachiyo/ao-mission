@@ -1,0 +1,13 @@
+{
+  "schema": "ao.command.node-readback.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-10-event-evidence-aliases",
+  "status": "ready",
+  "summary": "Mission event search can now target route, node, PR, CI, rollup, and blocker evidence by explicit event kind.",
+  "exact_next_action": "Continue node-11: add Atlas continuation contract that refuses final response while ready nodes or exact next actions remain.",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false,
+  "rsi_remains_denied": true
+}

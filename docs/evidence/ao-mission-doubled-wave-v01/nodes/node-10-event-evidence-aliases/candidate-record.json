@@ -1,0 +1,14 @@
+{
+  "schema": "ao.mission.doubled-wave.node-evidence.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-10-event-evidence-aliases",
+  "status": "accepted",
+  "candidate": "Event index search had generic artifact and rollup events but no direct kind filters for route, node, PR, CI, rollup, and blocker evidence.",
+  "selected_change": "Add readback-only event aliases over existing Mission records, artifacts, rollups, and blockers.",
+  "rejected_scope": [
+    "no provider calls",
+    "no dependency updates",
+    "no auth or policy widening",
+    "no direct main mutation"
+  ]
+}

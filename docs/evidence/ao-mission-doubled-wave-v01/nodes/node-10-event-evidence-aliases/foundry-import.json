@@ -1,0 +1,17 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-10-event-evidence-aliases",
+  "owner": "ao-mission",
+  "bounded_task": "Implement only the Mission event evidence alias search node.",
+  "inputs": [
+    "internal/mission/event_index.go",
+    "internal/mission/mission_test.go",
+    "scripts/production-readiness.sh"
+  ],
+  "stop_after": "event alias tests, readiness checks, and evidence are complete",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false
+}

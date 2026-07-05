@@ -1,0 +1,29 @@
+{
+  "schema": "ao.mission.record.v0.1",
+  "mission_id": "mission-54af7215e217323f",
+  "objective": "node 10 event evidence aliases",
+  "objective_digest": "sha256:af6c44689ddaef7cb6f8fbb8b3b01cfdba1939b0531c6971e66c1efb7dfa377f",
+  "status": "active",
+  "created_at_utc": "2026-07-05T02:58:54Z",
+  "updated_at_utc": "2026-07-05T02:58:54Z",
+  "current_route": "ao-atlas",
+  "current_phase": "routing",
+  "blockers": [],
+  "exact_next_action": "send objective to AO Atlas for workgraph sequencing",
+  "artifact_refs": [],
+  "steps": [],
+  "route_history": [
+    {
+      "schema": "ao.mission.route-decision.v0.1",
+      "mission_id": "mission-54af7215e217323f",
+      "route": "ao-atlas",
+      "reason": "specified objective should be sequenced by AO Atlas before Foundry execution",
+      "safe_to_request": true,
+      "safe_to_execute": false,
+      "safe_to_promote": false,
+      "exact_next_action": "send objective to AO Atlas for workgraph sequencing",
+      "generated_at_utc": "2026-07-05T02:58:54Z"
+    }
+  ],
+  "evidence": {}
+}

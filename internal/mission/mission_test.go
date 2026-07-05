@@ -1024,6 +1024,54 @@ func TestEventIndexSearchesSupervisorEvidence(t *testing.T) {
 	}
 }
 
+func TestEventIndexSearchesRouteNodePRCIRollupAndBlockerEvidence(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("event index evidence aliases")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec.ArtifactRefs = append(rec.ArtifactRefs,
+		ArtifactRef{Schema: ArtifactRefSchema, Kind: "node-gate", Ref: "docs/evidence/node-10/node-gate.json", Digest: "sha256:node"},
+		ArtifactRef{Schema: ArtifactRefSchema, Kind: "pull-request", Ref: "https://github.com/owner/repo/pull/54", Digest: "sha256:pr"},
+		ArtifactRef{Schema: ArtifactRefSchema, Kind: "ci-check", Ref: "https://github.com/owner/repo/actions/runs/123", Digest: "sha256:ci"},
+	)
+	rec.Evidence.FoundryRollup = &FoundryRollupCounts{Status: "blocked", CompletedNodes: 8, TotalNodes: 10}
+	rec.Blockers = []string{"missing CI run-link evidence"}
+	rec.ReturnGate = &ReturnGate{
+		Schema:               ReturnGateSchema,
+		MissionID:            rec.MissionID,
+		Status:               "early_return_denied",
+		FinalResponseAllowed: false,
+		Reason:               "ready nodes remain",
+		ReadyNodesRemaining:  2,
+		HardBlocker:          false,
+		ExactNextAction:      "continue route, PR, CI, rollup, and blocker evidence indexing",
+		GeneratedAtUTC:       "2026-07-04T00:00:00Z",
+	}
+	if err := s.Save(rec); err != nil {
+		t.Fatal(err)
+	}
+	index, err := BuildMissionEventIndex(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, kind := range []string{"route_evidence", "node_evidence", "pr_evidence", "ci_evidence", "rollup_evidence", "blocker_evidence"} {
+		results := SearchMissionEvents(index, MissionEventSearchFilters{MissionID: rec.MissionID, Kind: kind})
+		if results.TotalMatches == 0 {
+			t.Fatalf("missing %s event in index: %+v", kind, index)
+		}
+	}
+	prSearch := SearchMissionEvents(index, MissionEventSearchFilters{MissionID: rec.MissionID, Kind: "pr_evidence", Query: "pull/54"})
+	if prSearch.TotalMatches != 1 {
+		t.Fatalf("PR evidence search did not bind pull request link: %+v", prSearch)
+	}
+	ciSearch := SearchMissionEvents(index, MissionEventSearchFilters{MissionID: rec.MissionID, Kind: "ci_evidence", Query: "actions/runs/123"})
+	if ciSearch.TotalMatches != 1 {
+		t.Fatalf("CI evidence search did not bind CI run link: %+v", ciSearch)
+	}
+}
+
 func TestEventIndexSearchesAtlasRecommendationReadbackEvidence(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)
