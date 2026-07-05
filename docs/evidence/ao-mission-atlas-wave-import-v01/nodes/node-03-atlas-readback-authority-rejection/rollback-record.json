@@ -1,0 +1,7 @@
+{
+  "schema": "ao.mission.rollback-record.v0.1",
+  "node_id": "node-03-atlas-readback-authority-rejection",
+  "rollback": "Remove claims_authority_advance from the import denylist and delete the regression test.",
+  "risk": "Low; denylist expansion only rejects unsafe evidence.",
+  "requires_release": false
+}
