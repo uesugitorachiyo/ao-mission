@@ -1,0 +1,35 @@
+{
+  "schema": "ao.foundry.verification.v0.1",
+  "node_id": "node-01-final-synthesis-cli",
+  "status": "passed",
+  "commands": [
+    {
+      "cmd": "go test ./internal/mission -run TestCLIFinalSynthesizeEmitsEvidenceRootPacket -count=1",
+      "result": "failed before implementation because AtlasWaveFinalSynthesis was undefined"
+    },
+    {
+      "cmd": "go test ./internal/mission -run TestCLIFinalSynthesizeEmitsEvidenceRootPacket -count=1",
+      "result": "passed after implementation"
+    },
+    {
+      "cmd": "find docs/evidence/ao-mission-doubled-wave-v01 -name '*.json' -print0 | xargs -0 -n1 jq -e . >/dev/null",
+      "result": "passed"
+    },
+    {
+      "cmd": "go test ./... -count=1",
+      "result": "passed"
+    },
+    {
+      "cmd": "go vet ./...",
+      "result": "passed"
+    },
+    {
+      "cmd": "go build ./cmd/ao-mission",
+      "result": "passed"
+    },
+    {
+      "cmd": "scripts/production-readiness.sh",
+      "result": "passed with AO Mission production readiness: 100/100 status=ready"
+    }
+  ]
+}

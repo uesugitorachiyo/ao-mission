@@ -1,0 +1,8 @@
+{
+  "schema": "ao.atlas.node-gate.v0.1",
+  "node_id": "node-01-final-synthesis-cli",
+  "status": "passed",
+  "gate": "AO Mission exposes final synthesis through CLI from live Mission state and an evidence root.",
+  "active_mutation_node": "node-01-final-synthesis-cli",
+  "exact_next_action": "verify final synthesize CLI, open PR, wait for CI, merge, and continue node 02"
+}

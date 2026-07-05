@@ -1,0 +1,21 @@
+{
+  "schema": "ao.atlas.workgraph.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "status": "active",
+  "minimum_nodes": 60,
+  "target_minutes": 120,
+  "max_minutes": 180,
+  "completed_nodes": 1,
+  "ready_nodes": 59,
+  "blocked_nodes": 0,
+  "final_response_allowed": false,
+  "exact_next_action": "Continue node-02: add duration ledger evidence for 2-3 hour lease auditing.",
+  "nodes": [
+    {
+      "node_id": "node-01-final-synthesis-cli",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Add generated final synthesis CLI output from live Mission state and evidence-root workgraph."
+    }
+  ]
+}
