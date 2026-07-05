@@ -1,0 +1,8 @@
+{
+  "schema": "ao.atlas.node-gate.v0.1",
+  "node_id": "node-17-foundry-terminal-state-fixture-binding",
+  "status": "passed",
+  "gate": "Foundry terminal statuses must be bound to exact Mission closure or blocker outcomes.",
+  "active_mutation_node": "node-17-foundry-terminal-state-fixture-binding",
+  "exact_next_action": "verify fixture import outcomes, open PR, wait for CI, merge, and continue node 18"
+}

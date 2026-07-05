@@ -1,0 +1,13 @@
+{
+  "schema": "ao.foundry.implementation-evidence.v0.1",
+  "node_id": "node-17-foundry-terminal-state-fixture-binding",
+  "status": "implemented",
+  "changed_files": [
+    "internal/mission/mission_test.go",
+    "examples/valid/foundry-terminal-state-binding.json",
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/workgraph.json",
+    "docs/evidence/ao-mission-atlas-wave-import-v01/README.md"
+  ],
+  "behavior": "The regression reads the terminal-state fixture and verifies completed/promoted rollups close Mission while denied/blocked rollups create exact blockers."
+}

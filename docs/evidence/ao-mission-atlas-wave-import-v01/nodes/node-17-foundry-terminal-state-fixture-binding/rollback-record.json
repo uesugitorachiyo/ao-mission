@@ -1,0 +1,6 @@
+{
+  "schema": "ao.foundry.rollback-record.v0.1",
+  "node_id": "node-17-foundry-terminal-state-fixture-binding",
+  "rollback": "Remove foundry-terminal-state-binding.json, the regression test, and the production-readiness assertion.",
+  "safe_to_revert": true
+}
