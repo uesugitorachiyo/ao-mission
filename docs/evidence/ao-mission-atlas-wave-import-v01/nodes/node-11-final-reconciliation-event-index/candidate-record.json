@@ -1,0 +1,19 @@
+{
+  "schema": "ao.mission.candidate-record.v0.1",
+  "node_id": "node-11-final-reconciliation-event-index",
+  "candidate": "Add final_reconciliation events to Mission event index/search.",
+  "bounded_scope": [
+    "internal/mission/event_index.go",
+    "internal/mission/mission_test.go",
+    "node evidence readbacks"
+  ],
+  "forbidden_scope": [
+    "provider calls",
+    "credential inspection",
+    "release/deploy/publish/upload/tag",
+    "dependency updates",
+    "policy/auth/config widening",
+    "direct main mutation",
+    "RSI promotion"
+  ]
+}

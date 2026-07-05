@@ -860,6 +860,34 @@ func TestEventIndexSearchesAtlasRecommendationReadbackEvidence(t *testing.T) {
 	}
 }
 
+func TestEventIndexSearchesFinalReconciliationEvidence(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("index final reconciliation evidence")
+	if err != nil {
+		t.Fatal(err)
+	}
+	readbackPath := filepath.Join(dir, "recommendation-readback.json")
+	readback := `{"schema":"ao.atlas.recommendation-readback.v0.1","status":"completed","total_nodes":40,"completed_nodes":40,"ready_nodes":0,"checkpoint_count":40,"elapsed_minutes":491,"min_minutes_met":true,"lease_time_status":"minimum_minutes_met","return_gate_status":"final_response_allowed","final_response_allowed":true,"safe_to_execute":false,"executes_work":false,"approves_work":false,"mutates_repositories":false,"provider_calls":false,"release_or_publish":false,"credential_use":false,"direct_main_mutation":false,"concurrent_mutation":false,"claims_authority_advance":false}`
+	if err := os.WriteFile(readbackPath, []byte(readback), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(s, rec.MissionID, "atlas-recommendation-readback", readbackPath); err != nil {
+		t.Fatal(err)
+	}
+	index, err := BuildMissionEventIndex(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	results := SearchMissionEvents(index, MissionEventSearchFilters{MissionID: rec.MissionID, Kind: "final_reconciliation", Query: "artifacts_agree=true"})
+	if results.TotalMatches != 1 {
+		t.Fatalf("expected one final reconciliation event, got %+v", results)
+	}
+	if results.Events[0].Status != "ready" || !strings.Contains(results.Events[0].Summary, "rsi_remains_denied=true") {
+		t.Fatalf("bad final reconciliation event: %+v", results.Events[0])
+	}
+}
+
 func TestCommandStatusIncludesAtlasRecommendationSummary(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)

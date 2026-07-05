@@ -391,6 +391,20 @@ func missionEventsForRecord(record Record) []MissionEvent {
 			GeneratedAtUTC: record.ReturnGate.GeneratedAtUTC,
 		})
 	}
+	if record.Evidence.AtlasRecommendation != nil {
+		packet := BuildFinalReconciliationPacket(record)
+		events = append(events, MissionEvent{
+			Schema:         "ao.mission.event.v0.1",
+			MissionID:      record.MissionID,
+			Kind:           "final_reconciliation",
+			Sequence:       len(events) + 1,
+			Status:         packet.Status,
+			Route:          record.CurrentRoute,
+			Phase:          record.CurrentPhase,
+			Summary:        fmt.Sprintf("artifacts_agree=%t final_response_allowed=%t completed_nodes=%d total_nodes=%d blocker=%s rsi_remains_denied=%t claims_authority_advance=%t", packet.ArtifactsAgree, packet.FinalResponseAllowed, packet.CompletedNodes, packet.TotalNodes, packet.Blocker, packet.RSIRemainsDenied, packet.ClaimsAuthorityAdvance),
+			GeneratedAtUTC: packet.GeneratedAtUTC,
+		})
+	}
 	if record.Reconciliation != nil {
 		events = append(events, MissionEvent{
 			Schema:         "ao.mission.event.v0.1",

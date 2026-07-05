@@ -5,11 +5,11 @@
   "minimum_nodes": 25,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 10,
-  "ready_nodes": 15,
+  "completed_nodes": 11,
+  "ready_nodes": 14,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue with node-11: index final reconciliation packet evidence.",
+  "exact_next_action": "Continue with node-12: add final reconciliation fixtures and docs.",
   "nodes": [
     {
       "node_id": "node-01-atlas-recommendation-readback-import",
@@ -70,6 +70,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Expose Mission final reconciliation packets through CLI and production readiness."
+    },
+    {
+      "node_id": "node-11-final-reconciliation-event-index",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Expose final reconciliation packets in Mission event index/search."
     }
   ]
 }
