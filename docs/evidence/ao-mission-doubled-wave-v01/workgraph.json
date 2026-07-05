@@ -5,11 +5,11 @@
   "minimum_nodes": 60,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 24,
-  "ready_nodes": 36,
+  "completed_nodes": 25,
+  "ready_nodes": 35,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue node-25: AO Mission final rollup schema fixture for ready-node denial.",
+  "exact_next_action": "Continue node-26: AO Mission command status fixture binding long-run lease and checkpoint freshness.",
   "nodes": [
     {
       "node_id": "node-01-final-synthesis-cli",
@@ -154,6 +154,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Add final atlas-prompt regression rejecting shallow Feature Depth output."
+    },
+    {
+      "node_id": "node-25-final-rollup-ready-denial",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Add final rollup schema fixture for ready-node denial."
     }
   ]
 }

@@ -1,0 +1,14 @@
+{
+  "schema": "ao.command.readback.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-25-final-rollup-ready-denial",
+  "status": "ready",
+  "summary": "Final rollup ready-node denial fixture validates schema, final_response_allowed=false, ready_nodes_remaining=2, and actionable Feature Depth output.",
+  "fixture": "examples/valid/final-rollup-ready-node-denial.json",
+  "exact_next_action": "Continue node-26: AO Mission command status fixture binding long-run lease and checkpoint freshness.",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false,
+  "rsi_remains_denied": true
+}

@@ -2071,6 +2071,39 @@ func TestCLIFinalRollupDeniesFinalResponseWhenReadyNodesRemain(t *testing.T) {
 	}
 }
 
+func TestFinalRollupReadyNodeDenialFixtureValidatesSchema(t *testing.T) {
+	path := filepath.Join("..", "..", "examples", "valid", "final-rollup-ready-node-denial.json")
+	if result, err := ValidateContractFile(path); err != nil || result.Status != "ready" || result.Contract != "ao.mission.final-rollup.v0.1" {
+		t.Fatalf("fixture should validate final-rollup contract: result=%+v err=%v", result, err)
+	}
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rollup FinalRollup
+	if err := json.Unmarshal(body, &rollup); err != nil {
+		t.Fatal(err)
+	}
+	if rollup.Schema != "ao.mission.final-rollup.v0.1" ||
+		rollup.FinalResponseAllowed ||
+		rollup.ReturnGateStatus != "early_return_denied" ||
+		rollup.ReadyNodesRemaining != 2 ||
+		rollup.CompletedNodes != 10 ||
+		rollup.TotalNodes != 12 ||
+		!strings.Contains(rollup.ExactNextAction, "ready nodes remain") {
+		t.Fatalf("bad ready-node denial rollup fixture: %+v", rollup)
+	}
+	if err := ValidateFeatureDepthRecommendations(rollup.FeatureDepthRecommendations, 10); err != nil {
+		t.Fatalf("fixture Feature Depth recommendations should be actionable: %v", err)
+	}
+	if rollup.SafeToExecute || rollup.ExecutesWork || rollup.ApprovesWork || rollup.ProviderCalls {
+		t.Fatalf("fixture widened authority: %+v", rollup)
+	}
+	if err := ValidatePublicSafeText(string(body)); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestTelegramCommandFixtureMatrix(t *testing.T) {
 	allowlist := map[string]string{"1001": "admin", "1002": "user"}
 	matrix, err := LoadTelegramCommandMatrix(filepath.Join("..", "..", "examples", "valid", "telegram-command-matrix.json"))
