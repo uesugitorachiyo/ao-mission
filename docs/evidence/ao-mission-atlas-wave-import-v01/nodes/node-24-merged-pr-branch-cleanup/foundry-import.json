@@ -1,0 +1,8 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "node_id": "node-24-merged-pr-branch-cleanup",
+  "status": "imported",
+  "bounded_task": "Bind merged PR and stale branch cleanup evidence for wave PRs.",
+  "executes_one_node": true,
+  "safe_to_execute": false
+}
