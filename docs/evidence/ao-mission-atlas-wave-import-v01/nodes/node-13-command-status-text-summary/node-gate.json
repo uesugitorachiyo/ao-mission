@@ -1,0 +1,10 @@
+{
+  "schema": "ao.mission.node-gate-readback.v0.1",
+  "node_id": "node-13-command-status-text-summary",
+  "status": "passed",
+  "gate": "Compact command status text includes Atlas recommendation completion and final-response summary.",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false
+}

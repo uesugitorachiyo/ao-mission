@@ -1,0 +1,19 @@
+{
+  "schema": "ao.mission.candidate-record.v0.1",
+  "node_id": "node-13-command-status-text-summary",
+  "candidate": "Add Atlas recommendation summary to compact command status text output.",
+  "bounded_scope": [
+    "internal/mission/cli.go",
+    "internal/mission/mission_test.go",
+    "node evidence readbacks"
+  ],
+  "forbidden_scope": [
+    "provider calls",
+    "credential inspection",
+    "release/deploy/publish/upload/tag",
+    "dependency updates",
+    "policy/auth/config widening",
+    "direct main mutation",
+    "RSI promotion"
+  ]
+}

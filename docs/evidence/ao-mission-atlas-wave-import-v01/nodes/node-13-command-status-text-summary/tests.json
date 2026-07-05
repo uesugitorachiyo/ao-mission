@@ -1,0 +1,9 @@
+{
+  "schema": "ao.mission.tests-readback.v0.1",
+  "node_id": "node-13-command-status-text-summary",
+  "red": "go test ./internal/mission -run TestCLICommandStatusTextIncludesAtlasRecommendationSummary -count=1 failed because text output omitted Atlas recommendation details.",
+  "green": "go test ./internal/mission -run TestCLICommandStatusTextIncludesAtlasRecommendationSummary -count=1 passed after adding the text summary line.",
+  "regressions": [
+    "TestCLICommandStatusTextIncludesAtlasRecommendationSummary"
+  ]
+}

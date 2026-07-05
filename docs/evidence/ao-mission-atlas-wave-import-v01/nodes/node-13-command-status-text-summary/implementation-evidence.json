@@ -1,0 +1,10 @@
+{
+  "schema": "ao.mission.implementation-evidence.v0.1",
+  "node_id": "node-13-command-status-text-summary",
+  "status": "implemented_locally",
+  "files": [
+    "internal/mission/cli.go",
+    "internal/mission/mission_test.go"
+  ],
+  "behavior": "Text command status includes atlas_recommendation, completed_nodes, total_nodes, ready_nodes, and final_response_allowed when Atlas recommendation evidence exists."
+}

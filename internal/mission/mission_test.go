@@ -919,6 +919,37 @@ func TestCommandStatusIncludesAtlasRecommendationSummary(t *testing.T) {
 	}
 }
 
+func TestCLICommandStatusTextIncludesAtlasRecommendationSummary(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "command status text Atlas recommendation"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	readbackPath := filepath.Join(dir, "recommendation-readback.json")
+	readback := `{"schema":"ao.atlas.recommendation-readback.v0.1","status":"completed","total_nodes":40,"completed_nodes":40,"ready_nodes":0,"checkpoint_count":40,"elapsed_minutes":491,"min_minutes_met":true,"lease_time_status":"minimum_minutes_met","return_gate_status":"final_response_allowed","final_response_allowed":true,"safe_to_execute":false,"executes_work":false,"approves_work":false,"mutates_repositories":false,"provider_calls":false,"release_or_publish":false,"credential_use":false,"direct_main_mutation":false,"concurrent_mutation":false,"claims_authority_advance":false}`
+	if err := os.WriteFile(readbackPath, []byte(readback), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "import", "atlas-recommendation-readback", "--mission", rec.MissionID, "--path", readbackPath}, &out, &errb); code != 0 {
+		t.Fatalf("import: %s", errb.String())
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "command", "status", "--mission", rec.MissionID}, &out, &errb); code != 0 {
+		t.Fatalf("command status: %s", errb.String())
+	}
+	text := out.String()
+	for _, want := range []string{"atlas_recommendation=completed", "completed_nodes=40", "ready_nodes=0", "final_response_allowed=true"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("command status text missing %q: %s", want, text)
+		}
+	}
+}
+
 func TestFinalReconciliationPacketAgreesAcrossAtlasFoundryAndCommand(t *testing.T) {
 	rec := Record{
 		Schema:          RecordSchema,

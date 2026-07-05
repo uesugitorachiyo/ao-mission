@@ -1,0 +1,8 @@
+{
+  "schema": "ao.command.compact-mission-readback.v0.1",
+  "node_id": "node-13-command-status-text-summary",
+  "status": "verified_locally",
+  "summary": "Compact command status text includes Atlas recommendation summary.",
+  "final_response_allowed": false,
+  "exact_next_action": "Open PR, wait for CI, merge, then continue node 14."
+}

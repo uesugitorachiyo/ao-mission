@@ -5,11 +5,11 @@
   "minimum_nodes": 25,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 12,
-  "ready_nodes": 13,
+  "completed_nodes": 13,
+  "ready_nodes": 12,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue with node-13: add Command status CLI regression for Atlas summary.",
+  "exact_next_action": "Continue with node-14: add public-safety scan over next prompt and reconciliation docs.",
   "nodes": [
     {
       "node_id": "node-01-atlas-recommendation-readback-import",
@@ -82,6 +82,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Add final reconciliation packet fixture and operator docs reference."
+    },
+    {
+      "node_id": "node-13-command-status-text-summary",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Add Atlas recommendation summary to compact text Command status output."
     }
   ]
 }
