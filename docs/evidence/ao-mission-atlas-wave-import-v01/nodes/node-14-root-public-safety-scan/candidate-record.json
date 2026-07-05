@@ -1,0 +1,19 @@
+{
+  "schema": "ao.mission.candidate-record.v0.1",
+  "node_id": "node-14-root-public-safety-scan",
+  "candidate": "Add root Sentinel public-safety scan artifact over prompt, docs, and reconciliation fixtures.",
+  "bounded_scope": [
+    "docs/evidence/ao-mission-atlas-wave-import-v01/sentinel-public-safety-scan.json",
+    "scripts/production-readiness.sh",
+    "node evidence readbacks"
+  ],
+  "forbidden_scope": [
+    "provider calls",
+    "credential inspection",
+    "release/deploy/publish/upload/tag",
+    "dependency updates",
+    "policy/auth/config widening",
+    "direct main mutation",
+    "RSI promotion"
+  ]
+}

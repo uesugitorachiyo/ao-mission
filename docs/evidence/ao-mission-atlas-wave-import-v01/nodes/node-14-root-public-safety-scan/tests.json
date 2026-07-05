@@ -1,0 +1,9 @@
+{
+  "schema": "ao.mission.tests-readback.v0.1",
+  "node_id": "node-14-root-public-safety-scan",
+  "red": "scripts/production-readiness.sh failed because sentinel-public-safety-scan.json was missing.",
+  "green": "scripts/production-readiness.sh passed after adding the root Sentinel scan artifact.",
+  "regressions": [
+    "production-readiness Sentinel public-safety scan jq check"
+  ]
+}
