@@ -1,0 +1,14 @@
+{
+  "schema": "ao.mission.doubled-wave.node-evidence.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-06-import-checkpoint-bundle",
+  "status": "no_promotion_requested",
+  "evidence_key": "promoter_no_promotion",
+  "reason": "Node 6 persists checkpoint evidence only; it does not request promotion or authority advance.",
+  "promotion_claimed": false,
+  "claims_authority_advance": false,
+  "schedules_work": false,
+  "executes_work": false,
+  "approves_work": false,
+  "rsi_remains_denied": true
+}

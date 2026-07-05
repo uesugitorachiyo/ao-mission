@@ -219,6 +219,9 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 	if err != nil {
 		return ImportReadback{}, err
 	}
+	if err := s.SaveCheckpointBundle(BuildCheckpointBundle(r)); err != nil {
+		return ImportReadback{}, err
+	}
 	return ImportReadback{
 		Schema:          "ao.mission.import-readback.v0.1",
 		MissionID:       r.MissionID,

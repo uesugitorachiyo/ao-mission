@@ -1196,6 +1196,34 @@ func TestImportAtlasFinalSynthesisReadbackRejectsReadyNodeDrift(t *testing.T) {
 	}
 }
 
+func TestImportArtifactWritesDurableCheckpointResumeBundle(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("durable checkpoint after import")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(s, rec.MissionID, "atlas-final-synthesis-readback", filepath.Join("..", "..", "examples", "valid", "atlas-final-synthesis-readback.json")); err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := s.LoadCheckpointBundle(rec.MissionID)
+	if err != nil {
+		t.Fatalf("checkpoint bundle should be written after import: %v", err)
+	}
+	if bundle.Schema != CheckpointBundleSchema ||
+		bundle.MissionID != rec.MissionID ||
+		bundle.Status != "ready" ||
+		bundle.ReturnGate == nil ||
+		!bundle.ReturnGate.FinalResponseAllowed ||
+		!strings.Contains(bundle.ResumePrompt, "ao-mission continue --mission") ||
+		bundle.SafeToExecute ||
+		bundle.ExecutesWork ||
+		bundle.ApprovesWork ||
+		bundle.MutatesRepositories {
+		t.Fatalf("bad import checkpoint bundle: %+v", bundle)
+	}
+}
+
 func TestFinalReconciliationPacketAgreesAcrossAtlasFoundryAndCommand(t *testing.T) {
 	rec := Record{
 		Schema:          RecordSchema,

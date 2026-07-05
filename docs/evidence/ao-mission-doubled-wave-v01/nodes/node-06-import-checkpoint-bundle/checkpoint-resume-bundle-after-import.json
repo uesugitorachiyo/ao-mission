@@ -1,0 +1,25 @@
+{
+  "schema": "ao.mission.checkpoint-resume-bundle.v0.3",
+  "mission_id": "mission-bb5d73ff1a4acb34",
+  "status": "ready",
+  "checkpoint_count": 0,
+  "return_gate": {
+    "schema": "ao.mission.return-gate.v0.3",
+    "mission_id": "mission-bb5d73ff1a4acb34",
+    "status": "return_allowed",
+    "final_response_allowed": true,
+    "reason": "mission status is done",
+    "completed_nodes": 26,
+    "min_nodes": 10,
+    "ready_nodes_remaining": 0,
+    "hard_blocker": false,
+    "exact_next_action": "mission complete; read final rollup and recommended next tasks",
+    "generated_at_utc": "2026-07-05T02:29:20Z"
+  },
+  "resume_prompt": "ao-mission continue --mission mission-bb5d73ff1a4acb34 --until-done --max-iterations 10",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false,
+  "generated_at_utc": "2026-07-05T02:29:20Z"
+}

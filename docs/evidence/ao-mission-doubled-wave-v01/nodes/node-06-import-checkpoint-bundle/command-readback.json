@@ -1,0 +1,14 @@
+{
+  "schema": "ao.mission.doubled-wave.command-readback.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-06-import-checkpoint-bundle",
+  "status": "ready",
+  "summary": "AO Mission writes a durable checkpoint/resume bundle after successful artifact imports, so readback-driven state changes have a current resume artifact.",
+  "checkpoint_bundle": "docs/evidence/ao-mission-doubled-wave-v01/nodes/node-06-import-checkpoint-bundle/checkpoint-resume-bundle-after-import.json",
+  "final_response_allowed_for_doubled_wave": false,
+  "exact_next_action": "Continue node-07: generate Atlas continuation prompt from readiness, final rollup, and event index evidence.",
+  "schedules_work": false,
+  "executes_work": false,
+  "approves_work": false,
+  "rsi_remains_denied": true
+}
