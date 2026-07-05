@@ -1,0 +1,12 @@
+{
+  "schema": "ao.evidence.candidate-record.v0.1",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "node_id": "node-23-doctor-command-risk-fixture",
+  "selected_candidate": "Add a fixture and regression that prove AO Mission doctor early-return risk is represented in Command compact readback.",
+  "rejected_candidates": [
+    "Implement Command compact import now; rejected because node 41 owns Command compact import into route reconciliation.",
+    "Only update docs; rejected because a machine-checked fixture prevents future readback drift.",
+    "Claim promotion readiness; rejected because this is readback quality only and RSI remains denied."
+  ],
+  "decision_basis": "The doctor and Command compact readbacks existed separately; the missing evidence was an explicit binding of early-return denial and exact next action across them."
+}
