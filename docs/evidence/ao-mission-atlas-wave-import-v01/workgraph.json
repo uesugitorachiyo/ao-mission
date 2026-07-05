@@ -5,11 +5,11 @@
   "minimum_nodes": 25,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 3,
-  "ready_nodes": 22,
+  "completed_nodes": 4,
+  "ready_nodes": 21,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue with node-04: add exact blocker readbacks for denied or blocked Atlas recommendation states.",
+  "exact_next_action": "Continue with node-05: bind Atlas recommendation imports into event index/search.",
   "nodes": [
     {
       "node_id": "node-01-atlas-recommendation-readback-import",
@@ -28,6 +28,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Reject Atlas recommendation readbacks that claim execution, approval, provider, release, credential, or direct-main authority."
+    },
+    {
+      "node_id": "node-04-atlas-terminal-blocker-readbacks",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Map denied or blocked Atlas recommendation readbacks to exact Mission hard blockers."
     }
   ]
 }

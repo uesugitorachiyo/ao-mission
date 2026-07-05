@@ -84,6 +84,8 @@ type AtlasRecommendationReadbackCounts struct {
 	LeaseTimeStatus      string `json:"lease_time_status"`
 	ReturnGateStatus     string `json:"return_gate_status"`
 	FinalResponseAllowed bool   `json:"final_response_allowed"`
+	Blocker              string `json:"blocker,omitempty"`
+	RSIRemainsDenied     bool   `json:"rsi_remains_denied,omitempty"`
 	ExactNextAction      string `json:"exact_next_action"`
 }
 
