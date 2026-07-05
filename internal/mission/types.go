@@ -659,6 +659,29 @@ type AtlasWaveFinalSynthesis struct {
 	GeneratedAtUTC                        string                       `json:"generated_at_utc"`
 }
 
+type AtlasContinuationPromptPacket struct {
+	Schema                      string                       `json:"schema"`
+	MissionID                   string                       `json:"mission_id"`
+	Status                      string                       `json:"status"`
+	CurrentRoute                string                       `json:"current_route"`
+	CurrentPhase                string                       `json:"current_phase"`
+	EventIndexDigest            string                       `json:"event_index_digest"`
+	FinalRollupDigest           string                       `json:"final_rollup_digest"`
+	CompletedNodes              int                          `json:"completed_nodes"`
+	TotalNodes                  int                          `json:"total_nodes"`
+	ReadyNodesRemaining         int                          `json:"ready_nodes_remaining"`
+	FinalResponseAllowed        bool                         `json:"final_response_allowed"`
+	ReturnGateStatus            string                       `json:"return_gate_status"`
+	ExactNextAction             string                       `json:"exact_next_action"`
+	Prompt                      string                       `json:"prompt"`
+	FeatureDepthRecommendations []FeatureDepthRecommendation `json:"feature_depth_recommendations"`
+	SafeToExecute               bool                         `json:"safe_to_execute"`
+	ExecutesWork                bool                         `json:"executes_work"`
+	ApprovesWork                bool                         `json:"approves_work"`
+	MutatesRepositories         bool                         `json:"mutates_repositories"`
+	GeneratedAtUTC              string                       `json:"generated_at_utc"`
+}
+
 type GovernanceSnapshotDiff struct {
 	Schema         string   `json:"schema"`
 	Status         string   `json:"status"`

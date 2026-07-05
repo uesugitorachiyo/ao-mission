@@ -1224,6 +1224,82 @@ func TestImportArtifactWritesDurableCheckpointResumeBundle(t *testing.T) {
 	}
 }
 
+func TestAtlasContinuationPromptPacketBindsRollupReadinessAndEventIndex(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("atlas prompt packet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(s, rec.MissionID, "atlas-final-synthesis-readback", filepath.Join("..", "..", "examples", "valid", "atlas-final-synthesis-readback.json")); err != nil {
+		t.Fatal(err)
+	}
+	done, err := s.Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	index, err := BuildMissionEventIndex(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	packet, err := BuildAtlasContinuationPromptPacket(done, index)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if packet.Schema != "ao.mission.atlas-continuation-prompt-packet.v0.1" ||
+		packet.MissionID != rec.MissionID ||
+		packet.Status != "ready" ||
+		packet.EventIndexDigest != index.IndexDigest ||
+		!strings.HasPrefix(packet.FinalRollupDigest, "sha256:") ||
+		packet.ReadyNodesRemaining != 0 ||
+		!packet.FinalResponseAllowed ||
+		!strings.Contains(packet.Prompt, "AO Atlas") ||
+		!strings.Contains(packet.Prompt, "event_index_digest="+index.IndexDigest) ||
+		!strings.Contains(packet.Prompt, "Do not produce a final response if ready_nodes > 0 or exact_next_action remains.") ||
+		len(packet.FeatureDepthRecommendations) < 10 ||
+		packet.SafeToExecute ||
+		packet.ExecutesWork ||
+		packet.ApprovesWork ||
+		packet.MutatesRepositories {
+		t.Fatalf("bad Atlas continuation prompt packet: %+v", packet)
+	}
+}
+
+func TestCLIAtlasContinuationPromptWritesPacket(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "cli atlas prompt packet"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(NewStore(dir), rec.MissionID, "atlas-final-synthesis-readback", filepath.Join("..", "..", "examples", "valid", "atlas-final-synthesis-readback.json")); err != nil {
+		t.Fatal(err)
+	}
+	indexPath := filepath.Join(dir, "event-index.json")
+	outPath := filepath.Join(dir, "atlas-prompt-packet.json")
+	out.Reset()
+	if code := Run([]string{"--home", dir, "mission", "events", "index", "--out", indexPath}, &out, &errb); code != 0 {
+		t.Fatalf("event index: %s", errb.String())
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "final", "atlas-prompt", "--mission", rec.MissionID, "--event-index", indexPath, "--out", outPath, "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("atlas prompt: %s", errb.String())
+	}
+	var packet AtlasContinuationPromptPacket
+	if err := json.Unmarshal(out.Bytes(), &packet); err != nil {
+		t.Fatalf("prompt packet did not emit json: %v\n%s", err, out.String())
+	}
+	if packet.MissionID != rec.MissionID || packet.EventIndexDigest == "" || packet.FinalRollupDigest == "" || packet.Prompt == "" {
+		t.Fatalf("bad CLI prompt packet: %+v", packet)
+	}
+	if _, err := os.Stat(outPath); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestFinalReconciliationPacketAgreesAcrossAtlasFoundryAndCommand(t *testing.T) {
 	rec := Record{
 		Schema:          RecordSchema,

@@ -1,0 +1,95 @@
+{
+  "schema": "ao.mission.event-index.v0.2",
+  "status": "ready",
+  "index_version": "v0.2",
+  "index_digest": "sha256:a4b0ed521134e94e856c6fa9563938830a8ef89e5baa66d7ab5aa3f0346da998",
+  "source_digest": "sha256:75cc2d3ddfa4ae0ef6907f28fc4073caee84848d8db543a6d60401a850909406",
+  "root": "/var/folders/v3/66_f37zd7_jf3w5t_1lmdx2h0000gn/T/tmp.oOP0FZL7TI",
+  "mission_count": 1,
+  "total_events": 8,
+  "events": [
+    {
+      "schema": "ao.mission.event.v0.1",
+      "mission_id": "mission-f7de6572e85e3620",
+      "kind": "mission_record",
+      "sequence": 0,
+      "status": "done",
+      "route": "complete",
+      "phase": "complete",
+      "summary": "mission mission-f7de6572e85e3620 status done route complete phase complete next mission complete; read final rollup and recommended next tasks",
+      "generated_at_utc": "2026-07-05T02:35:45Z"
+    },
+    {
+      "schema": "ao.mission.event.v0.1",
+      "mission_id": "mission-f7de6572e85e3620",
+      "kind": "route_decision",
+      "sequence": 1,
+      "route": "ao-atlas",
+      "summary": "objective requires workgraph, context, or long-running task management send authorized pack to AO Atlas",
+      "generated_at_utc": "2026-07-05T02:35:44Z"
+    },
+    {
+      "schema": "ao.mission.event.v0.1",
+      "mission_id": "mission-f7de6572e85e3620",
+      "kind": "route_decision",
+      "sequence": 2,
+      "route": "complete",
+      "summary": "Atlas final synthesis readback imported mission complete; read final rollup and recommended next tasks",
+      "generated_at_utc": "2026-07-05T02:35:45Z"
+    },
+    {
+      "schema": "ao.mission.event.v0.1",
+      "mission_id": "mission-f7de6572e85e3620",
+      "kind": "artifact_ref",
+      "sequence": 1,
+      "artifact_kind": "atlas-final-synthesis-readback",
+      "summary": "atlas-final-synthesis-readback examples/valid/atlas-final-synthesis-readback.json sha256:16b32e9a0eb78447760c58bb1543d6b22fa9d2dbdbd8c2836c72e8fd2c5775f3"
+    },
+    {
+      "schema": "ao.mission.event.v0.1",
+      "mission_id": "mission-f7de6572e85e3620",
+      "kind": "atlas_recommendation",
+      "sequence": 5,
+      "status": "completed",
+      "route": "complete",
+      "phase": "complete",
+      "summary": "atlas recommendation status completed completed_nodes=26 total_nodes=26 ready_nodes=0 checkpoint_count=26 elapsed_minutes=0 lease_time_status=minimum_minutes_met return_gate_status=final_response_allowed blocker=",
+      "generated_at_utc": "2026-07-05T02:35:45Z"
+    },
+    {
+      "schema": "ao.mission.event.v0.1",
+      "mission_id": "mission-f7de6572e85e3620",
+      "kind": "return_gate",
+      "sequence": 6,
+      "status": "return_allowed",
+      "summary": "mission status is done mission complete; read final rollup and recommended next tasks",
+      "generated_at_utc": "2026-07-05T02:35:45Z"
+    },
+    {
+      "schema": "ao.mission.event.v0.1",
+      "mission_id": "mission-f7de6572e85e3620",
+      "kind": "final_reconciliation",
+      "sequence": 7,
+      "status": "ready",
+      "route": "complete",
+      "phase": "complete",
+      "summary": "artifacts_agree=true final_response_allowed=true completed_nodes=26 total_nodes=26 blocker= rsi_remains_denied=true claims_authority_advance=false",
+      "generated_at_utc": "2026-07-05T02:35:45Z"
+    },
+    {
+      "schema": "ao.mission.event.v0.1",
+      "mission_id": "mission-f7de6572e85e3620",
+      "kind": "route_reconciliation",
+      "sequence": 8,
+      "status": "ready",
+      "route": "complete",
+      "summary": "route and readback evidence reconciled; continue from latest exact next action",
+      "generated_at_utc": "2026-07-05T02:35:45Z"
+    }
+  ],
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false,
+  "generated_at_utc": "2026-07-05T02:35:45Z"
+}

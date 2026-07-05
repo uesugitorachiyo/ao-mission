@@ -1,0 +1,14 @@
+{
+  "schema": "ao.mission.doubled-wave.command-readback.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-07-atlas-prompt-packet",
+  "status": "ready",
+  "summary": "AO Mission can now generate an Atlas continuation prompt packet bound to event index and final rollup digests, current readiness, and final-response gates.",
+  "prompt_packet": "docs/evidence/ao-mission-doubled-wave-v01/nodes/node-07-atlas-prompt-packet/atlas-continuation-prompt-packet.json",
+  "final_response_allowed_for_doubled_wave": false,
+  "exact_next_action": "Continue node-08: strengthen Feature Depth Recommendations to require at least 10 concrete next tasks by default.",
+  "schedules_work": false,
+  "executes_work": false,
+  "approves_work": false,
+  "rsi_remains_denied": true
+}

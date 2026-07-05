@@ -1195,7 +1195,47 @@ func run(args []string, stdout io.Writer) error {
 			}
 			return printJSON(stdout, synthesis)
 		}
-		return errors.New("final requires rollup --mission <id>, reconcile --mission <id>, or synthesize --mission <id> --evidence-root <path>")
+		if len(args) >= 2 && args[1] == "atlas-prompt" {
+			fs := flag.NewFlagSet("final atlas-prompt", flag.ContinueOnError)
+			id := fs.String("mission", "", "")
+			eventIndexPath := fs.String("event-index", "", "")
+			outPath := fs.String("out", "", "")
+			jsonOut := fs.Bool("json", false, "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			r, err := s.Load(*id)
+			if err != nil {
+				return err
+			}
+			body, err := os.ReadFile(*eventIndexPath)
+			if err != nil {
+				return err
+			}
+			var index MissionEventIndex
+			if err := json.Unmarshal(body, &index); err != nil {
+				return err
+			}
+			packet, err := BuildAtlasContinuationPromptPacket(r, index)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(*outPath) != "" {
+				body, err := json.MarshalIndent(packet, "", "  ")
+				if err != nil {
+					return err
+				}
+				if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+					return err
+				}
+			}
+			if *jsonOut {
+				return printJSON(stdout, packet)
+			}
+			fmt.Fprintf(stdout, "status=%s\nmission=%s\natlas_prompt_packet=%s\n", packet.Status, packet.MissionID, *outPath)
+			return nil
+		}
+		return errors.New("final requires rollup --mission <id>, reconcile --mission <id>, synthesize --mission <id> --evidence-root <path>, or atlas-prompt --mission <id> --event-index <path>")
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}

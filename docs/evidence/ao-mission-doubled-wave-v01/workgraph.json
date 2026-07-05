@@ -5,11 +5,11 @@
   "minimum_nodes": 60,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 6,
-  "ready_nodes": 54,
+  "completed_nodes": 7,
+  "ready_nodes": 53,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue node-07: generate Atlas continuation prompt from readiness, final rollup, and event index evidence.",
+  "exact_next_action": "Continue node-08: strengthen Feature Depth Recommendations to require at least 10 concrete next tasks by default.",
   "nodes": [
     {
       "node_id": "node-01-final-synthesis-cli",
@@ -46,6 +46,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Persist a durable checkpoint/resume bundle after imported node evidence updates Mission state."
+    },
+    {
+      "node_id": "node-07-atlas-prompt-packet",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Generate an Atlas continuation prompt packet from readiness, final rollup, and event index evidence."
     }
   ]
 }

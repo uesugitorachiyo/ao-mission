@@ -1,0 +1,14 @@
+{
+  "schema": "ao.mission.doubled-wave.node-evidence.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-07-atlas-prompt-packet",
+  "status": "no_promotion_requested",
+  "evidence_key": "promoter_no_promotion",
+  "reason": "Node 7 generates a continuation prompt packet only; it does not request promotion or authority advance.",
+  "promotion_claimed": false,
+  "claims_authority_advance": false,
+  "schedules_work": false,
+  "executes_work": false,
+  "approves_work": false,
+  "rsi_remains_denied": true
+}

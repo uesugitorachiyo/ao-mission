@@ -1,0 +1,83 @@
+{
+  "schema": "ao.mission.atlas-continuation-prompt-packet.v0.1",
+  "mission_id": "mission-f7de6572e85e3620",
+  "status": "ready",
+  "current_route": "complete",
+  "current_phase": "complete",
+  "event_index_digest": "sha256:a4b0ed521134e94e856c6fa9563938830a8ef89e5baa66d7ab5aa3f0346da998",
+  "final_rollup_digest": "sha256:43ef68523aa48ce45264b462992b1567c3c5fa68f020cd06596d7db4b015b2b3",
+  "completed_nodes": 26,
+  "total_nodes": 26,
+  "ready_nodes_remaining": 0,
+  "final_response_allowed": true,
+  "return_gate_status": "return_allowed",
+  "exact_next_action": "mission complete; read final rollup and recommended next tasks",
+  "prompt": "You are AO Atlas, continuing AO Mission mission-f7de6572e85e3620.\n\nLoad the current Mission record, event index digest, final rollup digest, and readiness state before selecting work.\n\nEvidence bindings:\n- event_index_digest=sha256:a4b0ed521134e94e856c6fa9563938830a8ef89e5baa66d7ab5aa3f0346da998\n- final_rollup_digest=sha256:43ef68523aa48ce45264b462992b1567c3c5fa68f020cd06596d7db4b015b2b3\n\nCurrent readiness:\n- current_route=complete\n- current_phase=complete\n- completed_nodes=26\n- total_nodes=26\n- ready_nodes=0\n- final_response_allowed=true\n- return_gate_status=return_allowed\n- exact_next_action=mission complete; read final rollup and recommended next tasks\n\nDo not produce a final response if ready_nodes \u003e 0 or exact_next_action remains.\nSelect exactly one bounded Atlas-owned sequencing node or emit a Foundry import for exactly one ready implementation node. Keep safe_to_execute=false, executes_work=false, approves_work=false, mutates_repositories=false, and RSI denied unless separate governed evidence proves otherwise.",
+  "feature_depth_recommendations": [
+    {
+      "id": "mission-continue-loop",
+      "owner": "ao-mission",
+      "task": "Continue the governed supervisor loop until lease minimums or terminal blockers are reached.",
+      "exact_next_action": "run ao-mission continue --mission mission-f7de6572e85e3620 --until-done --max-iterations 10"
+    },
+    {
+      "id": "atlas-workgraph-refresh",
+      "owner": "ao-atlas",
+      "task": "Refresh the Atlas workgraph from current Mission readiness and event-index evidence.",
+      "exact_next_action": "import the current Mission record and emit the next bounded Atlas workgraph node"
+    },
+    {
+      "id": "foundry-single-node-import",
+      "owner": "ao-foundry",
+      "task": "Consume exactly one safe ready Atlas node and return a run-link or terminal rollup.",
+      "exact_next_action": "run Foundry on the first ready node only and record run-link evidence"
+    },
+    {
+      "id": "checkpoint-resume-bundle",
+      "owner": "ao-mission",
+      "task": "Persist a checkpoint/resume bundle after each node or timed interval.",
+      "exact_next_action": "inspect the latest checkpoint bundle before any final response"
+    },
+    {
+      "id": "route-reconciliation",
+      "owner": "ao-mission",
+      "task": "Reconcile current route, Atlas readiness, Foundry rollup, Promoter verdict, and Command readback.",
+      "exact_next_action": "run mission events search for route, rollup, promoter, command, CI, and blocker evidence"
+    },
+    {
+      "id": "command-compact-readback",
+      "owner": "ao-command",
+      "task": "Emit a compact long-run mission timeline readback for operator scanning.",
+      "exact_next_action": "bind Mission dashboard and event-index output into AO Command readback"
+    },
+    {
+      "id": "promoter-summary",
+      "owner": "ao-promoter",
+      "task": "Record promotion or no-promotion readiness for the exact terminal rollup status.",
+      "exact_next_action": "keep broad RSI denied unless governed evidence separately proves it"
+    },
+    {
+      "id": "sentinel-wording-scan",
+      "owner": "ao-sentinel",
+      "task": "Scan changed public docs and readbacks for unsafe or stale public-safety wording.",
+      "exact_next_action": "record Sentinel/public-safety wording evidence before rollup closure"
+    },
+    {
+      "id": "operator-runbook",
+      "owner": "ao-mission",
+      "task": "Keep the operator runbook explicit about Mission, Atlas, Blueprint, Foundry, and long-run requests.",
+      "exact_next_action": "update docs/operator-next-actions.md with 2-3 hour Mission usage"
+    },
+    {
+      "id": "production-readiness",
+      "owner": "ao-mission",
+      "task": "Run tests, vet, build, production-readiness, and public-safety wording scans over changed artifacts.",
+      "exact_next_action": "record verification command output in the mission evidence root"
+    }
+  ],
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false,
+  "generated_at_utc": "2026-07-05T02:35:45Z"
+}
