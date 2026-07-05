@@ -1,0 +1,7 @@
+{
+  "schema": "ao.mission.rollback-record.v0.1",
+  "node_id": "node-12-final-reconciliation-fixture-docs",
+  "rollback": "Remove the final reconciliation fixture, docs paragraph, readiness checks, and node evidence.",
+  "risk": "Low; fixture and docs only.",
+  "requires_release": false
+}

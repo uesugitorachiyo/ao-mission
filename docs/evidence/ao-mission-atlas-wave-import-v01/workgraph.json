@@ -5,11 +5,11 @@
   "minimum_nodes": 25,
   "target_minutes": 120,
   "max_minutes": 180,
-  "completed_nodes": 11,
-  "ready_nodes": 14,
+  "completed_nodes": 12,
+  "ready_nodes": 13,
   "blocked_nodes": 0,
   "final_response_allowed": false,
-  "exact_next_action": "Continue with node-12: add final reconciliation fixtures and docs.",
+  "exact_next_action": "Continue with node-13: add Command status CLI regression for Atlas summary.",
   "nodes": [
     {
       "node_id": "node-01-atlas-recommendation-readback-import",
@@ -76,6 +76,12 @@
       "owner": "ao-mission",
       "status": "completed",
       "objective": "Expose final reconciliation packets in Mission event index/search."
+    },
+    {
+      "node_id": "node-12-final-reconciliation-fixture-docs",
+      "owner": "ao-mission",
+      "status": "completed",
+      "objective": "Add final reconciliation packet fixture and operator docs reference."
     }
   ]
 }

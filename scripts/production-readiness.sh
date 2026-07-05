@@ -34,4 +34,6 @@ jq -e '.schema == "ao.mission.final-reconciliation-packet.v0.1" and .artifacts_a
 rm -rf "$tmp_home" "$mission_json" "$import_json" "$inspect_json" "$reconcile_json" ao-mission
 grep -q "25-node Atlas recommendation import wave" docs/operator-next-actions.md
 grep -q "Do not stop before 25 completed nodes" docs/evidence/ao-mission-atlas-wave-import-v01/next-recommended-prompt.md
+grep -q "final-reconciliation-packet.json" docs/operator-next-actions.md
+jq -e '.schema == "ao.mission.final-reconciliation-packet.v0.1" and .status == "ready" and .artifacts_agree == true and .promotion_claimed == false and .rsi_remains_denied == true and .claims_authority_advance == false and .safe_to_execute == false and .executes_work == false and .approves_work == false' examples/valid/final-reconciliation-packet.json >/dev/null
 echo "AO Mission production readiness: 100/100 status=ready"
