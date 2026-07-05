@@ -1,0 +1,14 @@
+{
+  "schema": "ao.mission.doubled-wave.node-evidence.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-08-feature-depth-contract",
+  "status": "accepted",
+  "candidate": "Feature Depth recommendations were count-only and could pass with shallow generated continuation tasks.",
+  "selected_change": "Add concrete contract fields, 20 explicit seed tasks, a validator, final-synthesis enforcement, and production-readiness checks.",
+  "rejected_scope": [
+    "no provider calls",
+    "no dependency updates",
+    "no auth or policy widening",
+    "no direct main mutation"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "schema": "ao.mission.doubled-wave.node-evidence.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-08-feature-depth-contract",
+  "status": "ready",
+  "rollback": "Revert the node branch or remove FeatureDepthRecommendation contract fields, ValidateFeatureDepthRecommendations, final-synthesis validation, production-readiness jq checks, and node 08 evidence.",
+  "state_to_preserve": "Previous Feature Depth recommendations remain readback-only and do not execute, approve, or mutate work.",
+  "schedules_work": false,
+  "executes_work": false,
+  "approves_work": false,
+  "rsi_remains_denied": true
+}

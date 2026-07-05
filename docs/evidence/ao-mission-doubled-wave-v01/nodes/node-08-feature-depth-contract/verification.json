@@ -1,0 +1,27 @@
+{
+  "schema": "ao.mission.doubled-wave.node-evidence.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-08-feature-depth-contract",
+  "status": "passed",
+  "evidence_key": "verification",
+  "commands": [
+    "go test ./internal/mission -run 'TestFeatureDepthRecommendations(ReturnAtLeastTenActionableTasks|EnforceConcreteBudget)' -count=1",
+    "go test ./... -count=1",
+    "go vet ./...",
+    "go build ./cmd/ao-mission",
+    "scripts/production-readiness.sh",
+    "rg -n 'RSI is proven|RSI proven|provider_calls\\\": true|credential_use\\\": true|release_or_publish\\\": true|direct_main_mutation\\\": true|mutates_repositories\\\": true|approves_work\\\": true|executes_work\\\": true' internal/mission scripts/production-readiness.sh docs/evidence/ao-mission-doubled-wave-v01/nodes/node-08-feature-depth-contract docs/evidence/ao-mission-doubled-wave-v01/workgraph.json"
+  ],
+  "results": [
+    "targeted Feature Depth regression passed",
+    "go test ./... -count=1 passed",
+    "go vet ./... passed",
+    "go build ./cmd/ao-mission passed",
+    "scripts/production-readiness.sh returned AO Mission production readiness: 100/100 status=ready",
+    "public-safety wording scan returned no matches"
+  ],
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "rsi_remains_denied": true
+}

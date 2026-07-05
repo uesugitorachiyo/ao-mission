@@ -1,0 +1,13 @@
+{
+  "schema": "ao.mission.doubled-wave.node-evidence.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-08-feature-depth-contract",
+  "status": "passed",
+  "scan_scope": [
+    "internal/mission/supervisor.go",
+    "scripts/production-readiness.sh",
+    "docs/evidence/ao-mission-doubled-wave-v01/nodes/node-08-feature-depth-contract"
+  ],
+  "result": "No broad RSI claim, provider call, credential use, release/deploy/publish/upload/tag, direct-main mutation, dependency update, or auth/policy widening is introduced.",
+  "rsi_remains_denied": true
+}

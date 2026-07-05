@@ -1,0 +1,18 @@
+{
+  "schema": "ao.foundry.import.v0.1",
+  "mission": "ao-mission-doubled-wave-v01",
+  "node_id": "node-08-feature-depth-contract",
+  "owner": "ao-mission",
+  "bounded_task": "Implement only the Feature Depth concrete recommendation contract node.",
+  "inputs": [
+    "internal/mission/supervisor.go",
+    "internal/mission/types.go",
+    "internal/mission/final_synthesis.go",
+    "scripts/production-readiness.sh"
+  ],
+  "stop_after": "validator, tests, production-readiness smoke, and node evidence are complete",
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false
+}

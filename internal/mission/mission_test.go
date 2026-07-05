@@ -1487,6 +1487,52 @@ func TestFeatureDepthRecommendationsReturnAtLeastTenActionableTasks(t *testing.T
 	}
 }
 
+func TestFeatureDepthRecommendationsEnforceConcreteBudget(t *testing.T) {
+	rec := Record{
+		Schema:          RecordSchema,
+		MissionID:       "mission-feature-depth-budget",
+		Status:          "active",
+		CurrentRoute:    "ao-atlas",
+		CurrentPhase:    "atlas_workgraph_ready",
+		ExactNextAction: "continue doubled Atlas wave",
+		Evidence: EvidenceSummary{
+			AtlasWorkgraph: &NodeCounts{Total: 60, Ready: 53, Blocked: 0, Completed: 7},
+		},
+	}
+	recs := BuildFeatureDepthRecommendations(rec, 20)
+	if err := ValidateFeatureDepthRecommendations(recs, 20); err != nil {
+		t.Fatalf("recommendations should satisfy concrete budget: %v", err)
+	}
+	if len(recs) < 20 {
+		t.Fatalf("recommendations too shallow: %d", len(recs))
+	}
+	totalMinutes := 0
+	seen := map[string]bool{}
+	for _, item := range recs {
+		if seen[item.ID] {
+			t.Fatalf("duplicate recommendation id: %s", item.ID)
+		}
+		seen[item.ID] = true
+		totalMinutes += item.EstimatedMinutes
+		if item.Gate == "" || len(item.EvidenceRequired) < 3 || item.ContinuationCommand == "" {
+			t.Fatalf("recommendation missing concrete contract fields: %+v", item)
+		}
+		if item.EstimatedMinutes < 6 {
+			t.Fatalf("recommendation under budget: %+v", item)
+		}
+	}
+	if totalMinutes < 120 {
+		t.Fatalf("recommendations under 2-hour budget: %d", totalMinutes)
+	}
+
+	shallow := []FeatureDepthRecommendation{
+		{ID: "shallow", Owner: "ao-atlas", Task: "Do a thing.", ExactNextAction: "continue"},
+	}
+	if err := ValidateFeatureDepthRecommendations(shallow, 10); err == nil {
+		t.Fatal("shallow recommendations should be rejected")
+	}
+}
+
 func TestFinalRollupDeniesFinalResponseWhenReadyNodesRemain(t *testing.T) {
 	rec := Record{
 		Schema:          RecordSchema,
