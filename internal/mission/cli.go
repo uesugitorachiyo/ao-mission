@@ -97,6 +97,40 @@ func run(args []string, stdout io.Writer) error {
 			}
 			fmt.Fprintf(stdout, "mission=%s\nstatus=%s\nphase=%s\nroute=%s\nnext=%s\n", r.MissionID, r.Status, r.CurrentPhase, r.CurrentRoute, r.ExactNextAction)
 			return nil
+		case "metrics":
+			fs := flag.NewFlagSet("mission metrics", flag.ContinueOnError)
+			id := fs.String("mission", "", "")
+			outPath := fs.String("out", "", "")
+			jsonOut := fs.Bool("json", false, "json output")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*id) == "" {
+				return errors.New("mission metrics requires --mission")
+			}
+			r, err := s.Load(*id)
+			if err != nil {
+				return err
+			}
+			metrics := BuildMissionLifecycleMetrics(r)
+			if err := ValidateMissionLifecycleMetrics(metrics); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*outPath) != "" {
+				body, err := json.MarshalIndent(metrics, "", "  ")
+				if err != nil {
+					return err
+				}
+				if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+					return err
+				}
+			}
+			if *jsonOut {
+				return printJSON(stdout, metrics)
+			}
+			fmt.Fprintf(stdout, "mission=%s\ncompleted_nodes=%d\nevidence_completed_nodes=%d\nhandoff_steps=%d\ntotal_nodes=%d\nready_nodes=%d\ncompletion_basis=%s\nfinal_response_allowed=%t\n",
+				metrics.MissionID, metrics.CompletedNodes, metrics.EvidenceCompletedNodes, metrics.HandoffSteps, metrics.TotalNodes, metrics.ReadyNodes, metrics.CompletionBasis, metrics.FinalResponseAllowed)
+			return nil
 		case "history":
 			fs := flag.NewFlagSet("mission history", flag.ContinueOnError)
 			id := fs.String("mission", "", "")
