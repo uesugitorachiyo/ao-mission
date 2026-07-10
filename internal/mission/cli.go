@@ -131,6 +131,38 @@ func run(args []string, stdout io.Writer) error {
 			fmt.Fprintf(stdout, "mission=%s\ncompleted_nodes=%d\nevidence_completed_nodes=%d\nhandoff_steps=%d\ntotal_nodes=%d\nready_nodes=%d\ncompletion_basis=%s\nfinal_response_allowed=%t\n",
 				metrics.MissionID, metrics.CompletedNodes, metrics.EvidenceCompletedNodes, metrics.HandoffSteps, metrics.TotalNodes, metrics.ReadyNodes, metrics.CompletionBasis, metrics.FinalResponseAllowed)
 			return nil
+		case "projection":
+			fs := flag.NewFlagSet("mission projection", flag.ContinueOnError)
+			id := fs.String("mission", "", "")
+			outPath := fs.String("out", "", "")
+			jsonOut := fs.Bool("json", false, "json output")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*id) == "" {
+				return errors.New("mission projection requires --mission")
+			}
+			projection, err := BuildMissionLifecycleProjection(s, *id)
+			if err != nil {
+				return err
+			}
+			if err := ValidateMissionLifecycleProjection(projection); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*outPath) != "" {
+				body, err := json.MarshalIndent(projection, "", "  ")
+				if err != nil {
+					return err
+				}
+				if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+					return err
+				}
+			}
+			if *jsonOut {
+				return printJSON(stdout, projection)
+			}
+			fmt.Fprintf(stdout, "mission=%s\nstatus=%s\nevent_count=%d\ncurrent_route=%s\nfinal_response_allowed=%t\n", projection.MissionID, projection.Status, projection.EventCount, projection.CurrentRoute, projection.FinalResponseAllowed)
+			return nil
 		case "history":
 			fs := flag.NewFlagSet("mission history", flag.ContinueOnError)
 			id := fs.String("mission", "", "")
@@ -413,7 +445,7 @@ func run(args []string, stdout io.Writer) error {
 			fmt.Fprintf(stdout, "mission_verification_bundle=%s\nmission=%s\nstatus=%s\ncomponent_count=%d\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, readback.MissionID, readback.Status, readback.ComponentCount)
 			return nil
 		default:
-			return errors.New("mission requires list, inspect, history, compact, archive, validate-archive, import-archive, events, readiness-bundle, dashboard, or verification-bundle")
+			return errors.New("mission requires list, inspect, metrics, projection, history, compact, archive, validate-archive, import-archive, events, readiness-bundle, dashboard, or verification-bundle")
 		}
 	case "doctor":
 		fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
