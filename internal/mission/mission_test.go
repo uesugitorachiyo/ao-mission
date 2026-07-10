@@ -150,6 +150,25 @@ func TestCLIContinueUntilDonePersistsMultipleHandoffs(t *testing.T) {
 	}
 }
 
+func TestReturnGateDoesNotCountHandoffStepsAsCompletedNodes(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("handoff accounting regression")
+	if err != nil {
+		t.Fatal(err)
+	}
+	continued, err := Continue(s, rec.MissionID, ContinueOptions{UntilDone: true, MaxIterations: 5, MinNodes: 15})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(continued.Steps) != 5 {
+		t.Fatalf("handoff steps=%d, want 5", len(continued.Steps))
+	}
+	if continued.ReturnGate == nil || continued.ReturnGate.CompletedNodes != 0 {
+		t.Fatalf("handoffs must not count as completed nodes: %+v", continued.ReturnGate)
+	}
+}
+
 func TestContinueWritesCheckpointBundleAndDoctorSupervisorHealth(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)

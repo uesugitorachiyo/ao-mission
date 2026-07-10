@@ -180,7 +180,7 @@ func EvaluateReturnGate(r Record) ReturnGate {
 }
 
 func completedEvidenceNodes(r Record) int {
-	completed := len(r.Steps)
+	completed := 0
 	if r.Evidence.AtlasWorkgraph != nil && r.Evidence.AtlasWorkgraph.Completed > completed {
 		completed = r.Evidence.AtlasWorkgraph.Completed
 	}
