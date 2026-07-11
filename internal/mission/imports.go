@@ -63,6 +63,7 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 			rec.Reconciliation = &reconciliation
 		case "atlas-recommendation-readback":
 			readback := parseAtlasRecommendationReadbackCounts(doc)
+			foreignReadback := stringFromAny(doc["mission_id"]) != "" && stringFromAny(doc["mission_id"]) != missionID
 			rec.Evidence.AtlasRecommendation = &readback
 			rec.Evidence.AtlasWorkgraph = &NodeCounts{
 				Total:     readback.TotalNodes,
@@ -71,7 +72,7 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 			}
 			rec.ExactNextAction = readback.ExactNextAction
 			switch {
-			case atlasRecommendationReadbackClosesMission(readback):
+			case !foreignReadback && atlasRecommendationReadbackClosesMission(readback):
 				rec.Status = "done"
 				rec.CurrentRoute = "complete"
 				rec.CurrentPhase = "complete"
@@ -86,7 +87,9 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 			default:
 				rec.CurrentRoute = "ao-atlas"
 				rec.CurrentPhase = "atlas_recommendation_readback_recorded"
-				if rec.ExactNextAction == "" {
+				if foreignReadback {
+					rec.ExactNextAction = "reconcile foreign Atlas recommendation readback before closing parent mission"
+				} else if rec.ExactNextAction == "" {
 					rec.ExactNextAction = "continue AO Atlas recommendation wave from latest ready node"
 				}
 			}

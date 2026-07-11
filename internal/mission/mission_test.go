@@ -201,6 +201,33 @@ func TestContinueWritesCheckpointBundleAndDoctorSupervisorHealth(t *testing.T) {
 	}
 }
 
+func TestResumeReevaluatesReturnGateAfterDoneState(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("resume a long-running Atlas mission")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec.Status = "done"
+	rec.CurrentRoute = "complete"
+	rec.CurrentPhase = "complete"
+	rec.ExactNextAction = "mission complete; read final rollup and recommended next tasks"
+	rec.ReturnGate = &ReturnGate{Schema: ReturnGateSchema, MissionID: rec.MissionID, Status: "return_allowed", FinalResponseAllowed: true}
+	if err := s.Save(rec); err != nil {
+		t.Fatal(err)
+	}
+	resumed, err := Resume(s, rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resumed.Status != "active" || resumed.ReturnGate == nil || resumed.ReturnGate.FinalResponseAllowed {
+		t.Fatalf("resumed mission retained a terminal return gate: %+v", resumed)
+	}
+	if resumed.ReturnGate.Status != "early_return_denied" || !strings.HasPrefix(resumed.ReturnGate.ExactNextAction, "continue mission:") {
+		t.Fatalf("resumed mission did not record a continuation denial: %+v", resumed.ReturnGate)
+	}
+}
+
 func TestDoctorReadbackReportsDetailedLongRunRisks(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)
@@ -800,6 +827,33 @@ func TestImportAtlasRecommendationReadbackDeniesFinalWhenLeaseMinimumUnmet(t *te
 	}
 	if !strings.Contains(continued.ReturnGate.ExactNextAction, "minimum lease") {
 		t.Fatalf("return gate should preserve Atlas lease continuation action, got %+v", continued.ReturnGate)
+	}
+}
+
+func TestImportAtlasRecommendationReadbackDoesNotCloseMismatchedMission(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("reject child wave readback for parent mission")
+	if err != nil {
+		t.Fatal(err)
+	}
+	readbackPath := filepath.Join(dir, "recommendation-readback-child.json")
+	readback := `{"schema":"ao.atlas.recommendation-readback.v0.1","mission_id":"mission-child-wave","status":"completed","total_nodes":40,"completed_nodes":40,"ready_nodes":0,"checkpoint_count":40,"elapsed_minutes":144,"min_minutes_met":true,"lease_time_status":"minimum_minutes_met","return_gate_status":"final_response_allowed","final_response_allowed":true,"safe_to_execute":false,"schedules_work":false,"executes_work":false,"approves_work":false,"mutates_repositories":false,"provider_calls":false,"release_or_publish":false,"credential_use":false,"direct_main_mutation":false,"concurrent_mutation":false,"claims_authority_advance":false}`
+	if err := os.WriteFile(readbackPath, []byte(readback), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(s, rec.MissionID, "atlas-recommendation-readback", readbackPath); err != nil {
+		t.Fatal(err)
+	}
+	unchanged, err := s.Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unchanged.Status == "done" || unchanged.CurrentRoute == "complete" || len(unchanged.ArtifactRefs) != 1 {
+		t.Fatalf("mismatched readback incorrectly closed parent mission: %+v", unchanged)
+	}
+	if !strings.Contains(unchanged.ExactNextAction, "reconcile") {
+		t.Fatalf("mismatched readback did not require parent reconciliation: %+v", unchanged)
 	}
 }
 
