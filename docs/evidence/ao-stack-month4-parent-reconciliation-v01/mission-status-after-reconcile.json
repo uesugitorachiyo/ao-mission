@@ -1,0 +1,61 @@
+{
+  "schema": "ao.mission.parent-reconciliation-status-readback.v0.1",
+  "mission_id": "mission-4d91b0a9e4ab273e",
+  "status": "done",
+  "current_phase": "complete",
+  "current_route": "complete",
+  "exact_next_action": "proceed to Month 5 beta operations using docs/ao-stack-month5-beta-operations-handoff-prompt.md",
+  "return_gate": {
+    "schema": "ao.mission.return-gate.v0.3",
+    "mission_id": "mission-4d91b0a9e4ab273e",
+    "status": "return_allowed",
+    "final_response_allowed": true,
+    "reason": "mission status is done",
+    "completed_nodes": 60,
+    "min_nodes": 30,
+    "ready_nodes_remaining": 0,
+    "hard_blocker": false,
+    "exact_next_action": "proceed to Month 5 beta operations using docs/ao-stack-month5-beta-operations-handoff-prompt.md",
+    "generated_at_utc": "2026-07-11T23:47:10Z"
+  },
+  "evidence": {
+    "atlas_recommendation": {
+      "status": "completed",
+      "total_nodes": 60,
+      "completed_nodes": 60,
+      "ready_nodes": 0,
+      "checkpoint_count": 60,
+      "elapsed_minutes": 0,
+      "min_minutes_met": true,
+      "lease_time_status": "minimum_minutes_met",
+      "return_gate_status": "final_response_allowed",
+      "final_response_allowed": true,
+      "rsi_remains_denied": true,
+      "exact_next_action": "proceed to Month 5 beta operations using docs/ao-stack-month5-beta-operations-handoff-prompt.md"
+    },
+    "atlas_final_synthesis": {
+      "mission_id": "mission-4d91b0a9e4ab273e",
+      "contract_version": "ao.atlas.ao-mission-final-synthesis-readback.v0.1",
+      "status": "completed",
+      "total_nodes": 60,
+      "completed_nodes": 60,
+      "ready_nodes": 0,
+      "blocked_nodes": 0,
+      "minimum_nodes": 60,
+      "return_gate_status": "final_response_allowed",
+      "final_response_allowed": true,
+      "final_response_reason": "Month 4 baseline and continuation-soak child readbacks completed with no ready, blocked, or failed nodes.",
+      "atlas_workgraph_status": "completed",
+      "foundry_rollup": "readback-only Month 4 consolidation closure; no promotion requested",
+      "promoter_status": "no_promotion_requested",
+      "command_readback": "ready",
+      "event_search_bound": true,
+      "branch_cleanup_bound": true,
+      "rsi_remains_denied": true,
+      "exact_next_action": "proceed to Month 5 beta operations using docs/ao-stack-month5-beta-operations-handoff-prompt.md"
+    }
+  },
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false
+}

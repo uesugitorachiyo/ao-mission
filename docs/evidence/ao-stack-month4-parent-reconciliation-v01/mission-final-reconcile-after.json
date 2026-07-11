@@ -1,0 +1,22 @@
+{
+  "schema": "ao.mission.final-reconciliation-packet.v0.1",
+  "mission_id": "mission-4d91b0a9e4ab273e",
+  "status": "ready",
+  "artifacts_agree": true,
+  "mission_status": "done",
+  "atlas_recommendation_status": "completed",
+  "command_status": "done",
+  "completed_nodes": 60,
+  "total_nodes": 60,
+  "ready_nodes": 0,
+  "final_response_allowed": true,
+  "return_gate_status": "final_response_allowed",
+  "promotion_claimed": false,
+  "rsi_remains_denied": true,
+  "claims_authority_advance": false,
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false,
+  "generated_at_utc": "2026-07-11T23:47:10Z"
+}

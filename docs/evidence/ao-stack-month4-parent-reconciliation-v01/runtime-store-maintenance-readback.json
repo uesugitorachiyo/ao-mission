@@ -1,0 +1,23 @@
+{
+  "schema": "ao.mission.runtime-store-maintenance-readback.v0.1",
+  "status": "ready",
+  "archived": [
+    {
+      "mission_id": "mission-56bed010dd085a0f",
+      "archive": ".ao-mission/archives/mission-56bed010dd085a0f.archive.json",
+      "validation_status": "ready"
+    },
+    {
+      "mission_id": "mission-710327df54728420",
+      "archive": ".ao-mission/archives/mission-710327df54728420.archive.json",
+      "validation_status": "ready"
+    }
+  ],
+  "stopped": [
+    "mission-e574100dfc002209",
+    "mission-e82122522fce6e2c"
+  ],
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false
+}

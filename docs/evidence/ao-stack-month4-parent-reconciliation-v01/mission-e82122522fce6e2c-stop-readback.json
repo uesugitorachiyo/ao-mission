@@ -1,0 +1,29 @@
+{
+  "schema": "ao.mission.record.v0.1",
+  "mission_id": "mission-e82122522fce6e2c",
+  "objective": "--help",
+  "objective_digest": "sha256:0bdbc8fb00a40fb6f7bcaa79eeb92a5b6599b7588577bba6e853296fa5ea6af9",
+  "status": "stopped",
+  "created_at_utc": "2026-07-10T13:29:05Z",
+  "updated_at_utc": "2026-07-11T23:39:47Z",
+  "current_route": "ao-blueprint",
+  "current_phase": "stopped",
+  "blockers": [],
+  "exact_next_action": "mission stopped by operator kill switch",
+  "artifact_refs": [],
+  "steps": [],
+  "route_history": [
+    {
+      "schema": "ao.mission.route-decision.v0.1",
+      "mission_id": "mission-e82122522fce6e2c",
+      "route": "ao-blueprint",
+      "reason": "objective is underspecified",
+      "safe_to_request": true,
+      "safe_to_execute": false,
+      "safe_to_promote": false,
+      "exact_next_action": "send objective to AO Blueprint for requirements and authorization",
+      "generated_at_utc": "2026-07-10T13:29:05Z"
+    }
+  ],
+  "evidence": {}
+}

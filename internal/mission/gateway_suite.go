@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -346,17 +347,20 @@ func LoadGovernanceSnapshot(path string) (GovernanceSnapshot, error) {
 }
 
 func BuildMissionArchive(record Record) (MissionArchive, error) {
+	archivedRecord, redactions := publicSafeArchiveRecord(record)
 	archive := MissionArchive{
-		Schema:         "ao.mission.archive.v0.1",
-		MissionID:      record.MissionID,
-		Record:         record,
-		Snapshot:       Snapshot(record),
-		FinalRollup:    BuildFinalRollup(record),
-		ArtifactCount:  len(record.ArtifactRefs),
-		SafeToExecute:  false,
-		ExecutesWork:   false,
-		ApprovesWork:   false,
-		GeneratedAtUTC: now(nil),
+		Schema:                "ao.mission.archive.v0.1",
+		MissionID:             archivedRecord.MissionID,
+		Record:                archivedRecord,
+		Snapshot:              Snapshot(archivedRecord),
+		FinalRollup:           BuildFinalRollup(archivedRecord),
+		ArtifactCount:         len(archivedRecord.ArtifactRefs),
+		SourceObjectiveDigest: record.ObjectiveDigest,
+		PublicSafeRedactions:  redactions,
+		SafeToExecute:         false,
+		ExecutesWork:          false,
+		ApprovesWork:          false,
+		GeneratedAtUTC:        now(nil),
 	}
 	body, err := json.Marshal(archive)
 	if err != nil {
@@ -365,6 +369,46 @@ func BuildMissionArchive(record Record) (MissionArchive, error) {
 	sum := sha256.Sum256(body)
 	archive.ArchiveDigest = "sha256:" + hex.EncodeToString(sum[:])
 	return archive, nil
+}
+
+func publicSafeArchiveRecord(record Record) (Record, []string) {
+	body, _ := json.Marshal(record)
+	var value any
+	_ = json.Unmarshal(body, &value)
+	value, redactions := redactArchiveLocalPathsValue(value, "record", nil)
+	body, _ = json.Marshal(value)
+	var archived Record
+	_ = json.Unmarshal(body, &archived)
+	archived.ObjectiveDigest = DigestObjective(archived.Objective)
+	uniqueRedactions := []string{}
+	for _, redaction := range redactions {
+		uniqueRedactions = appendMissingString(uniqueRedactions, redaction)
+	}
+	return archived, uniqueRedactions
+}
+
+var archiveLocalPathPattern = regexp.MustCompile(`/` + `Users/[^\s",}]+`)
+
+func redactArchiveLocalPathsValue(value any, path string, redactions []string) (any, []string) {
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, child := range typed {
+			typed[key], redactions = redactArchiveLocalPathsValue(child, path+"."+key, redactions)
+		}
+		return typed, redactions
+	case []any:
+		for i, child := range typed {
+			typed[i], redactions = redactArchiveLocalPathsValue(child, fmt.Sprintf("%s[%d]", path, i), redactions)
+		}
+		return typed, redactions
+	case string:
+		if !archiveLocalPathPattern.MatchString(typed) {
+			return typed, redactions
+		}
+		return archiveLocalPathPattern.ReplaceAllString(typed, "<local-path-redacted>"), append(redactions, path+" local path redacted")
+	default:
+		return value, redactions
+	}
 }
 
 func LoadMissionArchive(path string) (MissionArchive, error) {

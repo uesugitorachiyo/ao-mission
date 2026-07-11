@@ -1608,10 +1608,11 @@ func TestImportAtlasFinalSynthesisReadbackClosesStaleRoute(t *testing.T) {
 		t.Fatal(err)
 	}
 	out.Reset()
+	parentBoundReadbackPath := writeParentBoundAtlasFinalSynthesisReadback(t, dir, rec.MissionID)
 	if code := Run([]string{
 		"--home", dir, "import", "atlas-final-synthesis-readback",
 		"--mission", rec.MissionID,
-		"--path", filepath.Join("..", "..", "examples", "valid", "atlas-final-synthesis-readback.json"),
+		"--path", parentBoundReadbackPath,
 	}, &out, &errb); code != 0 {
 		t.Fatalf("import: %s", errb.String())
 	}
@@ -1621,6 +1622,9 @@ func TestImportAtlasFinalSynthesisReadbackClosesStaleRoute(t *testing.T) {
 	}
 	if done.Status != "done" || done.CurrentRoute != "complete" || done.CurrentPhase != "complete" {
 		t.Fatalf("final synthesis import did not close stale route: %+v", done)
+	}
+	if done.ExactNextAction != "use next-wave-recommended-prompt.md for the next 30-node AO Atlas wave" {
+		t.Fatalf("terminal final synthesis exact next action was not preserved: %q", done.ExactNextAction)
 	}
 	if done.Evidence.AtlasFinalSynthesis == nil ||
 		done.Evidence.AtlasFinalSynthesis.CommandReadback != "ready" ||
@@ -1649,6 +1653,61 @@ func TestImportAtlasFinalSynthesisReadbackClosesStaleRoute(t *testing.T) {
 	if done.ReturnGate == nil || !done.ReturnGate.FinalResponseAllowed {
 		t.Fatalf("return gate should allow terminal imported final synthesis: %+v", done.ReturnGate)
 	}
+}
+
+func TestImportAtlasFinalSynthesisReadbackDoesNotCloseForeignMission(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "foreign Atlas final synthesis route"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if code := Run([]string{
+		"--home", dir, "import", "atlas-final-synthesis-readback",
+		"--mission", rec.MissionID,
+		"--path", filepath.Join("..", "..", "examples", "valid", "atlas-final-synthesis-readback.json"),
+	}, &out, &errb); code != 0 {
+		t.Fatalf("import: %s", errb.String())
+	}
+	imported, err := NewStore(dir).Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if imported.Status == "done" || imported.CurrentRoute != "ao-atlas" || imported.CurrentPhase != "atlas_final_synthesis_readback_recorded" {
+		t.Fatalf("foreign final synthesis should not close parent mission: %+v", imported)
+	}
+	if imported.ExactNextAction != "reconcile parent-bound Atlas final synthesis readback before closing mission" {
+		t.Fatalf("foreign final synthesis did not request parent-bound reconciliation: %q", imported.ExactNextAction)
+	}
+	if imported.ReturnGate == nil || imported.ReturnGate.FinalResponseAllowed {
+		t.Fatalf("foreign final synthesis should keep final response denied: %+v", imported.ReturnGate)
+	}
+}
+
+func writeParentBoundAtlasFinalSynthesisReadback(t *testing.T, dir, missionID string) string {
+	t.Helper()
+	readbackBody, err := os.ReadFile(filepath.Join("..", "..", "examples", "valid", "atlas-final-synthesis-readback.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var readback map[string]any
+	if err := json.Unmarshal(readbackBody, &readback); err != nil {
+		t.Fatal(err)
+	}
+	readback["mission_id"] = missionID
+	parentBoundReadbackPath := filepath.Join(dir, "atlas-final-synthesis-readback.json")
+	readbackBody, err = json.Marshal(readback)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(parentBoundReadbackPath, readbackBody, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return parentBoundReadbackPath
 }
 
 func TestImportAtlasFinalSynthesisReadbackRejectsReadyNodeDrift(t *testing.T) {
@@ -1706,7 +1765,7 @@ func TestImportArtifactWritesDurableCheckpointResumeBundle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ImportArtifact(s, rec.MissionID, "atlas-final-synthesis-readback", filepath.Join("..", "..", "examples", "valid", "atlas-final-synthesis-readback.json")); err != nil {
+	if _, err := ImportArtifact(s, rec.MissionID, "atlas-final-synthesis-readback", writeParentBoundAtlasFinalSynthesisReadback(t, dir, rec.MissionID)); err != nil {
 		t.Fatal(err)
 	}
 	bundle, err := s.LoadCheckpointBundle(rec.MissionID)
@@ -1743,7 +1802,7 @@ func TestCLICheckpointInspectReplaysAtlasImportCheckpointBundle(t *testing.T) {
 		"--home", dir,
 		"import", "atlas-final-synthesis-readback",
 		"--mission", rec.MissionID,
-		"--path", filepath.Join("..", "..", "examples", "valid", "atlas-final-synthesis-readback.json"),
+		"--path", writeParentBoundAtlasFinalSynthesisReadback(t, dir, rec.MissionID),
 	}, &out, &errb); code != 0 {
 		t.Fatalf("import: %s", errb.String())
 	}
@@ -1777,7 +1836,7 @@ func TestAtlasContinuationPromptPacketBindsRollupReadinessAndEventIndex(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ImportArtifact(s, rec.MissionID, "atlas-final-synthesis-readback", filepath.Join("..", "..", "examples", "valid", "atlas-final-synthesis-readback.json")); err != nil {
+	if _, err := ImportArtifact(s, rec.MissionID, "atlas-final-synthesis-readback", writeParentBoundAtlasFinalSynthesisReadback(t, dir, rec.MissionID)); err != nil {
 		t.Fatal(err)
 	}
 	done, err := s.Load(rec.MissionID)
@@ -1852,7 +1911,7 @@ func TestCLIAtlasContinuationPromptWritesPacket(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ImportArtifact(NewStore(dir), rec.MissionID, "atlas-final-synthesis-readback", filepath.Join("..", "..", "examples", "valid", "atlas-final-synthesis-readback.json")); err != nil {
+	if _, err := ImportArtifact(NewStore(dir), rec.MissionID, "atlas-final-synthesis-readback", writeParentBoundAtlasFinalSynthesisReadback(t, dir, rec.MissionID)); err != nil {
 		t.Fatal(err)
 	}
 	indexPath := filepath.Join(dir, "event-index.json")
@@ -3610,6 +3669,92 @@ func TestMissionArchiveValidateAndImportRoundTripWithoutAuthority(t *testing.T) 
 	}
 	if roundTrip.MissionID != rec.MissionID || roundTrip.Objective != rec.Objective {
 		t.Fatalf("archive import did not restore record: %#v", roundTrip)
+	}
+}
+
+func TestMissionArchiveRedactsLocalPathsBeforeValidation(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	objective := "archive local evidence path /" + "Users/example/Documents/public/ao-mission/docs/evidence/demo.json"
+	if code := Run([]string{"--home", dir, "start", objective}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	localPath := "/" + "Users/example/Documents/public/ao-mission/docs/evidence/extra.json"
+	if _, err := NewStore(dir).Update(rec.MissionID, func(r *Record) error {
+		r.Checkpoints = []MissionCheckpoint{{
+			Schema:          "ao.mission.checkpoint.v0.3",
+			MissionID:       r.MissionID,
+			Sequence:        1,
+			Iteration:       1,
+			Route:           "ao-atlas",
+			Phase:           "handoff_required",
+			Result:          "recorded",
+			ExactNextAction: "continue from " + localPath,
+			ResumeCommand:   "ao-mission resume --evidence " + localPath,
+		}}
+		r.ReturnGate = &ReturnGate{
+			Schema:               "ao.mission.return-gate.v0.3",
+			MissionID:            r.MissionID,
+			Status:               "early_return_denied",
+			FinalResponseAllowed: false,
+			Reason:               "local evidence remains at " + localPath,
+			Blockers:             []string{"redact blocker path " + localPath},
+			ExactNextAction:      "inspect " + localPath,
+		}
+		r.Evidence.AtlasFinalSynthesis = &AtlasFinalSynthesisReadbackCounts{
+			MissionID:            r.MissionID,
+			ContractVersion:      "ao.atlas.ao-mission-final-synthesis-readback.v0.1",
+			Status:               "completed",
+			TotalNodes:           1,
+			CompletedNodes:       1,
+			MinimumNodes:         1,
+			ReturnGateStatus:     "final_response_allowed",
+			FinalResponseAllowed: true,
+			FinalResponseReason:  "source at " + localPath,
+			AtlasWorkgraphStatus: "completed",
+			CommandReadback:      "ready",
+			EventSearchBound:     true,
+			BranchCleanupBound:   true,
+			RSIRemainsDenied:     true,
+			ExactNextAction:      "next path " + localPath,
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	archivePath := filepath.Join(dir, "mission-archive.json")
+	out.Reset()
+	if code := Run([]string{"--home", dir, "mission", "archive", "--mission", rec.MissionID, "--out", archivePath}, &out, &errb); code != 0 {
+		t.Fatalf("mission archive: %s", errb.String())
+	}
+	body, err := os.ReadFile(archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(body), "/"+"Users/") {
+		t.Fatalf("archive preserved local path: %s", string(body))
+	}
+	var archive MissionArchive
+	if err := json.Unmarshal(body, &archive); err != nil {
+		t.Fatal(err)
+	}
+	if len(archive.PublicSafeRedactions) == 0 || archive.SourceObjectiveDigest != rec.ObjectiveDigest {
+		t.Fatalf("archive did not record public-safe redaction metadata: %+v", archive)
+	}
+	out.Reset()
+	if code := Run([]string{"mission", "validate-archive", "--path", archivePath}, &out, &errb); code != 0 {
+		t.Fatalf("mission validate-archive: %s", errb.String())
+	}
+	var validation MissionArchiveValidation
+	if err := json.Unmarshal(out.Bytes(), &validation); err != nil {
+		t.Fatal(err)
+	}
+	if validation.Status != "ready" || validation.SafeToExecute || validation.ExecutesWork || validation.ApprovesWork {
+		t.Fatalf("bad archive validation: %+v", validation)
 	}
 }
 

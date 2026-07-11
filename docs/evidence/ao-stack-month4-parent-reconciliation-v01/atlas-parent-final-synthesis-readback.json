@@ -1,0 +1,64 @@
+{
+  "contract_version": "ao.atlas.ao-mission-final-synthesis-readback.v0.1",
+  "mission_id": "mission-4d91b0a9e4ab273e",
+  "status": "completed",
+  "total_nodes": 60,
+  "completed_nodes": 60,
+  "ready_nodes": 0,
+  "blocked_nodes": 0,
+  "minimum_nodes": 60,
+  "return_gate_status": "final_response_allowed",
+  "final_response_allowed": true,
+  "final_response_reason": "Month 4 baseline and continuation-soak child readbacks completed with no ready, blocked, or failed nodes.",
+  "atlas_workgraph_status": "completed",
+  "foundry_rollup": "readback-only Month 4 consolidation closure; no promotion requested",
+  "promoter_status": "no_promotion_requested",
+  "command_readback": "ready",
+  "event_search_bound": true,
+  "branch_cleanup_bound": true,
+  "public_safety_scan_status": "passed",
+  "bounded_rsi_continuity_status": "passed",
+  "unrestricted_rsi_status": "denied",
+  "rsi_remains_denied": true,
+  "month4_baseline": {
+    "mission_id": "mission-ao-stack-month4-consolidation-v01",
+    "completed_nodes": 36,
+    "ready_nodes": 0,
+    "blocked_nodes": 0,
+    "failed_nodes": 0,
+    "final_response_allowed": true,
+    "readback_path": "ao-atlas/docs/evidence/ao-stack-month4-consolidation-v01/final-closure/recommendation-readback-after-node-36.json",
+    "readback_digest": "sha256:c12a8dbc5a3f163cc5bf070f3a9975848de069fb387bbdc266b8c9de0b640f39"
+  },
+  "month4_continuation_soak": {
+    "mission_id": "mission-ao-stack-month4-continuation-soak-v01",
+    "completed_nodes": 24,
+    "ready_nodes": 0,
+    "blocked_nodes": 0,
+    "failed_nodes": 0,
+    "final_response_allowed": true,
+    "readback_path": "ao-atlas/docs/evidence/ao-stack-month4-continuation-soak-v01/final-closure/recommendation-readback-after-node-24.json",
+    "readback_digest": "sha256:2d1db8280a397e4a31a9c9f801925eb9b1ede8c59c91a5a3122b185562fb8e85"
+  },
+  "source_digests": {
+    "month4_final_closure_rollup": "sha256:3973d37e5dd59169ad804e2e76407136a7c982a0dcb87c9830e3e6127e46613c",
+    "month4_node_status_rollup": "sha256:7a3bb7d6ba69370c6017ae34f59d10d12d4dd901f89bf952a7831b1922820316"
+  },
+  "strict_schema_validation": {
+    "baseline_json_files": 612,
+    "baseline_failed_files": 0,
+    "continuation_soak_json_files": 408,
+    "continuation_soak_failed_files": 0
+  },
+  "safety_boundaries": {
+    "provider_calls": false,
+    "credential_inspection": false,
+    "direct_main_mutation": false,
+    "release_deploy_publish_upload_tag": false,
+    "dependency_updates": false,
+    "auth_policy_config_widening": false,
+    "hidden_instruction_mutation": false,
+    "broad_rsi_claim": false
+  },
+  "exact_next_action": "proceed to Month 5 beta operations using docs/ao-stack-month5-beta-operations-handoff-prompt.md"
+}
