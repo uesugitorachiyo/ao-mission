@@ -1,0 +1,43 @@
+{
+  "schema": "ao.command.mission-status.v0.1",
+  "mission_id": "mission-4d91b0a9e4ab273e",
+  "status": "done",
+  "current_route": "complete",
+  "current_phase": "complete",
+  "exact_next_action": "proceed to Month 5 beta operations using docs/ao-stack-month5-beta-operations-handoff-prompt.md",
+  "goal_lease": {
+    "schema": "ao.mission.goal-lease.v0.3",
+    "min_nodes": 30,
+    "min_minutes": 120,
+    "max_minutes": 180,
+    "max_iterations": 60,
+    "return_only_when": "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action",
+    "checkpoint_policy": "after_each_node_or_timed_interval",
+    "created_at_utc": "2026-07-09T22:51:16Z",
+    "updated_at_utc": "2026-07-09T22:51:16Z"
+  },
+  "checkpoint_count": 60,
+  "checkpoint_freshness_status": "fresh",
+  "return_gate_status": "return_allowed",
+  "read_only": true,
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false,
+  "atlas_recommendation": {
+    "status": "completed",
+    "total_nodes": 60,
+    "completed_nodes": 60,
+    "ready_nodes": 0,
+    "checkpoint_count": 60,
+    "elapsed_minutes": 0,
+    "min_minutes_met": true,
+    "lease_time_status": "minimum_minutes_met",
+    "return_gate_status": "final_response_allowed",
+    "final_response_allowed": true,
+    "rsi_remains_denied": true,
+    "exact_next_action": "proceed to Month 5 beta operations using docs/ao-stack-month5-beta-operations-handoff-prompt.md"
+  },
+  "blockers": [],
+  "generated_at_utc": "2026-07-11T23:47:10Z"
+}

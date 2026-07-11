@@ -103,6 +103,7 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 			if err := validateAtlasFinalSynthesisReadback(readback); err != nil {
 				return err
 			}
+			parentBoundReadback := readback.MissionID == missionID
 			rec.Evidence.AtlasFinalSynthesis = &readback
 			rec.Evidence.AtlasRecommendation = atlasRecommendationFromFinalSynthesis(readback)
 			rec.Evidence.AtlasWorkgraph = &NodeCounts{
@@ -113,11 +114,13 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 			}
 			rec.ExactNextAction = readback.ExactNextAction
 			switch {
-			case atlasFinalSynthesisClosesMission(readback):
+			case parentBoundReadback && atlasFinalSynthesisClosesMission(readback):
 				rec.Status = "done"
 				rec.CurrentRoute = "complete"
 				rec.CurrentPhase = "complete"
-				rec.ExactNextAction = "mission complete; read final rollup and recommended next tasks"
+				if rec.ExactNextAction == "" {
+					rec.ExactNextAction = "mission complete; read final rollup and recommended next tasks"
+				}
 			case readback.Status == "blocked" || readback.Status == "denied":
 				rec.Status = "blocked"
 				rec.CurrentRoute = "ao-atlas"
@@ -128,7 +131,9 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 			default:
 				rec.CurrentRoute = "ao-atlas"
 				rec.CurrentPhase = "atlas_final_synthesis_readback_recorded"
-				if rec.ExactNextAction == "" {
+				if !parentBoundReadback {
+					rec.ExactNextAction = "reconcile parent-bound Atlas final synthesis readback before closing mission"
+				} else if rec.ExactNextAction == "" {
 					rec.ExactNextAction = "continue AO Atlas final synthesis reconciliation from latest exact next action"
 				}
 			}
@@ -336,6 +341,7 @@ func parseAtlasRecommendationReadbackCounts(doc map[string]any) AtlasRecommendat
 
 func parseAtlasFinalSynthesisReadbackCounts(doc map[string]any) AtlasFinalSynthesisReadbackCounts {
 	return AtlasFinalSynthesisReadbackCounts{
+		MissionID:            stringFromAny(doc["mission_id"]),
 		ContractVersion:      stringFromAny(doc["contract_version"]),
 		Status:               stringFromAny(doc["status"]),
 		TotalNodes:           intFromAny(doc["total_nodes"]),

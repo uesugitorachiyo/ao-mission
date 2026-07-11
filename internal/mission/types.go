@@ -91,6 +91,7 @@ type AtlasRecommendationReadbackCounts struct {
 }
 
 type AtlasFinalSynthesisReadbackCounts struct {
+	MissionID            string `json:"mission_id,omitempty"`
 	ContractVersion      string `json:"contract_version"`
 	Status               string `json:"status"`
 	TotalNodes           int    `json:"total_nodes"`
@@ -722,17 +723,19 @@ type TelegramRoleMatrixReadback struct {
 }
 
 type MissionArchive struct {
-	Schema         string             `json:"schema"`
-	MissionID      string             `json:"mission_id"`
-	Record         Record             `json:"record"`
-	Snapshot       GovernanceSnapshot `json:"snapshot"`
-	FinalRollup    FinalRollup        `json:"final_rollup"`
-	ArtifactCount  int                `json:"artifact_count"`
-	ArchiveDigest  string             `json:"archive_digest"`
-	SafeToExecute  bool               `json:"safe_to_execute"`
-	ExecutesWork   bool               `json:"executes_work"`
-	ApprovesWork   bool               `json:"approves_work"`
-	GeneratedAtUTC string             `json:"generated_at_utc"`
+	Schema                string             `json:"schema"`
+	MissionID             string             `json:"mission_id"`
+	Record                Record             `json:"record"`
+	Snapshot              GovernanceSnapshot `json:"snapshot"`
+	FinalRollup           FinalRollup        `json:"final_rollup"`
+	ArtifactCount         int                `json:"artifact_count"`
+	ArchiveDigest         string             `json:"archive_digest"`
+	SourceObjectiveDigest string             `json:"source_objective_digest,omitempty"`
+	PublicSafeRedactions  []string           `json:"public_safe_redactions,omitempty"`
+	SafeToExecute         bool               `json:"safe_to_execute"`
+	ExecutesWork          bool               `json:"executes_work"`
+	ApprovesWork          bool               `json:"approves_work"`
+	GeneratedAtUTC        string             `json:"generated_at_utc"`
 }
 
 type MissionArchiveValidation struct {
