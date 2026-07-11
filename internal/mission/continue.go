@@ -84,6 +84,10 @@ func Resume(s Store, id string) (Record, error) {
 		r.Status = "active"
 		r.CurrentPhase = "routing"
 		r.ExactNextAction = NextAction(*r).ExactNextAction
+		gate := EvaluateReturnGate(*r)
+		r.ReturnGate = &gate
+		reconciliation := BuildRouteReconciliation(*r)
+		r.Reconciliation = &reconciliation
 		return nil
 	})
 }
