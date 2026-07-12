@@ -822,6 +822,34 @@ type MissionEventSearchReadback struct {
 	GeneratedAtUTC      string         `json:"generated_at_utc"`
 }
 
+type MissionTimelineQueryIndex struct {
+	Schema              string                `json:"schema"`
+	Status              string                `json:"status"`
+	IndexVersion        string                `json:"index_version"`
+	IndexDigest         string                `json:"index_digest"`
+	EventIndexDigest    string                `json:"event_index_digest"`
+	MissionCount        int                   `json:"mission_count"`
+	EventCount          int                   `json:"event_count"`
+	TermCount           int                   `json:"term_count"`
+	Terms               []MissionTimelineTerm `json:"terms"`
+	SafeToExecute       bool                  `json:"safe_to_execute"`
+	ExecutesWork        bool                  `json:"executes_work"`
+	ApprovesWork        bool                  `json:"approves_work"`
+	MutatesRepositories bool                  `json:"mutates_repositories"`
+	GeneratedAtUTC      string                `json:"generated_at_utc"`
+}
+
+type MissionTimelineTerm struct {
+	Term    string                 `json:"term"`
+	Matches []MissionTimelineMatch `json:"matches"`
+}
+
+type MissionTimelineMatch struct {
+	MissionID string `json:"mission_id"`
+	Kind      string `json:"kind"`
+	Sequence  int    `json:"sequence"`
+}
+
 type MissionDoctorReadback struct {
 	Schema                    string              `json:"schema"`
 	Status                    string              `json:"status"`

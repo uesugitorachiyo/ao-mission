@@ -3873,6 +3873,98 @@ func TestMissionEventIndexSearchAndCLIReadback(t *testing.T) {
 	}
 }
 
+func TestMissionTimelineQueryIndexBindsEventIndexDigestAndCLIOutput(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "timeline query index atlas checkpoint mission"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	s := NewStore(dir)
+	if _, err := Continue(s, rec.MissionID, ContinueOptions{UntilDone: true, MaxIterations: 2}); err != nil {
+		t.Fatal(err)
+	}
+	eventIndex, err := BuildMissionEventIndex(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	queryIndex, err := BuildMissionTimelineQueryIndex(eventIndex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if queryIndex.Schema != "ao.mission.timeline-query-index.v0.1" ||
+		queryIndex.IndexVersion != "v0.1" ||
+		queryIndex.EventIndexDigest != eventIndex.IndexDigest ||
+		queryIndex.EventCount != eventIndex.TotalEvents ||
+		queryIndex.TermCount == 0 ||
+		queryIndex.ExecutesWork ||
+		queryIndex.ApprovesWork ||
+		queryIndex.MutatesRepositories ||
+		queryIndex.SafeToExecute {
+		t.Fatalf("bad timeline query index: %+v", queryIndex)
+	}
+	if err := ValidateMissionTimelineQueryIndexDigest(queryIndex); err != nil {
+		t.Fatalf("timeline query index digest did not validate: %v", err)
+	}
+	if !timelineQueryIndexHasTerm(queryIndex, "ao-atlas", rec.MissionID, "route_decision") ||
+		!timelineQueryIndexHasTerm(queryIndex, "checkpoint", rec.MissionID, "checkpoint") {
+		t.Fatalf("timeline query index missing expected terms: %+v", queryIndex.Terms)
+	}
+	queryIndex.Terms[0].Term = "tampered"
+	if err := ValidateMissionTimelineQueryIndexDigest(queryIndex); err == nil {
+		t.Fatal("tampered timeline query index digest should fail validation")
+	}
+
+	out.Reset()
+	eventIndexPath := filepath.Join(dir, "event-index.json")
+	queryIndexPath := filepath.Join(dir, "timeline-query-index.json")
+	if code := Run([]string{"--home", dir, "mission", "events", "index", "--out", eventIndexPath}, &out, &errb); code != 0 {
+		t.Fatalf("mission events index: %s", errb.String())
+	}
+	out.Reset()
+	if code := Run([]string{"--home", dir, "mission", "events", "query-index", "--index", eventIndexPath, "--out", queryIndexPath}, &out, &errb); code != 0 {
+		t.Fatalf("mission events query-index: %s", errb.String())
+	}
+	var cliIndex MissionTimelineQueryIndex
+	if err := json.Unmarshal(out.Bytes(), &cliIndex); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateMissionTimelineQueryIndexDigest(cliIndex); err != nil {
+		t.Fatalf("CLI timeline query index digest did not validate: %v", err)
+	}
+	if cliIndex.EventIndexDigest != eventIndex.IndexDigest || cliIndex.TermCount == 0 {
+		t.Fatalf("CLI timeline query index did not bind source event index: %+v", cliIndex)
+	}
+	body, err := os.ReadFile(queryIndexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var persisted MissionTimelineQueryIndex
+	if err := json.Unmarshal(body, &persisted); err != nil {
+		t.Fatal(err)
+	}
+	if persisted.IndexDigest != cliIndex.IndexDigest {
+		t.Fatalf("persisted query index digest mismatch: persisted=%s cli=%s", persisted.IndexDigest, cliIndex.IndexDigest)
+	}
+}
+
+func timelineQueryIndexHasTerm(index MissionTimelineQueryIndex, term, missionID, kind string) bool {
+	for _, indexedTerm := range index.Terms {
+		if indexedTerm.Term != term {
+			continue
+		}
+		for _, match := range indexedTerm.Matches {
+			if match.MissionID == missionID && match.Kind == kind {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func TestDoctorCommandReportsLocalStoreHealthWithoutAuthority(t *testing.T) {
 	dir := t.TempDir()
 	var out, errb bytes.Buffer

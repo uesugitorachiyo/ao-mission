@@ -24,6 +24,7 @@ import_json="$(mktemp)"
 inspect_json="$(mktemp)"
 reconcile_json="$(mktemp)"
 event_index_json="$(mktemp)"
+timeline_query_index_json="$(mktemp)"
 event_search_json="$(mktemp)"
 atlas_prompt_json="$(mktemp)"
 synthesis_json="$(mktemp)"
@@ -41,6 +42,8 @@ jq -e '.status == "done" and .current_route == "complete" and .current_phase == 
 ./ao-mission --home "$tmp_home" final reconcile --mission "$mission_id" >"$reconcile_json"
 jq -e '.schema == "ao.mission.final-reconciliation-packet.v0.1" and .artifacts_agree == true and .final_response_allowed == true and .claims_authority_advance == false and .rsi_remains_denied == true' "$reconcile_json" >/dev/null
 ./ao-mission --home "$tmp_home" mission events index --out "$event_index_json" >/dev/null
+./ao-mission --home "$tmp_home" mission events query-index --index "$event_index_json" --out "$timeline_query_index_json" >/dev/null
+jq -e '.schema == "ao.mission.timeline-query-index.v0.1" and .status == "ready" and (.event_index_digest | test("^sha256:[0-9a-f]{64}$")) and (.index_digest | test("^sha256:[0-9a-f]{64}$")) and .event_count >= 1 and .term_count >= 1 and ([.terms[] | select(.term == "final_reconciliation" or .term == "final")] | length >= 1) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false' "$timeline_query_index_json" >/dev/null
 ./ao-mission --home "$tmp_home" mission events search --mission "$mission_id" --kind final_reconciliation --index "$event_index_json" --json >"$event_search_json"
 jq -e '.schema == "ao.mission.event-search-readback.v0.1" and .status == "ready" and .total_matches >= 1 and .events[0].kind == "final_reconciliation" and .safe_to_execute == false and .executes_work == false and .approves_work == false' "$event_search_json" >/dev/null
 ./ao-mission --home "$tmp_home" final atlas-prompt --mission "$mission_id" --event-index "$event_index_json" --out "$atlas_prompt_json" >/dev/null
@@ -61,7 +64,7 @@ doctor_mission_id="$(jq -r '.mission_id' "$mission_json")"
 ./ao-mission --home "$tmp_home" continue --mission "$doctor_mission_id" --until-done --max-iterations 2 >/dev/null
 ./ao-mission --home "$tmp_home" doctor --json >"$doctor_json"
 jq -e '.schema == "ao.mission.doctor-readback.v0.1" and .status == "ready" and .lease_health_status == "healthy" and .checkpoint_freshness_status == "fresh" and .early_return_risk_status == "risk_detected" and .stale_route_decision_status == "clear" and ([.risk_missions[].kind] | index("early_return")) and (.exact_next_action | length > 0) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false' "$doctor_json" >/dev/null
-rm -rf "$tmp_home" "$mission_json" "$import_json" "$inspect_json" "$reconcile_json" "$event_index_json" "$event_search_json" "$atlas_prompt_json" "$synthesis_json" "$doctor_json" "$final_synthesis_import_json" "$final_synthesis_inspect_json" "$final_synthesis_checkpoint_json" "$final_synthesis_readback_json" ao-mission
+rm -rf "$tmp_home" "$mission_json" "$import_json" "$inspect_json" "$reconcile_json" "$event_index_json" "$timeline_query_index_json" "$event_search_json" "$atlas_prompt_json" "$synthesis_json" "$doctor_json" "$final_synthesis_import_json" "$final_synthesis_inspect_json" "$final_synthesis_checkpoint_json" "$final_synthesis_readback_json" ao-mission
 grep -q "25-node Atlas recommendation import wave" docs/operator-next-actions.md
 grep -q "Do not stop before 25 completed nodes" docs/evidence/ao-mission-atlas-wave-import-v01/next-recommended-prompt.md
 grep -q "final-reconciliation-packet.json" docs/operator-next-actions.md
