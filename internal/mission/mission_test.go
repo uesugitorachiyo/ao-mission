@@ -4019,6 +4019,85 @@ func TestMissionRestartRecoveryProofBindsIndexedTimelineAfterStoreReload(t *test
 	}
 }
 
+func TestMissionCompactionResumePromptBindsLatestEventTimeline(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("resume compacted month six mission without partial final response")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Continue(s, rec.MissionID, ContinueOptions{
+		UntilDone:        true,
+		MaxIterations:    3,
+		MinNodes:         12,
+		MinMinutes:       120,
+		MaxMinutes:       180,
+		ReturnOnlyWhen:   "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action",
+		CheckpointPolicy: "after_each_node_or_timed_interval",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	prompt, err := BuildMissionCompactionResumePrompt(s, rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if prompt.Schema != "ao.mission.compaction-resume-prompt.v0.1" ||
+		prompt.Status != "ready" ||
+		prompt.MissionID != rec.MissionID ||
+		prompt.MissionStatus != "active" ||
+		prompt.CurrentRoute != "ao-atlas" ||
+		prompt.LatestRoute != "ao-atlas" ||
+		prompt.CompletedNodes != 0 ||
+		prompt.ReturnGateStatus != "early_return_denied" ||
+		prompt.FinalResponseAllowed ||
+		prompt.EventCount == 0 ||
+		prompt.TimelineTermCount == 0 ||
+		!strings.HasPrefix(prompt.EventIndexDigest, "sha256:") ||
+		!strings.HasPrefix(prompt.TimelineIndexDigest, "sha256:") ||
+		!strings.Contains(prompt.ExactNextAction, "continue") ||
+		!strings.Contains(prompt.ResumePrompt, "Start a Codex goal") ||
+		!strings.Contains(prompt.ResumePrompt, rec.MissionID) ||
+		!strings.Contains(prompt.ResumePrompt, "Do not return a final answer after partial progress") ||
+		!strings.Contains(prompt.ResumePrompt, "RSI remains denied") ||
+		prompt.SafeToExecute ||
+		prompt.ExecutesWork ||
+		prompt.ApprovesWork ||
+		prompt.MutatesRepositories {
+		t.Fatalf("resume prompt did not bind compact timeline safely: %+v", prompt)
+	}
+	if err := ValidateMissionCompactionResumePrompt(prompt); err != nil {
+		t.Fatal(err)
+	}
+
+	var out, errb bytes.Buffer
+	outPath := filepath.Join(dir, "compaction-resume-prompt.json")
+	if code := Run([]string{"--home", dir, "mission", "events", "resume-prompt", "--mission", rec.MissionID, "--out", outPath, "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("mission events resume-prompt: %s", errb.String())
+	}
+	var cliPrompt MissionCompactionResumePrompt
+	if err := json.Unmarshal(out.Bytes(), &cliPrompt); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateMissionCompactionResumePrompt(cliPrompt); err != nil {
+		t.Fatalf("CLI resume prompt did not validate: %v", err)
+	}
+	if cliPrompt.ResumePrompt != prompt.ResumePrompt || cliPrompt.EventIndexDigest != prompt.EventIndexDigest {
+		t.Fatalf("CLI resume prompt changed core binding: cli=%+v direct=%+v", cliPrompt, prompt)
+	}
+	body, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var persisted MissionCompactionResumePrompt
+	if err := json.Unmarshal(body, &persisted); err != nil {
+		t.Fatal(err)
+	}
+	if persisted.ResumePrompt != cliPrompt.ResumePrompt || persisted.TimelineIndexDigest != cliPrompt.TimelineIndexDigest {
+		t.Fatalf("persisted resume prompt changed timeline binding: persisted=%+v cli=%+v", persisted, cliPrompt)
+	}
+}
+
 func timelineQueryIndexHasTerm(index MissionTimelineQueryIndex, term, missionID, kind string) bool {
 	for _, indexedTerm := range index.Terms {
 		if indexedTerm.Term != term {

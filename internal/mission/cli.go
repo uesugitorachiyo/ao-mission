@@ -365,6 +365,36 @@ func run(args []string, stdout io.Writer) error {
 				fmt.Fprintf(stdout, "mission=%s\nstatus=%s\nrecovery_proven=%t\nsource_digest_stable=%t\ntimeline_terms_stable=%t\nno_duplicate_timeline_matches=%t\n",
 					proof.MissionID, proof.Status, proof.RecoveryProven, proof.SourceDigestStable, proof.TimelineTermsStable, proof.NoDuplicateTimelineMatches)
 				return nil
+			case "resume-prompt":
+				fs := flag.NewFlagSet("mission events resume-prompt", flag.ContinueOnError)
+				id := fs.String("mission", "", "")
+				outPath := fs.String("out", "", "")
+				jsonOut := fs.Bool("json", false, "")
+				if err := fs.Parse(args[3:]); err != nil {
+					return err
+				}
+				if strings.TrimSpace(*id) == "" {
+					return errors.New("mission events resume-prompt requires --mission")
+				}
+				prompt, err := BuildMissionCompactionResumePrompt(s, *id)
+				if err != nil {
+					return err
+				}
+				if strings.TrimSpace(*outPath) != "" {
+					body, err := json.MarshalIndent(prompt, "", "  ")
+					if err != nil {
+						return err
+					}
+					if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+						return err
+					}
+				}
+				if *jsonOut {
+					return printJSON(stdout, prompt)
+				}
+				fmt.Fprintf(stdout, "mission=%s\nstatus=%s\nreturn_gate=%s\nfinal_response_allowed=%t\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\nnext=%s\n",
+					prompt.MissionID, prompt.Status, prompt.ReturnGateStatus, prompt.FinalResponseAllowed, prompt.ExactNextAction)
+				return nil
 			case "search":
 				fs := flag.NewFlagSet("mission events search", flag.ContinueOnError)
 				missionID := fs.String("mission", "", "")

@@ -340,6 +340,135 @@ func ValidateMissionRestartRecoveryProof(proof MissionRestartRecoveryProof) erro
 	return nil
 }
 
+func BuildMissionCompactionResumePrompt(s Store, missionID string) (MissionCompactionResumePrompt, error) {
+	missionID = strings.TrimSpace(missionID)
+	if missionID == "" {
+		return MissionCompactionResumePrompt{}, fmt.Errorf("mission compaction resume prompt requires mission id")
+	}
+	record, err := s.Load(missionID)
+	if err != nil {
+		return MissionCompactionResumePrompt{}, err
+	}
+	eventIndex, err := BuildMissionEventIndex(s)
+	if err != nil {
+		return MissionCompactionResumePrompt{}, err
+	}
+	timelineIndex, err := BuildMissionTimelineQueryIndex(eventIndex)
+	if err != nil {
+		return MissionCompactionResumePrompt{}, err
+	}
+	missionEventCount := countMissionEvents(eventIndex, missionID)
+	if missionEventCount == 0 {
+		return MissionCompactionResumePrompt{}, fmt.Errorf("mission compaction resume prompt requires indexed events for %s", missionID)
+	}
+	gate := record.ReturnGate
+	if gate == nil {
+		evaluated := EvaluateReturnGate(record)
+		gate = &evaluated
+	}
+	latestRoute := record.CurrentRoute
+	if n := len(record.RouteHistory); n > 0 && strings.TrimSpace(record.RouteHistory[n-1].Route) != "" {
+		latestRoute = record.RouteHistory[n-1].Route
+	}
+	exactNextAction := strings.TrimSpace(gate.ExactNextAction)
+	if exactNextAction == "" {
+		exactNextAction = strings.TrimSpace(record.ExactNextAction)
+	}
+	if exactNextAction == "" {
+		exactNextAction = "continue mission from the latest durable event readback"
+	}
+	promptText := buildMissionCompactionResumePromptText(record, *gate, latestRoute, eventIndex.IndexDigest, timelineIndex.IndexDigest, exactNextAction)
+	prompt := MissionCompactionResumePrompt{
+		Schema:               "ao.mission.compaction-resume-prompt.v0.1",
+		Status:               "ready",
+		MissionID:            record.MissionID,
+		MissionStatus:        record.Status,
+		CurrentPhase:         record.CurrentPhase,
+		CurrentRoute:         record.CurrentRoute,
+		LatestRoute:          latestRoute,
+		EventIndexDigest:     eventIndex.IndexDigest,
+		TimelineIndexDigest:  timelineIndex.IndexDigest,
+		EventCount:           missionEventCount,
+		TimelineTermCount:    timelineIndex.TermCount,
+		CompletedNodes:       gate.CompletedNodes,
+		ReadyNodes:           gate.ReadyNodesRemaining,
+		MinNodes:             gate.MinNodes,
+		ReturnGateStatus:     gate.Status,
+		FinalResponseAllowed: gate.FinalResponseAllowed,
+		ExactNextAction:      exactNextAction,
+		ResumePrompt:         promptText,
+		SafeToExecute:        false,
+		ExecutesWork:         false,
+		ApprovesWork:         false,
+		MutatesRepositories:  false,
+		GeneratedAtUTC:       now(s.Clock),
+	}
+	if err := ValidateMissionCompactionResumePrompt(prompt); err != nil {
+		return MissionCompactionResumePrompt{}, err
+	}
+	return prompt, nil
+}
+
+func ValidateMissionCompactionResumePrompt(prompt MissionCompactionResumePrompt) error {
+	var errs []string
+	if prompt.Schema != "ao.mission.compaction-resume-prompt.v0.1" {
+		errs = append(errs, "mission compaction resume prompt schema must be ao.mission.compaction-resume-prompt.v0.1")
+	}
+	if prompt.Status != "ready" && prompt.Status != "blocked" {
+		errs = append(errs, "mission compaction resume prompt status must be ready or blocked")
+	}
+	if strings.TrimSpace(prompt.MissionID) == "" {
+		errs = append(errs, "mission compaction resume prompt requires mission id")
+	}
+	if strings.TrimSpace(prompt.MissionStatus) == "" || strings.TrimSpace(prompt.CurrentRoute) == "" || strings.TrimSpace(prompt.LatestRoute) == "" {
+		errs = append(errs, "mission compaction resume prompt requires mission status and route bindings")
+	}
+	if !strings.HasPrefix(prompt.EventIndexDigest, "sha256:") || !strings.HasPrefix(prompt.TimelineIndexDigest, "sha256:") {
+		errs = append(errs, "mission compaction resume prompt requires event and timeline sha256 digests")
+	}
+	if prompt.EventCount < 1 || prompt.TimelineTermCount < 1 {
+		errs = append(errs, "mission compaction resume prompt requires positive event and timeline counts")
+	}
+	if prompt.CompletedNodes < 0 || prompt.ReadyNodes < 0 || prompt.MinNodes < 0 {
+		errs = append(errs, "mission compaction resume prompt node counts must not be negative")
+	}
+	if strings.TrimSpace(prompt.ReturnGateStatus) == "" || strings.TrimSpace(prompt.ExactNextAction) == "" {
+		errs = append(errs, "mission compaction resume prompt requires return gate status and exact next action")
+	}
+	if !strings.Contains(prompt.ResumePrompt, prompt.MissionID) || !strings.Contains(prompt.ResumePrompt, prompt.EventIndexDigest) || !strings.Contains(prompt.ResumePrompt, prompt.TimelineIndexDigest) {
+		errs = append(errs, "mission compaction resume prompt text must bind mission id and timeline digests")
+	}
+	if !strings.Contains(prompt.ResumePrompt, "Do not return a final answer after partial progress") {
+		errs = append(errs, "mission compaction resume prompt must preserve partial-progress denial")
+	}
+	if prompt.SafeToExecute || prompt.ExecutesWork || prompt.ApprovesWork || prompt.MutatesRepositories {
+		errs = append(errs, "mission compaction resume prompt must not execute, approve, or mutate")
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf(strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+func buildMissionCompactionResumePromptText(record Record, gate ReturnGate, latestRoute, eventIndexDigest, timelineIndexDigest, exactNextAction string) string {
+	return fmt.Sprintf("Start a Codex goal and resume AO Mission %s from the latest durable Mission event timeline.\n\nCurrent state:\n- mission_id=%s\n- mission_status=%s\n- current_phase=%s\n- current_route=%s\n- latest_route=%s\n- completed_nodes=%d\n- ready_nodes=%d\n- min_nodes=%d\n- return_gate_status=%s\n- final_response_allowed=%t\n- event_index_digest=%s\n- timeline_index_digest=%s\n- exact_next_action=%s\n\nRequired behavior:\n1. Rebuild the Mission event index and timeline query index before changing files.\n2. Verify the rebuilt digests match the recorded event_index_digest and timeline_index_digest or record a compaction/recovery blocker.\n3. Continue the exact next action through the governed Mission route.\n4. Keep exactly one executable mutation node active at a time.\n5. Do not ask the operator for the next step between ready nodes.\n6. Do not return a final answer after partial progress.\n7. Stop only for a true hard blocker after safe repair/repack/support work has been attempted.\n\nSafety boundaries:\n- no direct main mutation\n- no credential or token inspection\n- no provider calls\n- no release, deploy, publish, upload, or tag\n- no dependency updates unless separately authorized\n- no policy/auth/config widening\n- no hidden instruction mutation\n- no broad RSI claim\n- RSI remains denied\n",
+		record.MissionID,
+		record.MissionID,
+		record.Status,
+		record.CurrentPhase,
+		record.CurrentRoute,
+		latestRoute,
+		gate.CompletedNodes,
+		gate.ReadyNodesRemaining,
+		gate.MinNodes,
+		gate.Status,
+		gate.FinalResponseAllowed,
+		eventIndexDigest,
+		timelineIndexDigest,
+		exactNextAction,
+	)
+}
+
 func digestMissionTimelineTerms(terms []MissionTimelineTerm) (string, error) {
 	body, err := json.Marshal(terms)
 	if err != nil {

@@ -29,6 +29,7 @@ ao-mission mission events query-index --index tmp/mission-event-index.json --out
 ao-mission mission events search --mission <mission-id> --query "AO Atlas" --index tmp/mission-event-index.json --json
 ao-mission mission events search --mission <mission-id> --query "checkpoint" --index tmp/mission-event-index.json --json
 ao-mission mission events search --mission <mission-id> --query "return_gate" --index tmp/mission-event-index.json --json
+ao-mission mission events resume-prompt --mission <mission-id> --out tmp/<mission-id>-compaction-resume-prompt.json --json
 ao-mission mission dashboard --mission <mission-id> --compact --out tmp/<mission-id>-dashboard.json
 ao-mission mission verification-bundle --mission <mission-id> --readiness-bundle tmp/ao-mission-readiness-bundle.json --gateway-replay-bundle tmp/gateway-replay-bundle.json --out tmp/<mission-id>-verification-bundle.json
 ao-mission mission compact --mission <mission-id> --keep-route-history 25 --keep-steps 25
