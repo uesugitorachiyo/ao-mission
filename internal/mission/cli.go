@@ -335,6 +335,36 @@ func run(args []string, stdout io.Writer) error {
 					}
 				}
 				return printJSON(stdout, queryIndex)
+			case "restart-proof":
+				fs := flag.NewFlagSet("mission events restart-proof", flag.ContinueOnError)
+				id := fs.String("mission", "", "")
+				outPath := fs.String("out", "", "")
+				jsonOut := fs.Bool("json", false, "")
+				if err := fs.Parse(args[3:]); err != nil {
+					return err
+				}
+				if strings.TrimSpace(*id) == "" {
+					return errors.New("mission events restart-proof requires --mission")
+				}
+				proof, err := BuildMissionRestartRecoveryProof(s, *id)
+				if err != nil {
+					return err
+				}
+				if strings.TrimSpace(*outPath) != "" {
+					body, err := json.MarshalIndent(proof, "", "  ")
+					if err != nil {
+						return err
+					}
+					if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+						return err
+					}
+				}
+				if *jsonOut {
+					return printJSON(stdout, proof)
+				}
+				fmt.Fprintf(stdout, "mission=%s\nstatus=%s\nrecovery_proven=%t\nsource_digest_stable=%t\ntimeline_terms_stable=%t\nno_duplicate_timeline_matches=%t\n",
+					proof.MissionID, proof.Status, proof.RecoveryProven, proof.SourceDigestStable, proof.TimelineTermsStable, proof.NoDuplicateTimelineMatches)
+				return nil
 			case "search":
 				fs := flag.NewFlagSet("mission events search", flag.ContinueOnError)
 				missionID := fs.String("mission", "", "")
