@@ -1412,6 +1412,63 @@ func TestEventEvidenceAliasSearchReadbacksFixtureCoversAllAliases(t *testing.T) 
 	}
 }
 
+func TestMissionSQLiteMigrationDryRunFixture(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("..", "..", "examples", "valid", "mission-sqlite-migration-dry-run.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Schema               string `json:"schema"`
+		Status               string `json:"status"`
+		Mission              string `json:"mission"`
+		DryRunOnly           bool   `json:"dry_run_only"`
+		SourceStoreKind      string `json:"source_store_kind"`
+		TargetStoreKind      string `json:"target_store_kind"`
+		RecordsScanned       int    `json:"records_scanned"`
+		RecordsPlanned       int    `json:"records_planned"`
+		RecordsWritten       int    `json:"records_written"`
+		SQLiteFileCreated    bool   `json:"sqlite_file_created"`
+		SourceMutated        bool   `json:"source_mutated"`
+		MigrationStarted     bool   `json:"migration_started"`
+		ProviderCalls        bool   `json:"provider_calls"`
+		CredentialUse        bool   `json:"credential_use"`
+		ReleaseOrPublish     bool   `json:"release_or_publish"`
+		DirectMainMutation   bool   `json:"direct_main_mutation"`
+		SafeToExecute        bool   `json:"safe_to_execute"`
+		ExecutesWork         bool   `json:"executes_work"`
+		ApprovesWork         bool   `json:"approves_work"`
+		MutatesRepositories  bool   `json:"mutates_repositories"`
+		RSIRemainsDenied     bool   `json:"rsi_remains_denied"`
+		ExactNextAction      string `json:"exact_next_action"`
+		PlanDigest           string `json:"plan_digest"`
+		RollbackReceiptReady bool   `json:"rollback_receipt_ready"`
+	}
+	if err := json.Unmarshal(body, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	if fixture.Schema != "ao.mission.sqlite-migration-dry-run.v0.1" || fixture.Status != "ready" || fixture.Mission != "ao-stack-month6-recommendations" {
+		t.Fatalf("bad SQLite migration fixture header: %+v", fixture)
+	}
+	if !fixture.DryRunOnly || fixture.SourceStoreKind != "json_ledger" || fixture.TargetStoreKind != "sqlite" {
+		t.Fatalf("fixture should describe a JSON ledger to SQLite dry-run: %+v", fixture)
+	}
+	if fixture.RecordsScanned < 1 || fixture.RecordsPlanned != fixture.RecordsScanned || fixture.RecordsWritten != 0 {
+		t.Fatalf("fixture should plan records without writing them: %+v", fixture)
+	}
+	if fixture.SQLiteFileCreated || fixture.SourceMutated || fixture.MigrationStarted || fixture.ProviderCalls || fixture.CredentialUse || fixture.ReleaseOrPublish || fixture.DirectMainMutation {
+		t.Fatalf("fixture performed a forbidden side effect: %+v", fixture)
+	}
+	if fixture.SafeToExecute || fixture.ExecutesWork || fixture.ApprovesWork || fixture.MutatesRepositories || !fixture.RSIRemainsDenied {
+		t.Fatalf("fixture widened authority or failed RSI denial: %+v", fixture)
+	}
+	if !fixture.RollbackReceiptReady || !strings.HasPrefix(fixture.PlanDigest, "sha256:") || !strings.Contains(fixture.ExactNextAction, "review SQLite migration plan") {
+		t.Fatalf("fixture missing rollback/digest/next-action binding: %+v", fixture)
+	}
+	if err := ValidatePublicSafeText(string(body)); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestEventIndexSearchesAtlasRecommendationReadbackEvidence(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)
