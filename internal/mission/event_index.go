@@ -208,6 +208,176 @@ func digestMissionTimelineQueryIndex(index MissionTimelineQueryIndex) (string, e
 	return digestBytes(body), nil
 }
 
+func BuildMissionRestartRecoveryProof(s Store, missionID string) (MissionRestartRecoveryProof, error) {
+	missionID = strings.TrimSpace(missionID)
+	if missionID == "" {
+		return MissionRestartRecoveryProof{}, fmt.Errorf("mission restart recovery proof requires mission id")
+	}
+	if _, err := s.Load(missionID); err != nil {
+		return MissionRestartRecoveryProof{}, err
+	}
+	beforeEventIndex, err := BuildMissionEventIndex(s)
+	if err != nil {
+		return MissionRestartRecoveryProof{}, err
+	}
+	beforeTimelineIndex, err := BuildMissionTimelineQueryIndex(beforeEventIndex)
+	if err != nil {
+		return MissionRestartRecoveryProof{}, err
+	}
+
+	restarted := NewStore(s.Root)
+	restarted.Clock = s.Clock
+	if _, err := restarted.Load(missionID); err != nil {
+		return MissionRestartRecoveryProof{}, err
+	}
+	afterEventIndex, err := BuildMissionEventIndex(restarted)
+	if err != nil {
+		return MissionRestartRecoveryProof{}, err
+	}
+	afterTimelineIndex, err := BuildMissionTimelineQueryIndex(afterEventIndex)
+	if err != nil {
+		return MissionRestartRecoveryProof{}, err
+	}
+
+	beforeTermDigest, err := digestMissionTimelineTerms(beforeTimelineIndex.Terms)
+	if err != nil {
+		return MissionRestartRecoveryProof{}, err
+	}
+	afterTermDigest, err := digestMissionTimelineTerms(afterTimelineIndex.Terms)
+	if err != nil {
+		return MissionRestartRecoveryProof{}, err
+	}
+	beforeMissionEvents := countMissionEvents(beforeEventIndex, missionID)
+	afterMissionEvents := countMissionEvents(afterEventIndex, missionID)
+	beforeTimelineMatches := countMissionTimelineMatches(beforeTimelineIndex, missionID)
+	afterTimelineMatches := countMissionTimelineMatches(afterTimelineIndex, missionID)
+	duplicateMatches := countDuplicateMissionTimelineMatches(afterTimelineIndex, missionID)
+
+	proof := MissionRestartRecoveryProof{
+		Schema:                     "ao.mission.restart-recovery-proof.v0.1",
+		Status:                     "restart_recovery_proven",
+		MissionID:                  missionID,
+		BeforeEventSourceDigest:    beforeEventIndex.SourceDigest,
+		AfterEventSourceDigest:     afterEventIndex.SourceDigest,
+		BeforeTimelineTermDigest:   beforeTermDigest,
+		AfterTimelineTermDigest:    afterTermDigest,
+		BeforeEventCount:           beforeEventIndex.TotalEvents,
+		AfterEventCount:            afterEventIndex.TotalEvents,
+		BeforeMissionEventCount:    beforeMissionEvents,
+		AfterMissionEventCount:     afterMissionEvents,
+		BeforeTimelineTermCount:    beforeTimelineIndex.TermCount,
+		AfterTimelineTermCount:     afterTimelineIndex.TermCount,
+		BeforeTimelineMatchCount:   beforeTimelineMatches,
+		AfterTimelineMatchCount:    afterTimelineMatches,
+		DuplicateTimelineMatches:   duplicateMatches,
+		SourceDigestStable:         beforeEventIndex.SourceDigest == afterEventIndex.SourceDigest,
+		EventCountStable:           beforeEventIndex.TotalEvents == afterEventIndex.TotalEvents && beforeMissionEvents == afterMissionEvents,
+		TimelineTermsStable:        beforeTermDigest == afterTermDigest && beforeTimelineIndex.TermCount == afterTimelineIndex.TermCount,
+		TimelineMatchesStable:      beforeTimelineMatches == afterTimelineMatches,
+		NoDuplicateTimelineMatches: duplicateMatches == 0,
+		SafeToExecute:              false,
+		ExecutesWork:               false,
+		ApprovesWork:               false,
+		MutatesRepositories:        false,
+		GeneratedAtUTC:             now(s.Clock),
+	}
+	proof.RecoveryProven = proof.SourceDigestStable &&
+		proof.EventCountStable &&
+		proof.TimelineTermsStable &&
+		proof.TimelineMatchesStable &&
+		proof.NoDuplicateTimelineMatches
+	if !proof.RecoveryProven {
+		proof.Status = "restart_recovery_blocked"
+	}
+	if err := ValidateMissionRestartRecoveryProof(proof); err != nil {
+		return MissionRestartRecoveryProof{}, err
+	}
+	return proof, nil
+}
+
+func ValidateMissionRestartRecoveryProof(proof MissionRestartRecoveryProof) error {
+	var errs []string
+	if proof.Schema != "ao.mission.restart-recovery-proof.v0.1" {
+		errs = append(errs, "mission restart recovery proof schema must be ao.mission.restart-recovery-proof.v0.1")
+	}
+	if proof.Status != "restart_recovery_proven" && proof.Status != "restart_recovery_blocked" {
+		errs = append(errs, "mission restart recovery proof status must be restart_recovery_proven or restart_recovery_blocked")
+	}
+	if strings.TrimSpace(proof.MissionID) == "" {
+		errs = append(errs, "mission restart recovery proof requires mission id")
+	}
+	for field, value := range map[string]string{
+		"before_event_source_digest":  proof.BeforeEventSourceDigest,
+		"after_event_source_digest":   proof.AfterEventSourceDigest,
+		"before_timeline_term_digest": proof.BeforeTimelineTermDigest,
+		"after_timeline_term_digest":  proof.AfterTimelineTermDigest,
+	} {
+		if !strings.HasPrefix(value, "sha256:") {
+			errs = append(errs, field+" must start with sha256:")
+		}
+	}
+	if proof.BeforeEventCount < 1 || proof.AfterEventCount < 1 || proof.BeforeMissionEventCount < 1 || proof.AfterMissionEventCount < 1 {
+		errs = append(errs, "mission restart recovery proof event counts must be positive")
+	}
+	if proof.BeforeTimelineTermCount < 1 || proof.AfterTimelineTermCount < 1 || proof.BeforeTimelineMatchCount < 1 || proof.AfterTimelineMatchCount < 1 {
+		errs = append(errs, "mission restart recovery proof timeline counts must be positive")
+	}
+	if proof.DuplicateTimelineMatches != 0 {
+		errs = append(errs, "mission restart recovery proof duplicate timeline matches must be zero")
+	}
+	if proof.Status == "restart_recovery_proven" && !proof.RecoveryProven {
+		errs = append(errs, "restart_recovery_proven status requires recovery_proven true")
+	}
+	if proof.RecoveryProven && (!proof.SourceDigestStable || !proof.EventCountStable || !proof.TimelineTermsStable || !proof.TimelineMatchesStable || !proof.NoDuplicateTimelineMatches) {
+		errs = append(errs, "recovery_proven requires all stability checks")
+	}
+	if proof.SafeToExecute || proof.ExecutesWork || proof.ApprovesWork || proof.MutatesRepositories {
+		errs = append(errs, "mission restart recovery proof must not execute, approve, or mutate")
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf(strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+func digestMissionTimelineTerms(terms []MissionTimelineTerm) (string, error) {
+	body, err := json.Marshal(terms)
+	if err != nil {
+		return "", err
+	}
+	return digestBytes(body), nil
+}
+
+func countMissionTimelineMatches(index MissionTimelineQueryIndex, missionID string) int {
+	count := 0
+	for _, term := range index.Terms {
+		for _, match := range term.Matches {
+			if match.MissionID == missionID {
+				count++
+			}
+		}
+	}
+	return count
+}
+
+func countDuplicateMissionTimelineMatches(index MissionTimelineQueryIndex, missionID string) int {
+	seen := map[string]bool{}
+	duplicates := 0
+	for _, term := range index.Terms {
+		for _, match := range term.Matches {
+			if match.MissionID != missionID {
+				continue
+			}
+			key := fmt.Sprintf("%s\x00%s\x00%d", term.Term, match.Kind, match.Sequence)
+			if seen[key] {
+				duplicates++
+			}
+			seen[key] = true
+		}
+	}
+	return duplicates
+}
+
 func timelineTermsForEvent(event MissionEvent) []string {
 	raw := strings.Join([]string{event.MissionID, event.Kind, event.Status, event.Route, event.Phase, event.ArtifactKind, event.Summary}, " ")
 	seen := map[string]struct{}{}

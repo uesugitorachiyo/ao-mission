@@ -850,6 +850,36 @@ type MissionTimelineMatch struct {
 	Sequence  int    `json:"sequence"`
 }
 
+type MissionRestartRecoveryProof struct {
+	Schema                     string `json:"schema"`
+	Status                     string `json:"status"`
+	MissionID                  string `json:"mission_id"`
+	BeforeEventSourceDigest    string `json:"before_event_source_digest"`
+	AfterEventSourceDigest     string `json:"after_event_source_digest"`
+	BeforeTimelineTermDigest   string `json:"before_timeline_term_digest"`
+	AfterTimelineTermDigest    string `json:"after_timeline_term_digest"`
+	BeforeEventCount           int    `json:"before_event_count"`
+	AfterEventCount            int    `json:"after_event_count"`
+	BeforeMissionEventCount    int    `json:"before_mission_event_count"`
+	AfterMissionEventCount     int    `json:"after_mission_event_count"`
+	BeforeTimelineTermCount    int    `json:"before_timeline_term_count"`
+	AfterTimelineTermCount     int    `json:"after_timeline_term_count"`
+	BeforeTimelineMatchCount   int    `json:"before_timeline_match_count"`
+	AfterTimelineMatchCount    int    `json:"after_timeline_match_count"`
+	DuplicateTimelineMatches   int    `json:"duplicate_timeline_matches"`
+	SourceDigestStable         bool   `json:"source_digest_stable"`
+	EventCountStable           bool   `json:"event_count_stable"`
+	TimelineTermsStable        bool   `json:"timeline_terms_stable"`
+	TimelineMatchesStable      bool   `json:"timeline_matches_stable"`
+	NoDuplicateTimelineMatches bool   `json:"no_duplicate_timeline_matches"`
+	RecoveryProven             bool   `json:"recovery_proven"`
+	SafeToExecute              bool   `json:"safe_to_execute"`
+	ExecutesWork               bool   `json:"executes_work"`
+	ApprovesWork               bool   `json:"approves_work"`
+	MutatesRepositories        bool   `json:"mutates_repositories"`
+	GeneratedAtUTC             string `json:"generated_at_utc"`
+}
+
 type MissionDoctorReadback struct {
 	Schema                    string              `json:"schema"`
 	Status                    string              `json:"status"`

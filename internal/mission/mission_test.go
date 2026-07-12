@@ -3951,6 +3951,74 @@ func TestMissionTimelineQueryIndexBindsEventIndexDigestAndCLIOutput(t *testing.T
 	}
 }
 
+func TestMissionRestartRecoveryProofBindsIndexedTimelineAfterStoreReload(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("month 6 restart recovery proof over indexed timeline")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Continue(s, rec.MissionID, ContinueOptions{UntilDone: true, MaxIterations: 3}); err != nil {
+		t.Fatal(err)
+	}
+
+	proof, err := BuildMissionRestartRecoveryProof(s, rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if proof.Schema != "ao.mission.restart-recovery-proof.v0.1" ||
+		proof.Status != "restart_recovery_proven" ||
+		proof.MissionID != rec.MissionID ||
+		!proof.SourceDigestStable ||
+		!proof.EventCountStable ||
+		!proof.TimelineTermsStable ||
+		!proof.TimelineMatchesStable ||
+		!proof.NoDuplicateTimelineMatches ||
+		!proof.RecoveryProven ||
+		proof.BeforeMissionEventCount == 0 ||
+		proof.BeforeMissionEventCount != proof.AfterMissionEventCount ||
+		proof.BeforeTimelineMatchCount != proof.AfterTimelineMatchCount ||
+		proof.SafeToExecute ||
+		proof.ExecutesWork ||
+		proof.ApprovesWork ||
+		proof.MutatesRepositories {
+		t.Fatalf("restart recovery proof did not bind indexed timeline safely: %+v", proof)
+	}
+	if err := ValidateMissionRestartRecoveryProof(proof); err != nil {
+		t.Fatal(err)
+	}
+
+	var out, errb bytes.Buffer
+	out.Reset()
+	errb.Reset()
+	outPath := filepath.Join(dir, "restart-recovery-proof.json")
+	if code := Run([]string{"--home", dir, "mission", "events", "restart-proof", "--mission", rec.MissionID, "--out", outPath, "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("mission events restart-proof: %s", errb.String())
+	}
+	var cliProof MissionRestartRecoveryProof
+	if err := json.Unmarshal(out.Bytes(), &cliProof); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateMissionRestartRecoveryProof(cliProof); err != nil {
+		t.Fatalf("CLI restart recovery proof did not validate: %v", err)
+	}
+	if !cliProof.RecoveryProven || cliProof.MissionID != rec.MissionID {
+		t.Fatalf("CLI restart proof did not preserve recovery state: %+v", cliProof)
+	}
+	body, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var persisted MissionRestartRecoveryProof
+	if err := json.Unmarshal(body, &persisted); err != nil {
+		t.Fatal(err)
+	}
+	if persisted.BeforeEventSourceDigest != cliProof.BeforeEventSourceDigest ||
+		persisted.AfterTimelineTermDigest != cliProof.AfterTimelineTermDigest {
+		t.Fatalf("persisted restart proof changed digests: persisted=%+v cli=%+v", persisted, cliProof)
+	}
+}
+
 func timelineQueryIndexHasTerm(index MissionTimelineQueryIndex, term, missionID, kind string) bool {
 	for _, indexedTerm := range index.Terms {
 		if indexedTerm.Term != term {
