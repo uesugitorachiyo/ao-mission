@@ -4251,6 +4251,58 @@ func TestCLIBetaIncidentStopRuleReadbackTriggersPromoterHold(t *testing.T) {
 	}
 }
 
+func TestCLIPilotFeedbackPacketIsReadOnly(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "pilot feedback mission"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+
+	out.Reset()
+	errb.Reset()
+	if code := Run([]string{
+		"--home", dir,
+		"mission", "pilot-feedback-packet",
+		"--mission", rec.MissionID,
+		"--pilot", "pilot-alpha",
+		"--window", "month6-beta-readiness",
+		"--json",
+	}, &out, &errb); code != 0 {
+		t.Fatalf("pilot feedback packet: %s", errb.String())
+	}
+	var packet PilotFeedbackCapturePacket
+	if err := json.Unmarshal(out.Bytes(), &packet); err != nil {
+		t.Fatal(err)
+	}
+	if packet.Schema != "ao.mission.pilot-feedback-capture-packet.v0.1" ||
+		packet.Status != "ready" ||
+		packet.MissionID != rec.MissionID ||
+		packet.PilotID != "pilot-alpha" ||
+		packet.FeedbackWindow != "month6-beta-readiness" ||
+		len(packet.CaptureChannels) != 3 ||
+		len(packet.Questions) < 3 ||
+		len(packet.EvidenceRequired) < 4 ||
+		packet.ExactNextAction != "Collect pilot feedback as read-only evidence before any beta execution or live run." {
+		t.Fatalf("bad pilot feedback packet: %+v", packet)
+	}
+	if !packet.ReadOnly ||
+		packet.SafeToExecute ||
+		packet.ExecutesWork ||
+		packet.ApprovesWork ||
+		packet.MutatesRepositories ||
+		packet.ProviderCallsAllowed ||
+		packet.CredentialUseAllowed ||
+		packet.ReleaseOrPublishAllowed ||
+		packet.ClaimsAuthorityAdvance ||
+		!packet.RSIRemainsDenied {
+		t.Fatalf("pilot feedback packet widened authority: %+v", packet)
+	}
+}
+
 func TestSchedulerRecoveryDoesNotRecommendContinuationWhenReplayFresh(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "scheduler-fresh-replay.json")
 	if err := os.WriteFile(path, []byte(`{
