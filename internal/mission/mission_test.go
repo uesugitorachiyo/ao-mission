@@ -4191,6 +4191,66 @@ func TestDoctorCommandReportsLocalStoreHealthWithoutAuthority(t *testing.T) {
 	}
 }
 
+func TestCLIBetaIncidentStopRuleReadbackTriggersPromoterHold(t *testing.T) {
+	dir := t.TempDir()
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", dir, "start", "beta incident stop-rule mission"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var rec Record
+	if err := json.Unmarshal(out.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+
+	out.Reset()
+	errb.Reset()
+	if code := Run([]string{
+		"--home", dir,
+		"mission", "beta-incident-stop-rule",
+		"--mission", rec.MissionID,
+		"--incident", "incident-beta-pilot-ci-regression",
+		"--severity", "high",
+		"--sentinel-status", "failed",
+		"--promoter-status", "hold",
+		"--json",
+	}, &out, &errb); code != 0 {
+		t.Fatalf("beta incident stop-rule: %s", errb.String())
+	}
+	var readback BetaIncidentStopRuleReadback
+	if err := json.Unmarshal(out.Bytes(), &readback); err != nil {
+		t.Fatal(err)
+	}
+	if readback.Schema != "ao.mission.beta-incident-stop-rule-readback.v0.1" ||
+		readback.Status != "hold_required" ||
+		readback.MissionID != rec.MissionID ||
+		readback.IncidentID != "incident-beta-pilot-ci-regression" ||
+		readback.IncidentSeverity != "high" ||
+		readback.SentinelStatus != "failed" ||
+		readback.PromoterStatus != "hold" ||
+		!readback.StopRuleTriggered ||
+		!readback.PromoterHoldRequired ||
+		readback.ExactNextAction != "hold beta pilot activity, record incident evidence, and require Sentinel plus Promoter clearance before continuation" {
+		t.Fatalf("bad beta incident stop-rule readback: %+v", readback)
+	}
+	if !stringSliceContains(readback.StopReasons, "high severity beta incident") ||
+		!stringSliceContains(readback.StopReasons, "Sentinel status is failed") ||
+		!stringSliceContains(readback.StopReasons, "Promoter hold is active") {
+		t.Fatalf("missing stop reasons: %+v", readback)
+	}
+	if !readback.ReadOnly ||
+		readback.SafeToExecute ||
+		readback.ExecutesWork ||
+		readback.ApprovesWork ||
+		readback.MutatesRepositories ||
+		readback.ProviderCallsAllowed ||
+		readback.CredentialUseAllowed ||
+		readback.ReleaseOrPublishAllowed ||
+		readback.ClaimsAuthorityAdvance ||
+		!readback.RSIRemainsDenied {
+		t.Fatalf("beta incident stop-rule widened authority: %+v", readback)
+	}
+}
+
 func TestSchedulerRecoveryDoesNotRecommendContinuationWhenReplayFresh(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "scheduler-fresh-replay.json")
 	if err := os.WriteFile(path, []byte(`{

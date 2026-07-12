@@ -131,6 +131,49 @@ func run(args []string, stdout io.Writer) error {
 			fmt.Fprintf(stdout, "mission=%s\ncompleted_nodes=%d\nevidence_completed_nodes=%d\nhandoff_steps=%d\ntotal_nodes=%d\nready_nodes=%d\ncompletion_basis=%s\nfinal_response_allowed=%t\n",
 				metrics.MissionID, metrics.CompletedNodes, metrics.EvidenceCompletedNodes, metrics.HandoffSteps, metrics.TotalNodes, metrics.ReadyNodes, metrics.CompletionBasis, metrics.FinalResponseAllowed)
 			return nil
+		case "beta-incident-stop-rule":
+			fs := flag.NewFlagSet("mission beta-incident-stop-rule", flag.ContinueOnError)
+			id := fs.String("mission", "", "")
+			incidentID := fs.String("incident", "", "")
+			severity := fs.String("severity", "", "")
+			sentinelStatus := fs.String("sentinel-status", "", "")
+			promoterStatus := fs.String("promoter-status", "", "")
+			outPath := fs.String("out", "", "")
+			jsonOut := fs.Bool("json", false, "json output")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*id) == "" {
+				return errors.New("mission beta-incident-stop-rule requires --mission")
+			}
+			r, err := s.Load(*id)
+			if err != nil {
+				return err
+			}
+			readback := BuildBetaIncidentStopRuleReadback(r, BetaIncidentStopRuleOptions{
+				IncidentID:     *incidentID,
+				Severity:       *severity,
+				SentinelStatus: *sentinelStatus,
+				PromoterStatus: *promoterStatus,
+			})
+			if strings.TrimSpace(*outPath) != "" {
+				body, err := json.MarshalIndent(readback, "", "  ")
+				if err != nil {
+					return err
+				}
+				if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+					return err
+				}
+			}
+			if *jsonOut {
+				return printJSON(stdout, readback)
+			}
+			if strings.TrimSpace(*outPath) != "" {
+				fmt.Fprintf(stdout, "beta_incident_stop_rule=%s\nmission=%s\nstatus=%s\nstop_rule_triggered=%t\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, readback.MissionID, readback.Status, readback.StopRuleTriggered)
+				return nil
+			}
+			fmt.Fprintf(stdout, "mission=%s\nstatus=%s\nstop_rule_triggered=%t\npromoter_hold_required=%t\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\nnext=%s\n", readback.MissionID, readback.Status, readback.StopRuleTriggered, readback.PromoterHoldRequired, readback.ExactNextAction)
+			return nil
 		case "projection":
 			fs := flag.NewFlagSet("mission projection", flag.ContinueOnError)
 			id := fs.String("mission", "", "")
