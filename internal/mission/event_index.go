@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
+	"unicode"
 )
 
 type MissionEventSearchFilters struct {
@@ -108,6 +110,123 @@ func SearchMissionEvents(index MissionEventIndex, filters MissionEventSearchFilt
 	}
 	readback.TotalMatches = len(readback.Events)
 	return readback
+}
+
+func BuildMissionTimelineQueryIndex(index MissionEventIndex) (MissionTimelineQueryIndex, error) {
+	if err := ValidateMissionEventIndexDigest(index); err != nil {
+		return MissionTimelineQueryIndex{}, err
+	}
+	terms := map[string]map[MissionTimelineMatch]struct{}{}
+	for _, event := range index.Events {
+		match := MissionTimelineMatch{
+			MissionID: event.MissionID,
+			Kind:      event.Kind,
+			Sequence:  event.Sequence,
+		}
+		for _, term := range timelineTermsForEvent(event) {
+			if _, ok := terms[term]; !ok {
+				terms[term] = map[MissionTimelineMatch]struct{}{}
+			}
+			terms[term][match] = struct{}{}
+		}
+	}
+	termNames := make([]string, 0, len(terms))
+	for term := range terms {
+		termNames = append(termNames, term)
+	}
+	sort.Strings(termNames)
+	queryTerms := make([]MissionTimelineTerm, 0, len(termNames))
+	for _, term := range termNames {
+		matches := make([]MissionTimelineMatch, 0, len(terms[term]))
+		for match := range terms[term] {
+			matches = append(matches, match)
+		}
+		sort.Slice(matches, func(i, j int) bool {
+			if matches[i].MissionID != matches[j].MissionID {
+				return matches[i].MissionID < matches[j].MissionID
+			}
+			if matches[i].Sequence != matches[j].Sequence {
+				return matches[i].Sequence < matches[j].Sequence
+			}
+			return matches[i].Kind < matches[j].Kind
+		})
+		queryTerms = append(queryTerms, MissionTimelineTerm{Term: term, Matches: matches})
+	}
+	queryIndex := MissionTimelineQueryIndex{
+		Schema:              "ao.mission.timeline-query-index.v0.1",
+		Status:              "ready",
+		IndexVersion:        "v0.1",
+		EventIndexDigest:    index.IndexDigest,
+		MissionCount:        index.MissionCount,
+		EventCount:          index.TotalEvents,
+		TermCount:           len(queryTerms),
+		Terms:               queryTerms,
+		SafeToExecute:       false,
+		ExecutesWork:        false,
+		ApprovesWork:        false,
+		MutatesRepositories: false,
+		GeneratedAtUTC:      now(nil),
+	}
+	digest, err := digestMissionTimelineQueryIndex(queryIndex)
+	if err != nil {
+		return MissionTimelineQueryIndex{}, err
+	}
+	queryIndex.IndexDigest = digest
+	return queryIndex, nil
+}
+
+func ValidateMissionTimelineQueryIndexDigest(index MissionTimelineQueryIndex) error {
+	if index.Schema != "ao.mission.timeline-query-index.v0.1" {
+		return fmt.Errorf("mission timeline query index schema must be ao.mission.timeline-query-index.v0.1")
+	}
+	if index.IndexVersion != "v0.1" {
+		return fmt.Errorf("mission timeline query index version must be v0.1")
+	}
+	if !strings.HasPrefix(index.EventIndexDigest, "sha256:") {
+		return fmt.Errorf("mission timeline query index event digest must start with sha256:")
+	}
+	if !strings.HasPrefix(index.IndexDigest, "sha256:") {
+		return fmt.Errorf("mission timeline query index digest must start with sha256:")
+	}
+	expected, err := digestMissionTimelineQueryIndex(index)
+	if err != nil {
+		return err
+	}
+	if index.IndexDigest != expected {
+		return fmt.Errorf("mission timeline query index digest mismatch")
+	}
+	return nil
+}
+
+func digestMissionTimelineQueryIndex(index MissionTimelineQueryIndex) (string, error) {
+	copy := index
+	copy.IndexDigest = ""
+	body, err := json.Marshal(copy)
+	if err != nil {
+		return "", err
+	}
+	return digestBytes(body), nil
+}
+
+func timelineTermsForEvent(event MissionEvent) []string {
+	raw := strings.Join([]string{event.MissionID, event.Kind, event.Status, event.Route, event.Phase, event.ArtifactKind, event.Summary}, " ")
+	seen := map[string]struct{}{}
+	terms := []string{}
+	for _, term := range strings.FieldsFunc(strings.ToLower(raw), func(r rune) bool {
+		return !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '-' || r == '/')
+	}) {
+		term = strings.TrimSpace(term)
+		if len(term) < 2 {
+			continue
+		}
+		if _, ok := seen[term]; ok {
+			continue
+		}
+		seen[term] = struct{}{}
+		terms = append(terms, term)
+	}
+	sort.Strings(terms)
+	return terms
 }
 
 func BuildMissionDoctorReadback(s Store) MissionDoctorReadback {

@@ -298,6 +298,43 @@ func run(args []string, stdout io.Writer) error {
 					}
 				}
 				return printJSON(stdout, index)
+			case "query-index":
+				fs := flag.NewFlagSet("mission events query-index", flag.ContinueOnError)
+				indexPath := fs.String("index", "", "")
+				outPath := fs.String("out", "", "")
+				if err := fs.Parse(args[3:]); err != nil {
+					return err
+				}
+				var eventIndex MissionEventIndex
+				if strings.TrimSpace(*indexPath) != "" {
+					body, err := os.ReadFile(*indexPath)
+					if err != nil {
+						return err
+					}
+					if err := json.Unmarshal(body, &eventIndex); err != nil {
+						return err
+					}
+				} else {
+					var err error
+					eventIndex, err = BuildMissionEventIndex(s)
+					if err != nil {
+						return err
+					}
+				}
+				queryIndex, err := BuildMissionTimelineQueryIndex(eventIndex)
+				if err != nil {
+					return err
+				}
+				if strings.TrimSpace(*outPath) != "" {
+					body, err := json.MarshalIndent(queryIndex, "", "  ")
+					if err != nil {
+						return err
+					}
+					if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+						return err
+					}
+				}
+				return printJSON(stdout, queryIndex)
 			case "search":
 				fs := flag.NewFlagSet("mission events search", flag.ContinueOnError)
 				missionID := fs.String("mission", "", "")

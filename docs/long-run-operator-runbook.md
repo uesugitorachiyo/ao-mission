@@ -82,6 +82,7 @@ After each node or checkpoint interval, refresh the route and event evidence:
 
 ```sh
 ao-mission mission events index --out tmp/mission-event-index.json
+ao-mission mission events query-index --index tmp/mission-event-index.json --out tmp/mission-timeline-query-index.json
 ao-mission mission events search --mission <mission-id> --query "route" --index tmp/mission-event-index.json --json
 ao-mission mission events search --mission <mission-id> --query "checkpoint" --index tmp/mission-event-index.json --json
 ao-mission mission dashboard --mission <mission-id> --compact --out tmp/<mission-id>-dashboard.json
