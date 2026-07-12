@@ -880,6 +880,32 @@ type MissionRestartRecoveryProof struct {
 	GeneratedAtUTC             string `json:"generated_at_utc"`
 }
 
+type MissionCompactionResumePrompt struct {
+	Schema               string `json:"schema"`
+	Status               string `json:"status"`
+	MissionID            string `json:"mission_id"`
+	MissionStatus        string `json:"mission_status"`
+	CurrentPhase         string `json:"current_phase"`
+	CurrentRoute         string `json:"current_route"`
+	LatestRoute          string `json:"latest_route"`
+	EventIndexDigest     string `json:"event_index_digest"`
+	TimelineIndexDigest  string `json:"timeline_index_digest"`
+	EventCount           int    `json:"event_count"`
+	TimelineTermCount    int    `json:"timeline_term_count"`
+	CompletedNodes       int    `json:"completed_nodes"`
+	ReadyNodes           int    `json:"ready_nodes"`
+	MinNodes             int    `json:"min_nodes"`
+	ReturnGateStatus     string `json:"return_gate_status"`
+	FinalResponseAllowed bool   `json:"final_response_allowed"`
+	ExactNextAction      string `json:"exact_next_action"`
+	ResumePrompt         string `json:"resume_prompt"`
+	SafeToExecute        bool   `json:"safe_to_execute"`
+	ExecutesWork         bool   `json:"executes_work"`
+	ApprovesWork         bool   `json:"approves_work"`
+	MutatesRepositories  bool   `json:"mutates_repositories"`
+	GeneratedAtUTC       string `json:"generated_at_utc"`
+}
+
 type MissionDoctorReadback struct {
 	Schema                    string              `json:"schema"`
 	Status                    string              `json:"status"`

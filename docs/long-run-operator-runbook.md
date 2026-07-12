@@ -85,6 +85,7 @@ ao-mission mission events index --out tmp/mission-event-index.json
 ao-mission mission events query-index --index tmp/mission-event-index.json --out tmp/mission-timeline-query-index.json
 ao-mission mission events search --mission <mission-id> --query "route" --index tmp/mission-event-index.json --json
 ao-mission mission events search --mission <mission-id> --query "checkpoint" --index tmp/mission-event-index.json --json
+ao-mission mission events resume-prompt --mission <mission-id> --out tmp/<mission-id>-compaction-resume-prompt.json --json
 ao-mission mission dashboard --mission <mission-id> --compact --out tmp/<mission-id>-dashboard.json
 ao-mission command status --mission <mission-id> --json
 ao-mission final rollup --mission <mission-id>
