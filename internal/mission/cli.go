@@ -174,6 +174,45 @@ func run(args []string, stdout io.Writer) error {
 			}
 			fmt.Fprintf(stdout, "mission=%s\nstatus=%s\nstop_rule_triggered=%t\npromoter_hold_required=%t\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\nnext=%s\n", readback.MissionID, readback.Status, readback.StopRuleTriggered, readback.PromoterHoldRequired, readback.ExactNextAction)
 			return nil
+		case "pilot-feedback-packet":
+			fs := flag.NewFlagSet("mission pilot-feedback-packet", flag.ContinueOnError)
+			id := fs.String("mission", "", "")
+			pilotID := fs.String("pilot", "", "")
+			feedbackWindow := fs.String("window", "", "")
+			outPath := fs.String("out", "", "")
+			jsonOut := fs.Bool("json", false, "json output")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*id) == "" {
+				return errors.New("mission pilot-feedback-packet requires --mission")
+			}
+			r, err := s.Load(*id)
+			if err != nil {
+				return err
+			}
+			packet := BuildPilotFeedbackCapturePacket(r, PilotFeedbackCaptureOptions{
+				PilotID:        *pilotID,
+				FeedbackWindow: *feedbackWindow,
+			})
+			if strings.TrimSpace(*outPath) != "" {
+				body, err := json.MarshalIndent(packet, "", "  ")
+				if err != nil {
+					return err
+				}
+				if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+					return err
+				}
+			}
+			if *jsonOut {
+				return printJSON(stdout, packet)
+			}
+			if strings.TrimSpace(*outPath) != "" {
+				fmt.Fprintf(stdout, "pilot_feedback_packet=%s\nmission=%s\nstatus=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, packet.MissionID, packet.Status)
+				return nil
+			}
+			fmt.Fprintf(stdout, "mission=%s\nstatus=%s\npilot=%s\nfeedback_window=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\nnext=%s\n", packet.MissionID, packet.Status, packet.PilotID, packet.FeedbackWindow, packet.ExactNextAction)
+			return nil
 		case "projection":
 			fs := flag.NewFlagSet("mission projection", flag.ContinueOnError)
 			id := fs.String("mission", "", "")

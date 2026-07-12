@@ -225,6 +225,34 @@ type BetaIncidentStopRuleReadback struct {
 	GeneratedAtUTC          string   `json:"generated_at_utc"`
 }
 
+type PilotFeedbackCaptureOptions struct {
+	PilotID        string
+	FeedbackWindow string
+}
+
+type PilotFeedbackCapturePacket struct {
+	Schema                  string   `json:"schema"`
+	MissionID               string   `json:"mission_id"`
+	Status                  string   `json:"status"`
+	PilotID                 string   `json:"pilot_id"`
+	FeedbackWindow          string   `json:"feedback_window"`
+	CaptureChannels         []string `json:"capture_channels"`
+	Questions               []string `json:"questions"`
+	EvidenceRequired        []string `json:"evidence_required"`
+	ExactNextAction         string   `json:"exact_next_action"`
+	ReadOnly                bool     `json:"read_only"`
+	SafeToExecute           bool     `json:"safe_to_execute"`
+	ExecutesWork            bool     `json:"executes_work"`
+	ApprovesWork            bool     `json:"approves_work"`
+	MutatesRepositories     bool     `json:"mutates_repositories"`
+	ProviderCallsAllowed    bool     `json:"provider_calls_allowed"`
+	CredentialUseAllowed    bool     `json:"credential_use_allowed"`
+	ReleaseOrPublishAllowed bool     `json:"release_or_publish_allowed"`
+	ClaimsAuthorityAdvance  bool     `json:"claims_authority_advance"`
+	RSIRemainsDenied        bool     `json:"rsi_remains_denied"`
+	GeneratedAtUTC          string   `json:"generated_at_utc"`
+}
+
 type SchedulerEvidenceCounts struct {
 	Status          string `json:"status"`
 	Scheduler       string `json:"scheduler"`
