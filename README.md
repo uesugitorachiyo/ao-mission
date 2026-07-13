@@ -1,12 +1,24 @@
 # AO Mission
 
-ao-mission is the governed AO mission entry point, router, continuation ledger, communication gateway, governance snapshot producer, and scheduler adapter. It records and routes mission work through existing AO gates without expanding authority.
+AO Mission is the operator entry point for starting, tracking, routing, and
+resuming AO work. It stores durable mission state, records route and checkpoint
+history, accepts intent from local CLI and gateway adapters, and imports
+readbacks from downstream components. Use it when work must continue across
+multiple AO stages or recover after interruption.
 
-## v0.1 Boundaries
+## How it fits in AO
 
-AO Mission does not approve policy, execute provider calls, mutate repositories directly, publish releases, deploy, upload, tag releases, update dependencies, widen auth or config, or grant mutation authority from Telegram or A2A. AO Command and ao2-control-plane remain read-only. codex-cron is only a scheduler adapter.
+- **Primary responsibility:** Mission lifecycle, routing, continuation, and recovery.
+- **Inputs:** Operator objectives, gateway intents, scheduler events, and downstream readbacks.
+- **Outputs:** Mission records, route decisions, checkpoints, archives, dashboards, and next actions.
+- **Upstream:** Operators, Telegram, A2A, and scheduler adapters.
+- **Downstream:** AO Blueprint, AO Atlas, AO Foundry, and AO Command.
 
-Denied boundaries remain denied: unrestricted self-modification, hidden instruction mutation, policy-changing autonomy, forbidden surface expansion, credential use, provider calls, release/deploy/publish/upload/tag authority, dependency update authority, direct-main mutation, concurrent mutation, broad public claims, unrestricted RSI, and broad_RSI.
+See the
+[AO Architecture guide](https://github.com/uesugitorachiyo/ao-architecture)
+and the
+[AO Mission component page](https://github.com/uesugitorachiyo/ao-architecture/blob/main/components/ao-mission.md)
+for the cross-repository flow.
 
 ## Commands
 
