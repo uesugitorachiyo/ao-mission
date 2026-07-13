@@ -1,39 +1,5 @@
 # AO Mission
 
-## Role
-
-AO Mission owns durable mission state, routing, continuation, recovery, and
-operator-facing lifecycle metrics. It supervises the stack without becoming a
-policy or execution authority. See [AO Architecture](https://github.com/uesugitorachiyo/ao-architecture)
-and the [canonical AO Mission component page](https://github.com/uesugitorachiyo/ao-architecture/blob/main/components/ao-mission.md).
-
-## Maturity
-
-Alpha. Core mission lifecycle behavior is `implemented` and
-`executable-tested`; restart and long-run paths are `clean-room-rehearsed`.
-
-## Install
-
-```sh
-go build -o ./tmp/ao-mission ./cmd/ao-mission
-```
-
-## Quickstart
-
-```sh
-./tmp/ao-mission --help
-```
-
-## Safety
-
-Mission records and routes intent. It does not approve policy, call providers,
-use credentials, mutate repositories directly, or release and deploy software.
-
-## External Beta
-
-External beta has not launched. No promotion is requested. RSI remains denied.
-Historical campaign evidence does not change this status.
-
 ao-mission is the governed AO mission entry point, router, continuation ledger, communication gateway, governance snapshot producer, and scheduler adapter. It records and routes mission work through existing AO gates without expanding authority.
 
 ## v0.1 Boundaries
