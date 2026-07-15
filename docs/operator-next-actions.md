@@ -11,11 +11,18 @@ records AO2 v0.5.1 with AO2 Control Plane v0.1.15 as the current public release
 pair in
 [AO Architecture PR #109](https://github.com/uesugitorachiyo/ao-architecture/pull/109).
 
-Continue Month 2 with compatibility vectors and consumer tests. Start with the
-AO2 execution receipt to AO2 Control Plane evidence-event path, then add
-operator readback checks for the current release pair. This is not a new
-release train by default. External beta has not launched, and RSI remains
-denied.
+The first Month 2 compatibility workgraph is complete. Architecture now records
+three tested current-release edges for the AO2 v0.5.1 and AO2 Control Plane
+v0.1.15 public pair:
+
+- AO2 execution receipt to AO2 Control Plane evidence event.
+- AO2 Control Plane readback to AO Command operator status.
+- AO Mission run status/timeline to AO Command operator timeline.
+
+Continue Month 2 with the remaining proposed compatibility edges or the
+cross-platform support stability drill. Do not treat the 3-edge readback as
+full stack compatibility. This is not a new release train by default. External
+beta has not launched, promotion is not requested, and RSI remains denied.
 
 For doubled 2-3 hour waves, use the dedicated
 [Long-Run Operator Runbook](long-run-operator-runbook.md). It defines the

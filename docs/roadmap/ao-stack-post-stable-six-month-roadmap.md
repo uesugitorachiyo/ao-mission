@@ -44,7 +44,8 @@ Closure readback:
 
 ## Month 2: Workflow reliability hardening
 
-Status: next.
+Status: in progress. The first compatibility workgraph completed three tested
+current-release edges; remaining matrix edges are still proposed.
 
 Goal: reduce operator confusion and agent overreach.
 
@@ -57,6 +58,14 @@ Work:
 - Improve final-status rules so agents do not overclaim.
 - Add better failure summaries for CI, build, release, and runtime blockers.
 - Expand replay and offline verification examples.
+
+Current compatibility evidence:
+
+- AO2 execution receipt to AO2 Control Plane evidence event is tested.
+- AO2 Control Plane readback to AO Command operator status is tested.
+- AO Mission run status/timeline to AO Command operator timeline is tested.
+- Full stack compatibility remains incomplete.
+- External beta has not launched, promotion is not requested, and RSI remains denied.
 
 Success criteria:
 
