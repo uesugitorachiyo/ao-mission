@@ -14,7 +14,7 @@ For local private pilots on real local codebases, use the
 device smoke work, use the
 [iOS/Xcode Local App Smoke Checklist](templates/ios-xcode-app-smoke-checklist.md).
 These guides keep evidence local, preserve provided-library boundaries, and
-avoid release or upload actions.
+avoid upload or deploy actions.
 
 ## Start And Inspect
 

@@ -1,6 +1,6 @@
 # Local Private Pilot Workflow
 
-Use this workflow when AO Mission supervises a real local codebase without remote lifecycle work. It is for internal AO Stack evidence, not a release claim.
+Use this workflow when AO Mission supervises a real local codebase without remote lifecycle work. It is for internal AO Stack evidence, not a public claim.
 
 The workflow fits pilots like local framework migration, local app integration, local device runtime smoke, or private customer-style app checks where the target repository must stay private and local.
 
@@ -11,7 +11,7 @@ Record these boundaries before the first command:
 - target repositories and paths;
 - AO repository that supervises the work;
 - exact baseline commits or known dirty paths;
-- forbidden actions: fetch, pull, push, PR, tag, release, upload, deploy, external contact, provider pilot, or public claim;
+- forbidden actions: fetch, pull, push, PR, tag, upload, deploy, external contact, provider pilot, or public claim;
 - provided libraries that must stay provided, such as OpenCV, TensorFlowLite, Paddle, Torch, OCR/barcode runtimes, model runtimes, provider frameworks, and binary frameworks;
 - files that must not change, such as public Swift API files or public C ABI headers;
 - artifact classes that must not be committed: models, binaries, `.framework` directories, `.xcframework` directories, archives, generated artifacts, build outputs, and compiled libraries.
@@ -152,4 +152,4 @@ End each pilot with an AO report that covers:
 - remaining risks;
 - next local AO Stack test step.
 
-Use practical language. State what the evidence supports. Do not turn local private evidence into a release or public claim.
+Use practical language. State what the evidence supports. Do not turn local private evidence into a public claim.

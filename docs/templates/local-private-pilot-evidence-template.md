@@ -14,12 +14,12 @@ Evidence directory: `<absolute local path>`
 - Baseline commit or status: `<commit/status>`
 - Prior evidence: `<path, if any>`
 
-This evidence is internal AO Stack evidence. It is not a release claim.
+This evidence is internal AO Stack evidence. It is not a public claim.
 
 ## Hard Boundaries
 
 - Local-only work.
-- No fetch, pull, push, PR, tag, release, upload, deployment, or external contact unless explicitly authorized for this pilot.
+- No fetch, pull, push, PR, tag, upload, deployment, or external contact unless explicitly authorized for this pilot.
 - No provider pilots.
 - No replacement of provided libraries or runtimes.
 - No committed models, binaries, `.framework` directories, `.xcframework` directories, archives, generated artifacts, build outputs, or compiled libraries.
@@ -145,4 +145,4 @@ State whether these stayed unchanged:
 
 ## Boundary Confirmation
 
-Confirm no forbidden remote, release, upload, deployment, external contact, provider pilot, provided-library replacement, or forbidden artifact commit occurred.
+Confirm no forbidden remote, upload, deployment, external contact, provider pilot, provided-library replacement, or forbidden artifact commit occurred.
