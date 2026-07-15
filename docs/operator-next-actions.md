@@ -11,18 +11,27 @@ records AO2 v0.5.1 with AO2 Control Plane v0.1.15 as the current public release
 pair in
 [AO Architecture PR #109](https://github.com/uesugitorachiyo/ao-architecture/pull/109).
 
-The first Month 2 compatibility workgraph is complete. Architecture now records
-three tested current-release edges for the AO2 v0.5.1 and AO2 Control Plane
-v0.1.15 public pair:
+The first two Month 2 compatibility workgraphs are complete. Architecture now
+records six tested current-release edges for the AO2 v0.5.1 and AO2 Control
+Plane v0.1.15 public pair:
 
 - AO2 execution receipt to AO2 Control Plane evidence event.
 - AO2 Control Plane readback to AO Command operator status.
 - AO Mission run status/timeline to AO Command operator timeline.
+- AO Architecture source of truth to AO Mission route/context.
+- AO Blueprint requirements/authorization to AO Atlas context pack/workgraph.
+- AO Atlas workgraph/context pack to AO Foundry safe-next-work schedule.
 
-Continue Month 2 with the remaining proposed compatibility edges or the
-cross-platform support stability drill. Do not treat the 3-edge readback as
-full stack compatibility. This is not a new release train by default. External
-beta has not launched, promotion is not requested, and RSI remains denied.
+Continue Month 2 with compatibility Wave Set 3:
+
+- AO Foundry safe-next-work/schedule to AO Forge goal run.
+- AO Forge goal run to AO Covenant policy gate.
+- AO Covenant approval ticket to AO2 approved execution request.
+
+After that chain progresses, run the cross-platform support stability drill.
+Do not treat the six-edge readback as full stack compatibility. This is not a
+new release train by default. External beta has not launched, promotion is not
+requested, and RSI remains denied.
 
 For doubled 2-3 hour waves, use the dedicated
 [Long-Run Operator Runbook](long-run-operator-runbook.md). It defines the
