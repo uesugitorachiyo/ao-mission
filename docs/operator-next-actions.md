@@ -9,6 +9,13 @@ For doubled 2-3 hour waves, use the dedicated
 30-node request shape, role routing, stop gate, per-node evidence, and Atlas
 continuation prompt template.
 
+For local private pilots on real local codebases, use the
+[Local Private Pilot Workflow](local-private-pilot-workflow.md). For iOS app or
+device smoke work, use the
+[iOS/Xcode Local App Smoke Checklist](templates/ios-xcode-app-smoke-checklist.md).
+These guides keep evidence local, preserve provided-library boundaries, and
+avoid release or upload actions.
+
 ## Start And Inspect
 
 ```sh
