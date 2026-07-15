@@ -355,6 +355,103 @@ func TestRouterSendsConcreteBatchSupervisionToAtlasNotBlueprint(t *testing.T) {
 	}
 }
 
+func TestArchitectureRouteContextCompatibilityVector(t *testing.T) {
+	path := filepath.Join("..", "..", "examples", "valid", "architecture-route-context-compatibility-vector.json")
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var vector struct {
+		SchemaVersion string `json:"schema_version"`
+		Edge          string `json:"edge"`
+		Producer      struct {
+			Repository string `json:"repository"`
+		} `json:"producer"`
+		Consumer struct {
+			Repository     string `json:"repository"`
+			ExpectedSchema string `json:"expected_schema"`
+		} `json:"consumer"`
+		SourceOfTruth struct {
+			Status                         string `json:"status"`
+			AO2Version                     string `json:"ao2_version"`
+			ControlPlaneVersion            string `json:"control_plane_version"`
+			CompatibilityMatrixStatus      string `json:"compatibility_matrix_status"`
+			FullStackCompatibilityComplete bool   `json:"full_stack_compatibility_complete"`
+			ExternalBetaLaunched           bool   `json:"external_beta_launched"`
+			PromotionGranted               bool   `json:"promotion_granted"`
+			ProviderPilot                  bool   `json:"provider_pilot"`
+			RSIRemainsDenied               bool   `json:"rsi_remains_denied"`
+		} `json:"source_of_truth"`
+		RouteContext struct {
+			MissionID              string `json:"mission_id"`
+			Objective              string `json:"objective"`
+			ExpectedRoute          string `json:"expected_route"`
+			ExpectedReasonContains string `json:"expected_reason_contains"`
+			ExactNextAction        string `json:"exact_next_action"`
+			SafeToRequest          bool   `json:"safe_to_request"`
+			SafeToExecute          bool   `json:"safe_to_execute"`
+			SafeToPromote          bool   `json:"safe_to_promote"`
+		} `json:"route_context"`
+		Boundaries struct {
+			ReleaseOrPublish      bool `json:"release_or_publish"`
+			CreatesTag            bool `json:"creates_tag"`
+			UploadsAssets         bool `json:"uploads_assets"`
+			Deploys               bool `json:"deploys"`
+			ContactsExternalUsers bool `json:"contacts_external_users"`
+			ProviderPilot         bool `json:"provider_pilot"`
+			PromotionGranted      bool `json:"promotion_granted"`
+			RSIRemainsDenied      bool `json:"rsi_remains_denied"`
+			ExecutesWork          bool `json:"executes_work"`
+			ApprovesWork          bool `json:"approves_work"`
+			MutatesRepositories   bool `json:"mutates_repositories"`
+		} `json:"boundaries"`
+	}
+	if err := json.Unmarshal(body, &vector); err != nil {
+		t.Fatal(err)
+	}
+	if vector.SchemaVersion != "ao.compatibility.architecture-route-context-vector.v1" ||
+		vector.Edge != "ao-architecture.source_of_truth -> ao-mission.route_context" ||
+		vector.Producer.Repository != "ao-architecture" ||
+		vector.Consumer.Repository != "ao-mission" ||
+		vector.Consumer.ExpectedSchema != RouteSchema {
+		t.Fatalf("bad Architecture route/context vector identity: %+v", vector)
+	}
+	if vector.SourceOfTruth.Status != "current_public_release_pair" ||
+		vector.SourceOfTruth.AO2Version != "v0.5.1" ||
+		vector.SourceOfTruth.ControlPlaneVersion != "v0.1.15" ||
+		vector.SourceOfTruth.CompatibilityMatrixStatus != "proposed" ||
+		vector.SourceOfTruth.FullStackCompatibilityComplete ||
+		vector.SourceOfTruth.ExternalBetaLaunched ||
+		vector.SourceOfTruth.PromotionGranted ||
+		vector.SourceOfTruth.ProviderPilot ||
+		!vector.SourceOfTruth.RSIRemainsDenied {
+		t.Fatalf("bad Architecture source-of-truth fields: %+v", vector.SourceOfTruth)
+	}
+	if vector.Boundaries.ReleaseOrPublish ||
+		vector.Boundaries.CreatesTag ||
+		vector.Boundaries.UploadsAssets ||
+		vector.Boundaries.Deploys ||
+		vector.Boundaries.ContactsExternalUsers ||
+		vector.Boundaries.ProviderPilot ||
+		vector.Boundaries.PromotionGranted ||
+		vector.Boundaries.ExecutesWork ||
+		vector.Boundaries.ApprovesWork ||
+		vector.Boundaries.MutatesRepositories ||
+		!vector.Boundaries.RSIRemainsDenied {
+		t.Fatalf("Architecture route/context vector widened authority: %+v", vector.Boundaries)
+	}
+	decision := DecideRoute(vector.RouteContext.MissionID, vector.RouteContext.Objective, nil)
+	if decision.Schema != RouteSchema ||
+		decision.Route != vector.RouteContext.ExpectedRoute ||
+		!strings.Contains(decision.Reason, vector.RouteContext.ExpectedReasonContains) ||
+		decision.ExactNextAction != vector.RouteContext.ExactNextAction ||
+		decision.SafeToRequest != vector.RouteContext.SafeToRequest ||
+		decision.SafeToExecute != vector.RouteContext.SafeToExecute ||
+		decision.SafeToPromote != vector.RouteContext.SafeToPromote {
+		t.Fatalf("Mission route/context did not consume Architecture vector: decision=%+v vector=%+v", decision, vector.RouteContext)
+	}
+}
+
 func TestTelegramIntentOnly(t *testing.T) {
 	rb := HandleTelegramCommand(TelegramCommand{ChatID: "1001", Command: "/continue", Role: "admin"}, map[string]string{"1001": "admin"})
 	if rb.Status != "intent_recorded" || rb.MutationAuthority {
