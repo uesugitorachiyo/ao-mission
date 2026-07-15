@@ -6,14 +6,16 @@ mission.
 
 ## Current AO Stack Roadmap Action
 
-Month 1 is closed. Use
-[Month 1 stable release closure](roadmap/month1-stable-release-closure.md) as
-the evidence anchor.
+Month 1 is closed. AO2 v0.5.1 is public and verified, and AO Architecture
+records AO2 v0.5.1 with AO2 Control Plane v0.1.15 as the current public release
+pair in
+[AO Architecture PR #109](https://github.com/uesugitorachiyo/ao-architecture/pull/109).
 
-Start Month 2 with workflow reliability hardening. Focus on approval/replay
-reliability, manifest mismatch diagnostics, workflow template tests,
-cross-platform packaging verification stability, and support issue reproduction
-fixtures. This is not a new release train by default. RSI remains denied.
+Continue Month 2 with compatibility vectors and consumer tests. Start with the
+AO2 execution receipt to AO2 Control Plane evidence-event path, then add
+operator readback checks for the current release pair. This is not a new
+release train by default. External beta has not launched, and RSI remains
+denied.
 
 For doubled 2-3 hour waves, use the dedicated
 [Long-Run Operator Runbook](long-run-operator-runbook.md). It defines the
