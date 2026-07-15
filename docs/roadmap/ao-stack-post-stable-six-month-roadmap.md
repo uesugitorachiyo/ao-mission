@@ -12,6 +12,9 @@ RSI remains denied. The roadmap may add controlled self-improvement workflows, b
 
 ## Month 1: Stable release closure and adoption readiness
 
+Status: closed on 2026-07-15. See
+[Month 1 stable release closure](month1-stable-release-closure.md).
+
 Goal: make the stable release usable, documented, and supportable.
 
 Work:
@@ -29,7 +32,19 @@ Success criteria:
 - Install, rollback, and uninstall are tested.
 - A new user can run a basic workflow without reading internal evidence docs.
 
+Closure readback:
+
+- AO2 `v0.5.0` stable release is public and verified.
+- AO2 Control Plane `v0.1.15` remains the compatible stable companion.
+- Public install, first-operator, troubleshooting, rollback, offline
+  verification, and support issue paths are documented.
+- The clean-machine support drill passed after AO2 docs fixes in PR #282.
+- No provider pilot, external user contact, Helix work, RSI work, `/tt` work,
+  modules work, or new release work was required.
+
 ## Month 2: Workflow reliability hardening
+
+Status: next.
 
 Goal: reduce operator confusion and agent overreach.
 

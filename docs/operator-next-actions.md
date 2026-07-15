@@ -4,6 +4,17 @@ AO Mission should leave the operator with a concrete command, not only a
 generated artifact path. Use this short sequence when checking or continuing a
 mission.
 
+## Current AO Stack Roadmap Action
+
+Month 1 is closed. Use
+[Month 1 stable release closure](roadmap/month1-stable-release-closure.md) as
+the evidence anchor.
+
+Start Month 2 with workflow reliability hardening. Focus on approval/replay
+reliability, manifest mismatch diagnostics, workflow template tests,
+cross-platform packaging verification stability, and support issue reproduction
+fixtures. This is not a new release train by default. RSI remains denied.
+
 For doubled 2-3 hour waves, use the dedicated
 [Long-Run Operator Runbook](long-run-operator-runbook.md). It defines the
 30-node request shape, role routing, stop gate, per-node evidence, and Atlas
