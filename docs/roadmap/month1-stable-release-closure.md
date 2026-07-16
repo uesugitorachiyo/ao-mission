@@ -44,15 +44,15 @@ remains denied.
 ## Evidence
 
 - Roadmap kickoff evidence:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-post-stable-roadmap-start-20260715T132103Z`
+  `canary-test/ao-stack-post-stable-roadmap-start-20260715T132103Z`
 - Roadmap start report:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-post-stable-roadmap-start-20260715T132103Z/roadmap-start-report.md`
+  `canary-test/ao-stack-post-stable-roadmap-start-20260715T132103Z/roadmap-start-report.md`
 - Month 1 kickoff evidence report:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-post-stable-roadmap-start-20260715T132103Z/month1-evidence-report.md`
+  `canary-test/ao-stack-post-stable-roadmap-start-20260715T132103Z/month1-evidence-report.md`
 - Clean-machine support drill evidence:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-clean-machine-support-drill-20260715T141053Z`
+  `canary-test/ao-stack-clean-machine-support-drill-20260715T141053Z`
 - Clean-machine support drill final report:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-clean-machine-support-drill-20260715T141053Z/final-report.md`
+  `canary-test/ao-stack-clean-machine-support-drill-20260715T141053Z/final-report.md`
 - AO2 PR #282 CI readback: `95` checks in `SUCCESS`.
 
 ## What Changed For Users

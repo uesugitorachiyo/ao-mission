@@ -108,15 +108,15 @@ Wave F:
 ## Evidence
 
 - Month 3 evidence directory:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month3-evidence-audit-compatibility-20260715T231937Z`
+  `canary-test/ao-stack-month3-evidence-audit-compatibility-20260715T231937Z`
 - AO Atlas workgraph:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month3-evidence-audit-compatibility-20260715T231937Z/month3-atlas-workgraph.json`
+  `canary-test/ao-stack-month3-evidence-audit-compatibility-20260715T231937Z/month3-atlas-workgraph.json`
 - Architecture matrix readback:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month3-evidence-audit-compatibility-20260715T231937Z/architecture-matrix-readback.md`
+  `canary-test/ao-stack-month3-evidence-audit-compatibility-20260715T231937Z/architecture-matrix-readback.md`
 - PR log:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month3-evidence-audit-compatibility-20260715T231937Z/pr-log.md`
+  `canary-test/ao-stack-month3-evidence-audit-compatibility-20260715T231937Z/pr-log.md`
 - Verification log:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month3-evidence-audit-compatibility-20260715T231937Z/verification-log.md`
+  `canary-test/ao-stack-month3-evidence-audit-compatibility-20260715T231937Z/verification-log.md`
 
 ## Verification Summary
 

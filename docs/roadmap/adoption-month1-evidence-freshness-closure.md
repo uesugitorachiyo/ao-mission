@@ -3,7 +3,7 @@
 Status: closed on 2026-07-16  
 Decision: evidence refreshed; compatibility gate state is ready, not active  
 Evidence directory:
-`/Users/torachiyouesugi/Documents/canary-test/ao-stack-adoption-month1-evidence-freshness-20260716T045055Z`
+`canary-test/ao-stack-adoption-month1-evidence-freshness-20260716T045055Z`
 
 ## Objective
 
@@ -54,7 +54,7 @@ python3 scripts/verify_evidence_freshness.py
 ```
 
 Merged readback:
-`/Users/torachiyouesugi/Documents/public/ao-architecture/stack/evidence-freshness-readback.json`
+`ao-architecture/stack/evidence-freshness-readback.json`
 
 ## Compatibility Gate Semantics
 

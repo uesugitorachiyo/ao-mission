@@ -2,7 +2,7 @@
 
 Status: closed on 2026-07-16  
 Evidence directory:
-`/Users/torachiyouesugi/Documents/canary-test/ao-stack-month4-controlled-self-improvement-dry-run-20260716T013442Z`
+`canary-test/ao-stack-month4-controlled-self-improvement-dry-run-20260716T013442Z`
 
 ## Objective
 
@@ -39,23 +39,23 @@ operator readback, and deny promotion or RSI activation.
 ## Evidence Readback
 
 - AO Atlas workgraph:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month4-controlled-self-improvement-dry-run-20260716T013442Z/month4-atlas-workgraph.json`
+  `canary-test/ao-stack-month4-controlled-self-improvement-dry-run-20260716T013442Z/month4-atlas-workgraph.json`
 - Architecture design inventory:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month4-controlled-self-improvement-dry-run-20260716T013442Z/design-inventory.md`
+  `canary-test/ao-stack-month4-controlled-self-improvement-dry-run-20260716T013442Z/design-inventory.md`
 - Covenant policy gate report:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month4-controlled-self-improvement-dry-run-20260716T013442Z/policy-gate-report.md`
+  `canary-test/ao-stack-month4-controlled-self-improvement-dry-run-20260716T013442Z/policy-gate-report.md`
 - AO2 dry-run fixture report:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month4-controlled-self-improvement-dry-run-20260716T013442Z/dry-run-fixture-report.md`
+  `canary-test/ao-stack-month4-controlled-self-improvement-dry-run-20260716T013442Z/dry-run-fixture-report.md`
 - Control Plane observation report:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month4-controlled-self-improvement-dry-run-20260716T013442Z/observation-readback-report.md`
+  `canary-test/ao-stack-month4-controlled-self-improvement-dry-run-20260716T013442Z/observation-readback-report.md`
 - Command operator readback report:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month4-controlled-self-improvement-dry-run-20260716T013442Z/operator-readback-report.md`
+  `canary-test/ao-stack-month4-controlled-self-improvement-dry-run-20260716T013442Z/operator-readback-report.md`
 - Sentinel wording report:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month4-controlled-self-improvement-dry-run-20260716T013442Z/sentinel-wording-report.md`
+  `canary-test/ao-stack-month4-controlled-self-improvement-dry-run-20260716T013442Z/sentinel-wording-report.md`
 - Promoter no-RSI report:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month4-controlled-self-improvement-dry-run-20260716T013442Z/promoter-no-rsi-report.md`
+  `canary-test/ao-stack-month4-controlled-self-improvement-dry-run-20260716T013442Z/promoter-no-rsi-report.md`
 - Verification log:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month4-controlled-self-improvement-dry-run-20260716T013442Z/verification-log.md`
+  `canary-test/ao-stack-month4-controlled-self-improvement-dry-run-20260716T013442Z/verification-log.md`
 
 ## Verification Summary
 

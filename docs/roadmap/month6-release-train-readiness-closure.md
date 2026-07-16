@@ -3,7 +3,7 @@
 Status: closed on 2026-07-16  
 Decision: no release  
 Evidence directory:
-`/Users/torachiyouesugi/Documents/canary-test/ao-stack-month6-release-train-readiness-20260716T041906Z`
+`canary-test/ao-stack-month6-release-train-readiness-20260716T041906Z`
 
 ## Objective
 
@@ -55,15 +55,15 @@ selected.
 ## Evidence Readback
 
 - AO Atlas workgraph:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month6-release-train-readiness-20260716T041906Z/month6-atlas-workgraph.json`
+  `canary-test/ao-stack-month6-release-train-readiness-20260716T041906Z/month6-atlas-workgraph.json`
 - Workgraph readback:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month6-release-train-readiness-20260716T041906Z/month6-atlas-workgraph-readback.md`
+  `canary-test/ao-stack-month6-release-train-readiness-20260716T041906Z/month6-atlas-workgraph-readback.md`
 - Release-readiness inventory:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month6-release-train-readiness-20260716T041906Z/release-readiness-inventory.md`
+  `canary-test/ao-stack-month6-release-train-readiness-20260716T041906Z/release-readiness-inventory.md`
 - Release decision:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month6-release-train-readiness-20260716T041906Z/release-decision.md`
+  `canary-test/ao-stack-month6-release-train-readiness-20260716T041906Z/release-decision.md`
 - No-release report:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month6-release-train-readiness-20260716T041906Z/no-release-report.md`
+  `canary-test/ao-stack-month6-release-train-readiness-20260716T041906Z/no-release-report.md`
 
 ## Compatibility And Gates
 
