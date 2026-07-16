@@ -45,6 +45,19 @@ baseline and candidate outcomes, require approval where existing gates require
 it, verify rollback, and accept only measured improvements after green CI.
 Do not start a release train, RSI, or live self-modification.
 
+Bounded Autonomy Month 4 is closed:
+[Bounded Autonomy Month 4 Closure](roadmap/bounded-autonomy-month4-controlled-improvement-closure.md).
+
+Month 4 evaluated three controlled-improvement candidate classes, added a
+machine-checked AO Mission closure fixture, and added AO Command operator
+readback coverage for proposal, approval, measurement, decision, and rollback
+state. The compatibility gate remains `ready`, not active.
+
+Next action: start Bounded Autonomy Month 5 one-operator production dogfood.
+Use genuine bounded AO repository maintenance where it provides evidence, and
+use fixtures where a real mutation adds no proof. Do not start a release train,
+external beta, promotion, provider pilot, live self-modification, or RSI work.
+
 Month 6 is closed with a no-release decision. AO2 v0.5.1 remains the current
 public AO2 release, AO2 Control Plane v0.1.15 remains the companion release, AO
 Architecture records all 16 live compatibility matrix edges with canonical
