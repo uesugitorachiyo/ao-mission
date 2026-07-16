@@ -5001,6 +5001,66 @@ func TestGitHubIssueMonth2SupervisionReadbackRequiresTruthSetAndNoMutation(t *te
 	}
 }
 
+func TestGitHubIssueMonth3SupervisionReadbackRequiresRepairEvidenceAndNoDraftPR(t *testing.T) {
+	path := filepath.Join("..", "..", "examples", "valid", "github-issue-month3-supervision-readback.json")
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var readback map[string]any
+	if err := json.Unmarshal(body, &readback); err != nil {
+		t.Fatal(err)
+	}
+	if readback["schema"] != "ao.mission.github-issue-month3-supervision-readback.v0.1" ||
+		readback["status"] != "ready" ||
+		readback["roadmap"] != "github-issue-to-draft-pr" {
+		t.Fatalf("unexpected Month 3 supervision readback: %#v", readback)
+	}
+	gate := readback["repair_gate"].(map[string]any)
+	for _, key := range []string{
+		"bounded_repair_workgraph_exists",
+		"pre_patch_regression_failed_expected",
+		"negative_control_passed",
+		"post_patch_verification_passed",
+		"rollback_exact_state_restored",
+		"replay_digest_match",
+		"resume_without_duplicate_edits",
+		"false_fixes_rejected",
+	} {
+		if gate[key] != true {
+			t.Fatalf("repair_gate.%s = %#v, want true", key, gate[key])
+		}
+	}
+	if gate["feature_generated_draft_pr_exists"] != false {
+		t.Fatalf("Month 3 must not create a feature-generated draft PR: %#v", gate)
+	}
+	denied := readback["denied_actions"].(map[string]any)
+	for action, value := range denied {
+		if value != false {
+			t.Fatalf("denied_actions.%s = %#v, want false", action, value)
+		}
+	}
+	if !strings.Contains(readback["exact_next_action"].(string), "Month 4") {
+		t.Fatalf("next action should hand off to Month 4: %s", readback["exact_next_action"])
+	}
+	closure, err := os.ReadFile(filepath.Join("..", "..", "docs", "roadmap", "github-issue-to-draft-pr-month3-closure.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	closureText := string(closure)
+	for _, want := range []string{
+		"Rollback restores the exact pre-change digest",
+		"Replay accepts only matching evidence digests",
+		"Feature-generated pull requests still do not exist in Month 3",
+		"RSI remains denied",
+		"Month 4 AO repository issue-to-draft-PR workflow",
+	} {
+		if !strings.Contains(closureText, want) {
+			t.Fatalf("closure doc missing %q", want)
+		}
+	}
+}
+
 func TestMissionVerificationBundleBindsReadbacksAndRejectsAuthorityDrift(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(filepath.Join(dir, "home"))
