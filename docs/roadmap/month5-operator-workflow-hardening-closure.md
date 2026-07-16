@@ -2,7 +2,7 @@
 
 Status: closed on 2026-07-16  
 Evidence directory:
-`/Users/torachiyouesugi/Documents/canary-test/ao-stack-month5-operator-workflow-hardening-20260716T033957Z`
+`canary-test/ao-stack-month5-operator-workflow-hardening-20260716T033957Z`
 
 ## Objective
 
@@ -61,19 +61,19 @@ The Month 5 workflow now gives an operator a concrete readback path:
 ## Evidence Readback
 
 - AO Atlas workgraph:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month5-operator-workflow-hardening-20260716T033957Z/month5-atlas-workgraph.json`
+  `canary-test/ao-stack-month5-operator-workflow-hardening-20260716T033957Z/month5-atlas-workgraph.json`
 - Workgraph readback:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month5-operator-workflow-hardening-20260716T033957Z/month5-atlas-workgraph-readback.md`
+  `canary-test/ao-stack-month5-operator-workflow-hardening-20260716T033957Z/month5-atlas-workgraph-readback.md`
 - Workflow inventory:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month5-operator-workflow-hardening-20260716T033957Z/workflow-inventory.md`
+  `canary-test/ao-stack-month5-operator-workflow-hardening-20260716T033957Z/workflow-inventory.md`
 - Operator state model:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month5-operator-workflow-hardening-20260716T033957Z/operator-state-model.md`
+  `canary-test/ao-stack-month5-operator-workflow-hardening-20260716T033957Z/operator-state-model.md`
 - Support reproduction report:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month5-operator-workflow-hardening-20260716T033957Z/support-reproduction-report.md`
+  `canary-test/ao-stack-month5-operator-workflow-hardening-20260716T033957Z/support-reproduction-report.md`
 - Wording boundary report:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month5-operator-workflow-hardening-20260716T033957Z/wording-boundary-report.md`
+  `canary-test/ao-stack-month5-operator-workflow-hardening-20260716T033957Z/wording-boundary-report.md`
 - Verification log:
-  `/Users/torachiyouesugi/Documents/canary-test/ao-stack-month5-operator-workflow-hardening-20260716T033957Z/verification-log.md`
+  `canary-test/ao-stack-month5-operator-workflow-hardening-20260716T033957Z/verification-log.md`
 
 ## Verification Summary
 

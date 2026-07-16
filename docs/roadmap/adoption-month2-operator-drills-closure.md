@@ -4,7 +4,7 @@ Status: closed on 2026-07-16
 Decision: operator adoption drills passed with the current public pair and
 refreshed evidence base
 Evidence directory:
-`/Users/torachiyouesugi/Documents/canary-test/ao-stack-adoption-month2-operator-drills-20260716T051751Z`
+`canary-test/ao-stack-adoption-month2-operator-drills-20260716T051751Z`
 
 ## Objective
 
