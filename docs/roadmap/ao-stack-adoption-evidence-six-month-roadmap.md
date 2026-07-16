@@ -1,6 +1,6 @@
 # AO Stack Adoption And Evidence Maintenance Six-Month Roadmap
 
-Status: active; Month 1 closed  
+Status: active; Month 2 closed
 Created: 2026-07-16  
 Trigger: start after Month 6 no-release closure from the post-stable roadmap.
 
@@ -87,6 +87,13 @@ Success criteria:
 
 Goal: prove a solo operator can use the stack from documented workflows without
 falling into private evidence paths or unsupported claims.
+
+Closure: [Adoption/Evidence Month 2 Closure: Operator Adoption Drills](adoption-month2-operator-drills-closure.md)
+
+Result: operator adoption drills, support evidence checks, policy readback,
+observation readback, Command readback, Sentinel wording checks, and Promoter
+no-promotion/no-RSI readback are merged or verified from existing evidence. The
+compatibility gate remains `ready`, not active.
 
 Work:
 
@@ -204,9 +211,10 @@ Success criteria:
 
 ## Recommendation
 
-Start Month 1 with evidence freshness and compatibility gate readiness. Do not
-begin with a release train. The current public pair remains sufficient until a
-readiness assessment finds shipped-artifact impact.
+Start Month 3 with evidence maintenance automation using the refreshed evidence
+base and Month 2 operator drill results. Do not begin with a release train. The
+current public pair remains sufficient until a readiness assessment finds
+shipped-artifact impact.
 
 Use AO Mission as supervisor and AO Atlas for the full-month workgraph. The
 final response for each month should be allowed only when the full month is

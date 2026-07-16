@@ -38,8 +38,18 @@ states. AO Architecture now records the compatibility gate state as `ready`,
 not active. `compatibility_gate_complete` remains false because activation was
 not authorized.
 
-Next action: start Month 2 operator adoption drills using the current public
-pair and refreshed evidence base. Do not start a release, tag, upload,
+Month 2 is closed:
+[Adoption/Evidence Month 2 Closure](roadmap/adoption-month2-operator-drills-closure.md).
+
+Month 2 proved the operator adoption drill path against the current public pair
+and refreshed evidence base. AO Command presents the current pair, 16/16 matrix
+state, gate state `ready` but not active, safe-next-work, run-state, policy,
+observation, support categories, denied states, and next safe action. Sentinel
+and Promoter prevent unsupported adoption, release, external beta, promotion,
+provider, or RSI claims.
+
+Next action: start Month 3 evidence maintenance automation using the refreshed
+evidence base and operator drill results. Do not start a release, tag, upload,
 deployment, provider pilot, external beta, promotion, or RSI work without
 separate exact-scope authorization.
 
