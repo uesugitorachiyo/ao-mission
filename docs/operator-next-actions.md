@@ -66,12 +66,23 @@ Control Plane observation, Command readback, Sentinel wording checks, and
 Promoter no-promotion/no-RSI readback remain bounded. The compatibility gate is
 `ready`, not active.
 
-Next action: start Month 5 adoption support readiness. Build a support package
-and support triage readback using the current public pair, refreshed evidence
-base, operator drill results, and Month 4 boundaries. Do not start a release,
-tag, upload, deployment, provider pilot, external beta, promotion,
-compatibility gate activation, live self-modification, or RSI work without
-separate exact-scope authorization.
+Month 5 is closed:
+[Adoption/Evidence Month 5 Closure](roadmap/adoption-month5-support-readiness-closure.md).
+
+Month 5 added the adoption support package source of truth, Command
+support-readiness readback, Sentinel support wording checks, and Promoter
+no-promotion/no-RSI verdict. The support package covers install, checksum,
+manifest mismatch, approval/replay, rollback, Windows-safe rollback, operator
+readback issues, and public-safe issue-report fields. The compatibility gate
+remains `ready`, not active.
+
+Next action: start Month 6 adoption readiness and release/no-release
+assessment. Use the current public pair, refreshed evidence base, operator drill
+results, Month 4 boundaries, and Month 5 support package. Do not start a
+release, tag, upload, deployment, provider pilot, external beta, promotion,
+compatibility gate activation, live self-modification, or RSI work unless the
+Month 6 readiness assessment finds shipped-artifact impact and all exact-scope
+release gates pass.
 
 External beta has not launched, promotion is not requested or granted, and RSI
 remains denied. This is not a release train by default.
