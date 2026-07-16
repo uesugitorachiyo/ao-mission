@@ -76,13 +76,15 @@ manifest mismatch, approval/replay, rollback, Windows-safe rollback, operator
 readback issues, and public-safe issue-report fields. The compatibility gate
 remains `ready`, not active.
 
-Next action: start Month 6 adoption readiness and release/no-release
-assessment. Use the current public pair, refreshed evidence base, operator drill
-results, Month 4 boundaries, and Month 5 support package. Do not start a
-release, tag, upload, deployment, provider pilot, external beta, promotion,
-compatibility gate activation, live self-modification, or RSI work unless the
-Month 6 readiness assessment finds shipped-artifact impact and all exact-scope
-release gates pass.
+Month 6 is closed:
+[Adoption/Evidence Month 6 Closure](roadmap/adoption-month6-no-release-readiness-closure.md).
+
+Month 6 selected `release_decision=no_release`. AO2 remains `v0.5.1`, AO2
+Control Plane remains `v0.1.15`, post-tag changes do not require public
+artifact replacement, and the compatibility gate remains `ready`, not active.
+
+Next action: start the next adoption/evidence cycle with evidence refresh
+cadence and support-readiness drills. Do not start a release train by default.
 
 External beta has not launched, promotion is not requested or granted, and RSI
 remains denied. This is not a release train by default.
