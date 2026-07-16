@@ -1,6 +1,6 @@
 # AO Stack Adoption And Evidence Maintenance Six-Month Roadmap
 
-Status: active; Month 2 closed
+Status: active; Month 3 closed
 Created: 2026-07-16  
 Trigger: start after Month 6 no-release closure from the post-stable roadmap.
 
@@ -118,6 +118,14 @@ Success criteria:
 Goal: reduce manual evidence upkeep by adding scheduled or repeatable
 maintenance checks.
 
+Closure: [Adoption/Evidence Month 3 Closure: Evidence Maintenance Automation](adoption-month3-evidence-maintenance-closure.md)
+
+Result: evidence maintenance reports, current-release metadata refresh checks,
+matrix drift checks, Atlas maintenance workgraph/readback, Command maintenance
+readback, Sentinel wording checks, and Promoter no-promotion/no-RSI readback
+are merged. The current public pair still matches the manifest, the matrix
+remains 16/16 tested, and the compatibility gate remains `ready`, not active.
+
 Work:
 
 - Add or harden repeatable checks for current-release metadata.
@@ -211,10 +219,10 @@ Success criteria:
 
 ## Recommendation
 
-Start Month 3 with evidence maintenance automation using the refreshed evidence
-base and Month 2 operator drill results. Do not begin with a release train. The
-current public pair remains sufficient until a readiness assessment finds
-shipped-artifact impact.
+Start Month 4 with controlled improvement evaluation refresh using the
+maintenance reports and operator drill evidence. Do not begin with a release
+train. The current public pair remains sufficient until a readiness assessment
+finds shipped-artifact impact.
 
 Use AO Mission as supervisor and AO Atlas for the full-month workgraph. The
 final response for each month should be allowed only when the full month is

@@ -48,10 +48,20 @@ observation, support categories, denied states, and next safe action. Sentinel
 and Promoter prevent unsupported adoption, release, external beta, promotion,
 provider, or RSI claims.
 
-Next action: start Month 3 evidence maintenance automation using the refreshed
-evidence base and operator drill results. Do not start a release, tag, upload,
-deployment, provider pilot, external beta, promotion, or RSI work without
-separate exact-scope authorization.
+Month 3 is closed:
+[Adoption/Evidence Month 3 Closure](roadmap/adoption-month3-evidence-maintenance-closure.md).
+
+Month 3 made evidence maintenance repeatable through Architecture freshness and
+matrix drift checks, Atlas maintenance workgraph/readback, Command maintenance
+readback, Sentinel wording checks, and Promoter no-promotion/no-RSI readback.
+The current public pair still matches the manifest, the matrix remains 16/16
+tested, and the compatibility gate remains `ready`, not active.
+
+Next action: start Month 4 controlled improvement evaluation refresh using the
+maintenance reports and operator drill evidence. Keep the work fixture-only and
+readback-oriented. Do not start a release, tag, upload, deployment, provider
+pilot, external beta, promotion, compatibility gate activation, live
+self-modification, or RSI work without separate exact-scope authorization.
 
 External beta has not launched, promotion is not requested or granted, and RSI
 remains denied. This is not a release train by default.
