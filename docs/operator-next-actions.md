@@ -30,6 +30,21 @@ failed-CI repair, partial cross-repo merge recovery, and evidence
 reconciliation without duplicate work or false completion. Do not start a
 release train by default.
 
+Bounded Autonomy Month 3 is closed:
+[Bounded Autonomy Month 3 Closure](roadmap/bounded-autonomy-month3-reliability-recovery-closure.md).
+
+Month 3 added a machine-checked recovery readback covering 10 failure
+injection classes and 9 recovery proof classes. The long-run drill verified
+checkpoint integrity, restart proof, archive validation, event indexing,
+Command status, final rollup, final reconciliation, and final-response denial
+while continuation evidence remains.
+
+Next action: start Bounded Autonomy Month 4 controlled improvement engine v1.
+Evaluate bounded improvement candidates from Month 1-3 evidence, measure
+baseline and candidate outcomes, require approval where existing gates require
+it, verify rollback, and accept only measured improvements after green CI.
+Do not start a release train, RSI, or live self-modification.
+
 Month 6 is closed with a no-release decision. AO2 v0.5.1 remains the current
 public AO2 release, AO2 Control Plane v0.1.15 remains the companion release, AO
 Architecture records all 16 live compatibility matrix edges with canonical
