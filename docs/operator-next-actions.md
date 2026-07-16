@@ -83,6 +83,16 @@ research is not authorized by this closure; RSI remains denied.
 Next action: start a new roadmap only with explicit authorization. Use the
 bounded-autonomy evidence and no-release decision as the baseline.
 
+Bounded Autonomy repair from Month 3 is closed:
+[Bounded Autonomy Repair Closure](roadmap/bounded-autonomy-repair-from-month3-closure.md).
+
+The previous Month 1-6 closure is classified as `PARTIAL_INVALID_CLOSURE`.
+The repair reopens from Month 3, fixes terminal final-rollup exact-next-action
+handling, reruns terminal recovery, executes rollback verification, runs a
+fresh dogfood portfolio, and repeats Month 6 qualification. The repeated
+release decision remains `no_release`; the Control Plane `spin` lockfile change
+is recorded as a compiled dependency impact. RSI remains denied.
+
 Month 6 is closed with a no-release decision. AO2 v0.5.1 remains the current
 public AO2 release, AO2 Control Plane v0.1.15 remains the companion release, AO
 Architecture records all 16 live compatibility matrix edges with canonical
