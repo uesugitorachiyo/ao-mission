@@ -39,7 +39,7 @@ Closure readback:
 - Public install, first-operator, troubleshooting, rollback, offline
   verification, and support issue paths are documented.
 - The clean-machine support drill passed after AO2 docs fixes in PR #282.
-- No provider pilot, external user contact, Helix work, RSI work, `/tt` work,
+- No provider pilot, external user contact, forbidden-tool work, RSI work, `/tt` work,
   modules work, or new release work was required.
 
 ## Month 2: Workflow reliability hardening
@@ -143,6 +143,9 @@ Closure readback:
 
 ## Month 5: Multi-repo product coordination
 
+Status: closed on 2026-07-16. See
+[Month 5 operator workflow hardening closure](month5-operator-workflow-hardening-closure.md).
+
 Goal: make AO Stack feel like one product instead of many repos.
 
 Work:
@@ -159,6 +162,20 @@ Success criteria:
 - A maintainer can tell which repo owns each function.
 - Stable releases are coordinated.
 - Compatibility failures are caught before publication.
+
+Closure readback:
+
+- AO Architecture defines the operator workflow source of truth.
+- AO Command presents current stack state, release pair, compatibility state,
+  dry-run/no-RSI state, policy gate state, safe-next-work, and support evidence.
+- AO Foundry and AO Forge provide safe-next-work and run-state fixtures.
+- AO Covenant records policy approval requirements and denied authorities.
+- AO Sentinel catches Month 5 operator workflow overclaims.
+- AO Promoter records no-promotion and no-RSI readback.
+- AO2 and AO2 Control Plane support/readback paths were reviewed and did not
+  need Month 5 changes.
+- RSI remains denied. External beta remains not launched, and promotion is not
+  requested or granted.
 
 ## Month 6: Next stable release train
 
@@ -181,7 +198,6 @@ Success criteria:
 
 ## Recommendation
 
-Start Month 5 with multi-repo product coordination and operator workflow
-hardening using the tested compatibility and Month 4 evidence base. Keep the
-first Month 5 step to repo ownership, shared docs maps, release-state
-readbacks, and operator workflow reliability. RSI remains denied.
+Start Month 6 with next stable release train planning and readiness assessment.
+Use the Month 3 compatibility matrix, Month 4 dry-run evidence, and Month 5
+operator workflow readback as the evidence base. RSI remains denied.
