@@ -2377,6 +2377,37 @@ func TestFinalRollupDeniesFinalResponseWhenReadyNodesRemain(t *testing.T) {
 	}
 }
 
+func TestFinalRollupClearsExactNextActionWhenFinalResponseAllowed(t *testing.T) {
+	rec := Record{
+		Schema:          RecordSchema,
+		MissionID:       "mission-terminal-rollup",
+		Status:          "done",
+		CurrentRoute:    "complete",
+		CurrentPhase:    "complete",
+		ExactNextAction: "use next-wave-recommended-prompt.md for the next 30-node AO Atlas wave",
+		Evidence: EvidenceSummary{
+			AtlasRecommendation: &AtlasRecommendationReadbackCounts{
+				Status:               "completed",
+				TotalNodes:           26,
+				CompletedNodes:       26,
+				ReadyNodes:           0,
+				ReturnGateStatus:     "final_response_allowed",
+				FinalResponseAllowed: true,
+			},
+		},
+	}
+	rollup := BuildFinalRollup(rec)
+	if !rollup.FinalResponseAllowed {
+		t.Fatalf("terminal rollup should allow final response: %+v", rollup)
+	}
+	if rollup.ReadyNodesRemaining != 0 {
+		t.Fatalf("terminal rollup should have no ready nodes: %+v", rollup)
+	}
+	if rollup.ExactNextAction != "" {
+		t.Fatalf("terminal rollup should clear exact next action, got %q", rollup.ExactNextAction)
+	}
+}
+
 func TestCLIFinalRollupDeniesFinalResponseWhenReadyNodesRemain(t *testing.T) {
 	dir := t.TempDir()
 	var out, errb bytes.Buffer

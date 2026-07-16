@@ -30,6 +30,8 @@ func BuildFinalRollup(r Record) FinalRollup {
 	exactNextAction := r.ExactNextAction
 	if !gate.FinalResponseAllowed {
 		exactNextAction = gate.ExactNextAction
+	} else {
+		exactNextAction = ""
 	}
 	totalNodes := 0
 	if r.Evidence.AtlasWorkgraph != nil {
