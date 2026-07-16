@@ -4890,6 +4890,67 @@ func TestMissionV02ReadbackContractFixturesRejectAuthorityDrift(t *testing.T) {
 	}
 }
 
+func TestGitHubIssueMonth1SupervisionReadbackKeepsFeaturePRsDraft(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("..", "..", "examples", "valid", "github-issue-month1-supervision-readback.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var readback map[string]any
+	if err := json.Unmarshal(body, &readback); err != nil {
+		t.Fatal(err)
+	}
+	if readback["schema"] != "ao.mission.github-issue-month1-supervision-readback.v0.1" || readback["status"] != "passed" {
+		t.Fatalf("bad GitHub issue Month 1 readback: %#v", readback)
+	}
+	if readback["feature_generated_prs_remain_draft"] != true ||
+		readback["feature_generated_pr_auto_merge"] != false ||
+		readback["feature_generated_pr_ready_for_review"] != false ||
+		readback["feature_generated_pr_review_approval"] != false ||
+		readback["github_issue_write_performed"] != false {
+		t.Fatalf("feature-generated PR or issue-write boundary widened: %#v", readback)
+	}
+	for _, key := range []string{
+		"external_maintainer_contacted",
+		"security_public_disclosure_performed",
+		"release_or_publish",
+		"tag_created",
+		"upload_performed",
+		"deployment_performed",
+		"provider_pilot",
+		"external_beta_launched",
+		"promotion_requested",
+		"promotion_granted",
+		"live_self_modification",
+		"safe_to_execute",
+		"executes_work",
+		"approves_work",
+		"mutates_repositories",
+	} {
+		if readback[key] != false {
+			t.Fatalf("%s must remain false: %#v", key, readback)
+		}
+	}
+	if readback["rsi_remains_denied"] != true || readback["month2_unlocked"] != true {
+		t.Fatalf("missing RSI denial or Month 2 unlock: %#v", readback)
+	}
+	closure, err := os.ReadFile(filepath.Join("..", "..", "docs", "roadmap", "github-issue-to-draft-pr-month1-closure.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	closureText := string(closure)
+	for _, want := range []string{
+		"Feature-generated PRs remain draft and unmerged",
+		"RSI remains denied",
+		"AO2 `v0.5.1`",
+		"AO2 Control Plane `v0.1.16`",
+		"Month 2 isolated repair and reproducibility fixtures",
+	} {
+		if !strings.Contains(closureText, want) {
+			t.Fatalf("closure doc missing %q", want)
+		}
+	}
+}
+
 func TestMissionVerificationBundleBindsReadbacksAndRejectsAuthorityDrift(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(filepath.Join(dir, "home"))
