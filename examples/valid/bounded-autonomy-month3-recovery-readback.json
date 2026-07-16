@@ -6,7 +6,7 @@
   "evidence_id": "ao-stack-bounded-autonomy-month1-6-plus-stable-release-20260716T071830Z",
   "current_public_pair": {
     "ao2_version": "v0.5.1",
-    "control_plane_version": "v0.1.15"
+    "control_plane_version": "v0.1.16"
   },
   "compatibility_gate_state": "ready",
   "compatibility_gate_active": false,

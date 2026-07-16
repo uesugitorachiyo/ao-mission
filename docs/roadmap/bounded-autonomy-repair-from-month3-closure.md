@@ -12,8 +12,8 @@ The useful merged PRs and green CI remain useful, but the prior Month 3-6
 closure evidence was not accepted as final because Month 3 ended blocked and
 later months depended on insufficient evidence.
 
-This repair reopens from Month 3 and closes the repaired sequence with
-`release_decision=no_release`.
+This repair reopens from Month 3 and closes the repaired sequence with AO2 held
+at `v0.5.1` and AO2 Control Plane patched to `v0.1.16`.
 
 ## Month 3 Repair
 
@@ -69,15 +69,16 @@ No prior Month 3 or Month 4 task was reused as a substitute.
 
 Month 6 qualification was repeated.
 
-Decision: `no_release`.
+Decision: `control_plane_patch_release`.
 
 AO2 remains `v0.5.1`.
 
-AO2 Control Plane remains `v0.1.15`.
+AO2 Control Plane is `v0.1.16`.
 
 The Control Plane `spin` lockfile change is explicitly classified as a compiled
-dependency impact, not metadata. Verification found no current runtime blocker
-or artifact replacement requirement, so no Control Plane release is selected.
+dependency impact, not metadata. Exact Control Plane stable-patch qualification
+passed, public assets were verified, and the current public pair is AO2
+`v0.5.1` plus AO2 Control Plane `v0.1.16`.
 
 ## Boundaries
 
@@ -87,7 +88,8 @@ or artifact replacement requirement, so no Control Plane release is selected.
 - External beta has not launched.
 - Promotion was not requested or granted.
 - No provider pilot ran.
-- No release, tag, upload, deployment, or new binary publication occurred.
+- No AO2 release occurred. The only release/tag/upload/new binary publication
+  in this repair is AO2 Control Plane `v0.1.16`; no deployment occurred.
 - No credentials were inspected.
 - No `/tt` or modules work occurred.
 

@@ -75,9 +75,9 @@ and all release gates pass.
 Bounded Autonomy Month 6 is closed:
 [Bounded Autonomy Month 6 Closure](roadmap/bounded-autonomy-month6-qualification-closure.md).
 
-Month 6 reran the bounded-autonomy evidence base and selected
-`release_decision=no_release`. AO2 remains `v0.5.1`, AO2 Control Plane remains
-`v0.1.15`, and public artifact replacement is not required. Controlled RSI
+Month 6 reran the bounded-autonomy evidence base. The repaired release decision
+keeps AO2 at `v0.5.1` and publishes AO2 Control Plane `v0.1.16` after exact
+stable-patch qualification and public-asset verification. Controlled RSI
 research is not authorized by this closure; RSI remains denied.
 
 Next action: start a new roadmap only with explicit authorization. Use the
@@ -90,11 +90,13 @@ The previous Month 1-6 closure is classified as `PARTIAL_INVALID_CLOSURE`.
 The repair reopens from Month 3, fixes terminal final-rollup exact-next-action
 handling, reruns terminal recovery, executes rollback verification, runs a
 fresh dogfood portfolio, and repeats Month 6 qualification. The repeated
-release decision remains `no_release`; the Control Plane `spin` lockfile change
-is recorded as a compiled dependency impact. RSI remains denied.
+release decision keeps AO2 at `v0.5.1` and publishes AO2 Control Plane
+`v0.1.16`; the Control Plane `spin` lockfile change is recorded as a compiled
+dependency impact. RSI remains denied.
 
-Month 6 is closed with a no-release decision. AO2 v0.5.1 remains the current
-public AO2 release, AO2 Control Plane v0.1.15 remains the companion release, AO
+Month 6 is closed after Control Plane stable-patch qualification. AO2 v0.5.1
+remains the current public AO2 release, AO2 Control Plane v0.1.16 is the
+companion release, AO
 Architecture records all 16 live compatibility matrix edges with canonical
 vectors and consumer tests, the controlled self-improvement loop remains
 fixture-only dry-run evidence, and the operator workflow readback chain is
@@ -166,12 +168,13 @@ remains `ready`, not active.
 Month 6 is closed:
 [Adoption/Evidence Month 6 Closure](roadmap/adoption-month6-no-release-readiness-closure.md).
 
-Month 6 selected `release_decision=no_release`. AO2 remains `v0.5.1`, AO2
-Control Plane remains `v0.1.15`, post-tag changes do not require public
-artifact replacement, and the compatibility gate remains `ready`, not active.
+Month 6 previously selected `release_decision=no_release`; the later repaired
+stable-patch qualification selected and published AO2 Control Plane `v0.1.16`.
+AO2 remains `v0.5.1`, and the compatibility gate remains `ready`, not active.
 
-Next action: start the next adoption/evidence cycle with evidence refresh
-cadence and support-readiness drills. Do not start a release train by default.
+Next action: use AO2 `v0.5.1` plus AO2 Control Plane `v0.1.16` as the current
+public pair for the next adoption/evidence cycle. Do not start another release
+train by default.
 
 External beta has not launched, promotion is not requested or granted, and RSI
 remains denied. This is not a release train by default.

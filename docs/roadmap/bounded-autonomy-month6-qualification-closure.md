@@ -1,18 +1,20 @@
-# Bounded Autonomy Month 6 Closure: Qualification And No-Release Decision
+# Bounded Autonomy Month 6 Closure: Qualification And Control Plane Patch
 
 Evidence directory:
 `ao-stack-bounded-autonomy-month1-6-plus-stable-release-20260716T071830Z`.
 
 ## Outcome
 
-Bounded Autonomy Month 6 is closed with `release_decision=no_release`.
+Bounded Autonomy Month 6 is closed after repaired Control Plane stable-patch
+qualification.
 
 The current public pair remains:
 
 - AO2 `v0.5.1`
-- AO2 Control Plane `v0.1.15`
+- AO2 Control Plane `v0.1.16`
 
-The bounded-autonomy cycle did not require replacement public artifacts.
+The bounded-autonomy repair keeps AO2 at `v0.5.1` and publishes the Control
+Plane `v0.1.16` companion artifact.
 
 ## Qualification
 
@@ -40,13 +42,11 @@ The machine-checked qualification fixture is:
 
 No AO2 release is needed.
 
-No AO2 Control Plane release is needed.
+AO2 Control Plane `v0.1.16` was needed because exact qualification found
+compiled dependency impact in the Control Plane lockfile path. Packaging,
+install, rollback, and public-asset verification passed before publication.
 
-Post-tag changes are docs, tests, fixtures, and release-readiness tooling. The
-current public pair remains sufficient, and public artifact replacement is not
-required.
-
-No release, tag, upload, deployment, or new binary publication occurred.
+No deployment occurred.
 
 ## RSI Research Recommendation
 
@@ -62,7 +62,8 @@ RSI. RSI remains denied.
 - External beta has not launched.
 - Promotion was not requested or granted.
 - No provider pilot ran.
-- No release, tag, upload, deployment, or new binary publication occurred.
+- No AO2 release occurred. The only release/tag/upload/new binary publication
+  in this repair is AO2 Control Plane `v0.1.16`; no deployment occurred.
 - No credentials were inspected.
 - No `/tt` or modules work occurred.
 
