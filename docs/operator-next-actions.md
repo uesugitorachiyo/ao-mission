@@ -15,10 +15,20 @@ Month 1 verified the current public pair, created the bounded-autonomy
 benchmark corpus and result schema, recorded baseline metrics, and added AO
 Command benchmark readback. The compatibility gate remains `ready`, not active.
 
-Next action: start Bounded Autonomy Month 2 end-to-end engineering workflows:
-one documentation/support correction, one deterministic single-repository code
-change, and one cross-repository producer/consumer contract change. Do not
-start a release train by default.
+Bounded Autonomy Month 2 is closed:
+[Bounded Autonomy Month 2 Closure](roadmap/bounded-autonomy-month2-end-to-end-workflows-closure.md).
+
+Month 2 completed one documentation/support correction, one deterministic
+single-repository code change, and one cross-repository producer/consumer
+contract change. AO Architecture and AO Command now share a canonical
+bounded-autonomy benchmark-to-operator-readback vector. The compatibility gate
+remains `ready`, not active.
+
+Next action: start Bounded Autonomy Month 3 long-running reliability and
+recovery. Focus on interrupted mission resume behavior, checkpoint integrity,
+failed-CI repair, partial cross-repo merge recovery, and evidence
+reconciliation without duplicate work or false completion. Do not start a
+release train by default.
 
 Month 6 is closed with a no-release decision. AO2 v0.5.1 remains the current
 public AO2 release, AO2 Control Plane v0.1.15 remains the companion release, AO
