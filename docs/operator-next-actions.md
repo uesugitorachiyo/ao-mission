@@ -172,9 +172,18 @@ Month 6 previously selected `release_decision=no_release`; the later repaired
 stable-patch qualification selected and published AO2 Control Plane `v0.1.16`.
 AO2 remains `v0.5.1`, and the compatibility gate remains `ready`, not active.
 
-Next action: use AO2 `v0.5.1` plus AO2 Control Plane `v0.1.16` as the current
-public pair for the next adoption/evidence cycle. Do not start another release
-train by default.
+The GitHub issue-to-draft-PR cycle has started:
+[GitHub Issue To Draft PR Month 1 Closure](roadmap/github-issue-to-draft-pr-month1-closure.md).
+
+Month 1 established the supervised contract boundary for GitHub issue URL
+intake, immutable issue evidence, policy classification, draft-PR authority,
+Command readback, Sentinel wording checks, and Promoter no-promotion/no-RSI
+readback. Feature-generated PRs remain draft and unmerged by default.
+
+Next action: continue with GitHub issue-to-draft-PR Month 2 isolated repair and
+reproducibility fixtures. Prove deterministic repair in an isolated workspace,
+preserve fork and draft-PR boundaries, and do not approve, merge, mark ready,
+or otherwise advance feature-generated PRs.
 
 External beta has not launched, promotion is not requested or granted, and RSI
 remains denied. This is not a release train by default.
