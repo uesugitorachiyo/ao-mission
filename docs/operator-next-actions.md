@@ -57,11 +57,21 @@ readback, Sentinel wording checks, and Promoter no-promotion/no-RSI readback.
 The current public pair still matches the manifest, the matrix remains 16/16
 tested, and the compatibility gate remains `ready`, not active.
 
-Next action: start Month 4 controlled improvement evaluation refresh using the
-maintenance reports and operator drill evidence. Keep the work fixture-only and
-readback-oriented. Do not start a release, tag, upload, deployment, provider
-pilot, external beta, promotion, compatibility gate activation, live
-self-modification, or RSI work without separate exact-scope authorization.
+Month 4 is closed:
+[Adoption/Evidence Month 4 Closure](roadmap/adoption-month4-controlled-improvement-evaluation-closure.md).
+
+Month 4 fixed production-readiness hygiene and reverified controlled
+improvement evaluation as fixture-only dry-run evidence. AO2 rollback evidence,
+Control Plane observation, Command readback, Sentinel wording checks, and
+Promoter no-promotion/no-RSI readback remain bounded. The compatibility gate is
+`ready`, not active.
+
+Next action: start Month 5 adoption support readiness. Build a support package
+and support triage readback using the current public pair, refreshed evidence
+base, operator drill results, and Month 4 boundaries. Do not start a release,
+tag, upload, deployment, provider pilot, external beta, promotion,
+compatibility gate activation, live self-modification, or RSI work without
+separate exact-scope authorization.
 
 External beta has not launched, promotion is not requested or granted, and RSI
 remains denied. This is not a release train by default.

@@ -1,6 +1,6 @@
 # AO Stack Adoption And Evidence Maintenance Six-Month Roadmap
 
-Status: active; Month 3 closed
+Status: active; Month 4 closed
 Created: 2026-07-16  
 Trigger: start after Month 6 no-release closure from the post-stable roadmap.
 
@@ -147,6 +147,14 @@ Success criteria:
 Goal: improve the fixture-only controlled self-improvement loop without
 granting RSI or live self-modification.
 
+Closure: [Adoption/Evidence Month 4 Closure: Controlled Improvement Evaluation Refresh](adoption-month4-controlled-improvement-evaluation-closure.md)
+
+Result: AO Mission production-readiness hygiene is fixed, and the existing
+controlled improvement design, policy gate, AO2 fixture-only dry-run evidence,
+Control Plane observation, Command readback, Sentinel wording checks, and
+Promoter no-promotion/no-RSI verdict are reverified. The compatibility gate
+remains `ready`, not active.
+
 Work:
 
 - Expand dry-run improvement fixtures.
@@ -219,10 +227,10 @@ Success criteria:
 
 ## Recommendation
 
-Start Month 4 with controlled improvement evaluation refresh using the
-maintenance reports and operator drill evidence. Do not begin with a release
-train. The current public pair remains sufficient until a readiness assessment
-finds shipped-artifact impact.
+Start Month 5 adoption support readiness using the refreshed evidence base,
+operator drill results, and Month 4 controlled-improvement boundary readbacks.
+Do not begin with a release train. The current public pair remains sufficient
+until a readiness assessment finds shipped-artifact impact.
 
 Use AO Mission as supervisor and AO Atlas for the full-month workgraph. The
 final response for each month should be allowed only when the full month is
