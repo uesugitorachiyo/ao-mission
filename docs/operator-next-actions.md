@@ -27,12 +27,21 @@ Closure evidence:
   directory.
 - The closure document records the local evidence directory and report paths.
 
-Start the next planning cycle from adoption readiness and evidence maintenance.
-Use the current public pair, the Month 3 compatibility matrix, Month 4 dry-run
-evidence, Month 5 operator workflow readback, and Month 6 no-release decision
-as the baseline. Do not start a release, tag, upload, deployment, provider
-pilot, external beta, promotion, or RSI work without separate exact-scope
-authorization.
+The new adoption/evidence cycle has started:
+[AO Stack adoption and evidence maintenance](roadmap/ao-stack-adoption-evidence-six-month-roadmap.md).
+
+Month 1 is closed:
+[Adoption/Evidence Month 1 Closure](roadmap/adoption-month1-evidence-freshness-closure.md).
+
+Month 1 made the evidence base refreshable and defined compatibility gate
+states. AO Architecture now records the compatibility gate state as `ready`,
+not active. `compatibility_gate_complete` remains false because activation was
+not authorized.
+
+Next action: start Month 2 operator adoption drills using the current public
+pair and refreshed evidence base. Do not start a release, tag, upload,
+deployment, provider pilot, external beta, promotion, or RSI work without
+separate exact-scope authorization.
 
 External beta has not launched, promotion is not requested or granted, and RSI
 remains denied. This is not a release train by default.
