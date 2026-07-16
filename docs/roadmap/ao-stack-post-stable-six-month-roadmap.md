@@ -44,8 +44,8 @@ Closure readback:
 
 ## Month 2: Workflow reliability hardening
 
-Status: in progress. The first compatibility workgraph completed three tested
-current-release edges; remaining matrix edges are still proposed.
+Status: closed. The workflow reliability waves and compatibility workgraph
+handoff are complete. Month 3 closed the remaining compatibility matrix edges.
 
 Goal: reduce operator confusion and agent overreach.
 
@@ -59,12 +59,15 @@ Work:
 - Add better failure summaries for CI, build, release, and runtime blockers.
 - Expand replay and offline verification examples.
 
-Current compatibility evidence:
+Compatibility evidence handoff:
 
 - AO2 execution receipt to AO2 Control Plane evidence event is tested.
 - AO2 Control Plane readback to AO Command operator status is tested.
 - AO Mission run status/timeline to AO Command operator timeline is tested.
-- Full stack compatibility remains incomplete.
+- All 16 live AO Architecture matrix edges now have canonical vectors and
+  consumer tests after Month 3 closure.
+- The Architecture compatibility gate remains false under the current
+  proposed/gated matrix status.
 - External beta has not launched, promotion is not requested, and RSI remains denied.
 
 Success criteria:
@@ -74,6 +77,9 @@ Success criteria:
 - Evidence is readable without deep AO Stack context.
 
 ## Month 3: Evidence and audit system upgrade
+
+Status: closed on 2026-07-15. See
+[Month 3 evidence and audit compatibility closure](month3-evidence-audit-compatibility-closure.md).
 
 Goal: make AO evidence useful as a product feature, not just logs.
 
@@ -91,6 +97,16 @@ Success criteria:
 
 - Every serious AO task produces consistent evidence.
 - Evidence can answer what changed, why it changed, how it was verified, and what remains blocked.
+
+Closure readback:
+
+- AO Architecture records 16 tested current-release compatibility edges.
+- `canonical_vector_count=16` and `consumer_test_count=16`.
+- Remaining proposed edges: 0.
+- The compatibility gate remains false under the current proposed/gated matrix
+  status.
+- External beta has not launched, promotion is not requested or granted, and
+  RSI remains denied.
 
 ## Month 4: Controlled self-improvement loop
 
@@ -152,4 +168,7 @@ Success criteria:
 
 ## Recommendation
 
-Start with Month 1 after AO2 v0.5.0 stable publication is verified. Do not start RSI work. Build the controlled self-improvement loop in Month 4 after release reliability and evidence quality are stronger.
+Start Month 4 with controlled self-improvement loop design and safety-gated
+dry-run only. Do not start RSI work. Keep the first Month 4 step to design
+documents, fixture-only dry-runs, measurement criteria, rollback expectations,
+and human approval gates.
