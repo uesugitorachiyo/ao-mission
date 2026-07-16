@@ -1,6 +1,6 @@
 # AO Stack Adoption And Evidence Maintenance Six-Month Roadmap
 
-Status: closed; Month 6 closed with no-release decision
+Status: closed; Month 6 repaired with Control Plane stable patch
 Created: 2026-07-16  
 Trigger: start after Month 6 no-release closure from the post-stable roadmap.
 
@@ -13,9 +13,9 @@ Current public pair:
 - AO2 `v0.5.1`
   - Release: https://github.com/uesugitorachiyo/ao2/releases/tag/v0.5.1
   - Tag target: `80ec5321f42d4bab17d5e64fdae6aa099ba59d4a`
-- AO2 Control Plane `v0.1.15`
-  - Release: https://github.com/uesugitorachiyo/ao2-control-plane/releases/tag/v0.1.15
-  - Tag target: `f1702b387607566cac457458af9adb5871a5c412`
+- AO2 Control Plane `v0.1.16`
+  - Release: https://github.com/uesugitorachiyo/ao2-control-plane/releases/tag/v0.1.16
+  - Tag target: `f4f5fea9fefa1081cebcbabac550b0e08b9f0e3d`
 
 Evidence baseline:
 
@@ -27,8 +27,9 @@ Evidence baseline:
 - Month 5 operator workflow: Architecture source of truth, Command readback,
   Foundry safe-next-work, Forge run-state, Covenant policy readback, Sentinel
   checks, and Promoter no-promotion/no-RSI status.
-- Month 6 release train readiness: no release selected. The current public pair
-  remains sufficient.
+- Month 6 release train readiness: AO2 remains `v0.5.1`; the repaired Control
+  Plane assessment selected and published `v0.1.16`. The current public pair is
+  AO2 `v0.5.1` plus AO2 Control Plane `v0.1.16`.
 
 Standing boundaries:
 
@@ -216,10 +217,9 @@ no-release based on shipped-artifact impact.
 
 Closure: [Adoption/Evidence Month 6 Closure: Adoption Readiness And No-Release Decision](adoption-month6-no-release-readiness-closure.md)
 
-Result: Month 6 selected `release_decision=no_release`. AO2 remains `v0.5.1`
-and AO2 Control Plane remains `v0.1.15`. Post-tag changes are docs, tests,
-fixtures, workflows, or support scripts; no shipped binary behavior requires
-public artifact replacement.
+Result: the repaired Month 6 release assessment keeps AO2 at `v0.5.1` and
+publishes AO2 Control Plane `v0.1.16` after exact stable-patch qualification.
+The current public pair is AO2 `v0.5.1` plus AO2 Control Plane `v0.1.16`.
 
 Work:
 

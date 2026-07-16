@@ -418,7 +418,7 @@ func TestArchitectureRouteContextCompatibilityVector(t *testing.T) {
 	}
 	if vector.SourceOfTruth.Status != "current_public_release_pair" ||
 		vector.SourceOfTruth.AO2Version != "v0.5.1" ||
-		vector.SourceOfTruth.ControlPlaneVersion != "v0.1.15" ||
+		vector.SourceOfTruth.ControlPlaneVersion != "v0.1.16" ||
 		vector.SourceOfTruth.CompatibilityMatrixStatus != "proposed" ||
 		vector.SourceOfTruth.FullStackCompatibilityComplete ||
 		vector.SourceOfTruth.ExternalBetaLaunched ||

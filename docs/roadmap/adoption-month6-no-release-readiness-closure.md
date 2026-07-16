@@ -7,7 +7,8 @@ Evidence: `canary-test/ao-stack-adoption-month4-6-plus-stable-release-20260716T0
 ## Objective
 
 Month 6 assessed whether a stable release train was needed after the adoption
-evidence work. The decision is `release_decision=no_release`.
+evidence work. The later repair qualification keeps AO2 at `v0.5.1` and moves
+the Control Plane companion to `v0.1.16`.
 
 ## Current Public Pair
 
@@ -15,18 +16,18 @@ evidence work. The decision is `release_decision=no_release`.
   - Release: https://github.com/uesugitorachiyo/ao2/releases/tag/v0.5.1
   - Tag target: `80ec5321f42d4bab17d5e64fdae6aa099ba59d4a`
   - Public release state: draft=false, prerelease=false, asset count 23
-- AO2 Control Plane `v0.1.15`
-  - Release: https://github.com/uesugitorachiyo/ao2-control-plane/releases/tag/v0.1.15
-  - Tag target: `f1702b387607566cac457458af9adb5871a5c412`
+- AO2 Control Plane `v0.1.16`
+  - Release: https://github.com/uesugitorachiyo/ao2-control-plane/releases/tag/v0.1.16
+  - Tag target: `f4f5fea9fefa1081cebcbabac550b0e08b9f0e3d`
   - Public release state: draft=false, prerelease=false, asset count 6
 
 ## Decision
 
-No new release is selected.
+No AO2 release is selected.
 
 AO2 commits since `v0.5.1` are docs, tests, and fixtures only. AO2 Control
-Plane changes since `v0.1.15` are workflow/script/docs/test/fixture support
-work. No shipped binary behavior requires public artifact replacement.
+Plane `v0.1.16` is now the current companion after exact stable-patch
+qualification and public-asset verification.
 
 ## PRs
 
@@ -34,8 +35,8 @@ work. No shipped binary behavior requires public artifact replacement.
   https://github.com/uesugitorachiyo/ao-architecture/pull/130
   - Merge commit: `464f9523c6a04a218f63f48d1035f426f6a2ca47`
 
-No AO2 release PR, Control Plane release PR, tag, upload, or deployment was
-created.
+No AO2 release PR, AO2 tag, AO2 upload, or deployment was created. The Control
+Plane stable-patch release was handled separately as `v0.1.16`.
 
 ## Readbacks
 
@@ -66,8 +67,8 @@ created.
 
 RSI remains denied. Live self-modification remains denied. The compatibility
 gate remains `ready`, not active. External beta is not launched. Promotion is
-not requested or granted. No provider pilot ran. No release, tag, upload,
-deployment, or new binary publication occurred.
+not requested or granted. No provider pilot ran. No AO2 release occurred. No
+deployment occurred.
 
 ## Next Recommendation
 
