@@ -1,6 +1,6 @@
 # AO Stack Adoption And Evidence Maintenance Six-Month Roadmap
 
-Status: active; Month 4 closed
+Status: active; Month 5 closed
 Created: 2026-07-16  
 Trigger: start after Month 6 no-release closure from the post-stable roadmap.
 
@@ -177,6 +177,15 @@ Success criteria:
 Goal: prepare a durable adoption package without launching external beta by
 default.
 
+Closure: [Adoption/Evidence Month 5 Closure: Adoption Package And Support Readiness](adoption-month5-support-readiness-closure.md)
+
+Result: Architecture support-readiness source of truth, Command support
+readback, Sentinel support wording checks, and Promoter no-promotion/no-RSI
+verdict are merged. The support package covers install, checksum, manifest
+mismatch, approval/replay, rollback, Windows-safe rollback, operator readback
+issues, and public-safe issue-report fields. The compatibility gate remains
+`ready`, not active.
+
 Work:
 
 - Assemble a current operator package:
@@ -227,10 +236,11 @@ Success criteria:
 
 ## Recommendation
 
-Start Month 5 adoption support readiness using the refreshed evidence base,
-operator drill results, and Month 4 controlled-improvement boundary readbacks.
-Do not begin with a release train. The current public pair remains sufficient
-until a readiness assessment finds shipped-artifact impact.
+Start Month 6 adoption readiness and release/no-release assessment using the
+refreshed evidence base, operator drill results, Month 4
+controlled-improvement boundaries, and Month 5 support-readiness package. Do
+not begin with a release train. The current public pair remains sufficient
+unless the Month 6 readiness assessment finds shipped-artifact impact.
 
 Use AO Mission as supervisor and AO Atlas for the full-month workgraph. The
 final response for each month should be allowed only when the full month is
