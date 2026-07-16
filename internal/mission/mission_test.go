@@ -4951,6 +4951,56 @@ func TestGitHubIssueMonth1SupervisionReadbackKeepsFeaturePRsDraft(t *testing.T) 
 	}
 }
 
+func TestGitHubIssueMonth2SupervisionReadbackRequiresTruthSetAndNoMutation(t *testing.T) {
+	path := filepath.Join("..", "..", "examples", "valid", "github-issue-month2-supervision-readback.json")
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var readback map[string]any
+	if err := json.Unmarshal(body, &readback); err != nil {
+		t.Fatal(err)
+	}
+	if readback["schema"] != "ao.mission.github-issue-month2-supervision-readback.v0.1" ||
+		readback["status"] != "ready" ||
+		readback["roadmap"] != "github-issue-to-draft-pr" {
+		t.Fatalf("unexpected Month 2 supervision readback: %#v", readback)
+	}
+	truth := readback["truth_set"].(map[string]any)
+	if truth["total"].(float64) != 13 ||
+		truth["authentic_bug"].(float64) != 2 ||
+		truth["non_bug_or_blocked"].(float64) != 11 ||
+		truth["precision"].(float64) < 0.95 ||
+		truth["recall"].(float64) < 0.90 ||
+		truth["thresholds_passed"] != true {
+		t.Fatalf("truth set did not meet closure thresholds: %#v", truth)
+	}
+	gate := readback["closure_gate"].(map[string]any)
+	for _, key := range []string{
+		"failing_pre_patch_reproduction_required",
+		"authentic_bug_fixtures_reproduce_before_patch",
+		"non_bug_fixtures_avoid_mutation",
+		"interruption_resume_without_duplicate_mutation",
+		"evidence_repeatable",
+	} {
+		if gate[key] != true {
+			t.Fatalf("closure_gate.%s = %#v, want true", key, gate[key])
+		}
+	}
+	if gate["security_sensitive_fixtures_enter_public_repair"] != false {
+		t.Fatalf("security-sensitive fixtures must not enter public repair: %#v", gate)
+	}
+	denied := readback["denied_actions"].(map[string]any)
+	for action, value := range denied {
+		if value != false {
+			t.Fatalf("denied_actions.%s = %#v, want false", action, value)
+		}
+	}
+	if !strings.Contains(readback["exact_next_action"].(string), "Month 3 isolated repair") {
+		t.Fatalf("next action should hand off to Month 3: %s", readback["exact_next_action"])
+	}
+}
+
 func TestMissionVerificationBundleBindsReadbacksAndRejectsAuthorityDrift(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(filepath.Join(dir, "home"))
