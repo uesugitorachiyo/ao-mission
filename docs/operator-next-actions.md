@@ -72,6 +72,17 @@ full evidence base, compare final measurements with Month 1, and make a
 release/no-release assessment. Do not publish unless Month 6 selects a release
 and all release gates pass.
 
+Bounded Autonomy Month 6 is closed:
+[Bounded Autonomy Month 6 Closure](roadmap/bounded-autonomy-month6-qualification-closure.md).
+
+Month 6 reran the bounded-autonomy evidence base and selected
+`release_decision=no_release`. AO2 remains `v0.5.1`, AO2 Control Plane remains
+`v0.1.15`, and public artifact replacement is not required. Controlled RSI
+research is not authorized by this closure; RSI remains denied.
+
+Next action: start a new roadmap only with explicit authorization. Use the
+bounded-autonomy evidence and no-release decision as the baseline.
+
 Month 6 is closed with a no-release decision. AO2 v0.5.1 remains the current
 public AO2 release, AO2 Control Plane v0.1.15 remains the companion release, AO
 Architecture records all 16 live compatibility matrix edges with canonical
