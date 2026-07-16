@@ -180,10 +180,21 @@ intake, immutable issue evidence, policy classification, draft-PR authority,
 Command readback, Sentinel wording checks, and Promoter no-promotion/no-RSI
 readback. Feature-generated PRs remain draft and unmerged by default.
 
-Next action: continue with GitHub issue-to-draft-PR Month 2 isolated repair and
-reproducibility fixtures. Prove deterministic repair in an isolated workspace,
-preserve fork and draft-PR boundaries, and do not approve, merge, mark ready,
-or otherwise advance feature-generated PRs.
+Month 2 is closed:
+[GitHub Issue To Draft PR Month 2 Closure](roadmap/github-issue-to-draft-pr-month2-closure.md).
+
+Month 2 added the authenticity and reproduction gate. It records the issue
+truth set, isolated acquisition planning, command and network policy,
+deterministic/flaky reproduction metrics, non-bug and security-sensitive stop
+states, Control Plane observation, Command readback, Sentinel wording checks,
+and AO Mission supervision. Feature-generated PRs remain draft and unmerged by
+default.
+
+Next action: continue with GitHub issue-to-draft-PR Month 3 isolated repair,
+verification, rollback, and replay. Prove the smallest safe repair only after
+failing pre-patch reproduction evidence. Preserve fork and draft-PR boundaries,
+and do not approve, merge, mark ready, or otherwise advance feature-generated
+PRs.
 
 External beta has not launched, promotion is not requested or granted, and RSI
 remains denied. This is not a release train by default.
