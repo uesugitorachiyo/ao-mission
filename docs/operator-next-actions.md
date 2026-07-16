@@ -6,6 +6,20 @@ mission.
 
 ## Current AO Stack Roadmap Action
 
+The bounded-autonomy and product validation cycle has started.
+
+Bounded Autonomy Month 1 is closed:
+[Bounded Autonomy Month 1 Closure](roadmap/bounded-autonomy-month1-baseline-closure.md).
+
+Month 1 verified the current public pair, created the bounded-autonomy
+benchmark corpus and result schema, recorded baseline metrics, and added AO
+Command benchmark readback. The compatibility gate remains `ready`, not active.
+
+Next action: start Bounded Autonomy Month 2 end-to-end engineering workflows:
+one documentation/support correction, one deterministic single-repository code
+change, and one cross-repository producer/consumer contract change. Do not
+start a release train by default.
+
 Month 6 is closed with a no-release decision. AO2 v0.5.1 remains the current
 public AO2 release, AO2 Control Plane v0.1.15 remains the companion release, AO
 Architecture records all 16 live compatibility matrix edges with canonical
