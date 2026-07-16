@@ -110,6 +110,9 @@ Closure readback:
 
 ## Month 4: Controlled self-improvement loop
 
+Status: closed on 2026-07-16. See
+[Month 4 controlled self-improvement dry-run closure](month4-controlled-self-improvement-dry-run-closure.md).
+
 Goal: let AO improve workflows safely, without RSI.
 
 Work:
@@ -127,6 +130,16 @@ Success criteria:
 - AO can suggest improvements to AO.
 - AO cannot autonomously merge, release, or expand authority.
 - Every improvement has measurable before/after evidence.
+
+Closure readback:
+
+- The controlled self-improvement loop is defined as fixture-only and dry-run
+  only.
+- Human approval, rollback proof, observation, operator readback, Sentinel
+  wording checks, and Promoter no-RSI/no-promotion verdict evidence are merged.
+- RSI remains denied.
+- Live self-modification, provider execution, external beta, promotion, release,
+  tag, upload, and deployment remain denied.
 
 ## Month 5: Multi-repo product coordination
 
@@ -168,7 +181,7 @@ Success criteria:
 
 ## Recommendation
 
-Start Month 4 with controlled self-improvement loop design and safety-gated
-dry-run only. Do not start RSI work. Keep the first Month 4 step to design
-documents, fixture-only dry-runs, measurement criteria, rollback expectations,
-and human approval gates.
+Start Month 5 with multi-repo product coordination and operator workflow
+hardening using the tested compatibility and Month 4 evidence base. Keep the
+first Month 5 step to repo ownership, shared docs maps, release-state
+readbacks, and operator workflow reliability. RSI remains denied.
