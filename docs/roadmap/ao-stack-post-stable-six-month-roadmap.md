@@ -179,25 +179,33 @@ Closure readback:
 
 ## Month 6: Next stable release train
 
-Goal: ship the next stable release with stronger process than AO2 v0.5.0.
+Status: closed on 2026-07-16 with a no-release decision. See
+[Month 6 release train readiness closure](month6-release-train-readiness-closure.md).
+
+Goal: assess whether the next stable release train is needed after Months 3-5,
+then release only if evidence requires it and all gates pass.
 
 Work:
 
-- Select the next stable target, likely AO2 v0.6.0 or equivalent.
-- Include improvements from Months 1 through 5.
-- Run full release qualification.
-- Run public asset verification.
-- Run private/local pilot only if needed, not as endless canary work.
-- Publish stable release only after green evidence.
+- Inventory AO2 and Control Plane changes since the current public release pair.
+- Classify changes as runtime, packaging, docs, tests, fixtures, or evidence.
+- Select release or no-release based on shipped binary impact.
+- If release is selected, run full qualification and public asset verification.
+- If no release is selected, document the decision and current public pair.
 
 Success criteria:
 
-- Another stable release ships.
-- Release process is smoother than AO2 v0.5.0.
-- AO Stack has controlled self-improvement support, while RSI remains denied.
+- Release/no-release decision is recorded.
+- AO2 v0.5.1 and AO2 Control Plane v0.1.15 remain the current public pair, or
+  a newly selected release pair is qualified and published.
+- Compatibility matrix state is recorded.
+- Sentinel and Promoter readbacks preserve denied states.
+- RSI remains denied.
 
 ## Recommendation
 
-Start Month 6 with next stable release train planning and readiness assessment.
-Use the Month 3 compatibility matrix, Month 4 dry-run evidence, and Month 5
-operator workflow readback as the evidence base. RSI remains denied.
+Month 6 selected no release. Start the next planning cycle from adoption
+readiness and evidence maintenance. Use the current public pair, the 16/16
+compatibility matrix, the Month 4 fixture-only dry-run evidence, and the Month 5
+operator workflow readback as the baseline before selecting any future release
+train. RSI remains denied.

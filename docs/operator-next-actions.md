@@ -6,28 +6,33 @@ mission.
 
 ## Current AO Stack Roadmap Action
 
-Month 5 is closed. AO2 v0.5.1 is public and verified, AO2 Control Plane
-v0.1.15 remains the companion release, AO Architecture records all 16 live
-compatibility matrix edges with canonical vectors and consumer tests, the
-controlled self-improvement loop is validated in fixture-only dry-run mode, and
-the operator workflow readback chain is merged.
+Month 6 is closed with a no-release decision. AO2 v0.5.1 remains the current
+public AO2 release, AO2 Control Plane v0.1.15 remains the companion release, AO
+Architecture records all 16 live compatibility matrix edges with canonical
+vectors and consumer tests, the controlled self-improvement loop remains
+fixture-only dry-run evidence, and the operator workflow readback chain is
+merged.
 
 Closure evidence:
 
 - [Month 3 evidence and audit compatibility closure](roadmap/month3-evidence-audit-compatibility-closure.md)
 - [Month 4 controlled self-improvement dry-run closure](roadmap/month4-controlled-self-improvement-dry-run-closure.md)
 - [Month 5 operator workflow hardening closure](roadmap/month5-operator-workflow-hardening-closure.md)
+- [Month 6 release train readiness closure](roadmap/month6-release-train-readiness-closure.md)
 - AO Architecture final matrix PR:
   https://github.com/uesugitorachiyo/ao-architecture/pull/122
-- AO Mission Month 5 closure records the implementation PRs and local evidence
+- AO Architecture Month 6 no-release readiness PR:
+  https://github.com/uesugitorachiyo/ao-architecture/pull/125
+- AO Mission Month 6 closure records the implementation PRs and local evidence
   directory.
 - The closure document records the local evidence directory and report paths.
 
-Start Month 6 with next stable release train planning and readiness assessment.
-Use the Month 3 compatibility matrix, Month 4 dry-run evidence, and Month 5
-operator workflow readback as the evidence base. Do not start a release, tag,
-upload, deployment, provider pilot, external beta, promotion, or RSI work
-without separate exact-scope authorization.
+Start the next planning cycle from adoption readiness and evidence maintenance.
+Use the current public pair, the Month 3 compatibility matrix, Month 4 dry-run
+evidence, Month 5 operator workflow readback, and Month 6 no-release decision
+as the baseline. Do not start a release, tag, upload, deployment, provider
+pilot, external beta, promotion, or RSI work without separate exact-scope
+authorization.
 
 External beta has not launched, promotion is not requested or granted, and RSI
 remains denied. This is not a release train by default.
