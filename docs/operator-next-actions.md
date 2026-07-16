@@ -6,21 +6,25 @@ mission.
 
 ## Current AO Stack Roadmap Action
 
-Month 3 is closed. AO2 v0.5.1 is public and verified, AO2 Control Plane
-v0.1.15 remains the companion release, and AO Architecture records all 16 live
-compatibility matrix edges with canonical vectors and consumer tests.
+Month 4 is closed. AO2 v0.5.1 is public and verified, AO2 Control Plane
+v0.1.15 remains the companion release, AO Architecture records all 16 live
+compatibility matrix edges with canonical vectors and consumer tests, and the
+controlled self-improvement loop is validated in fixture-only dry-run mode.
 
 Closure evidence:
 
 - [Month 3 evidence and audit compatibility closure](roadmap/month3-evidence-audit-compatibility-closure.md)
+- [Month 4 controlled self-improvement dry-run closure](roadmap/month4-controlled-self-improvement-dry-run-closure.md)
 - AO Architecture final matrix PR:
   https://github.com/uesugitorachiyo/ao-architecture/pull/122
+- AO Mission Month 4 closure records the implementation PRs and local evidence
+  directory.
 - The closure document records the local evidence directory and report paths.
 
-Start Month 4 with controlled self-improvement loop design and safety-gated
-dry-run only. Do not implement RSI. Keep the first task to design documents,
-fixture-only dry-runs, measurement criteria, rollback expectations, and human
-approval gates.
+Start Month 5 with multi-repo product coordination and operator workflow
+hardening using the tested compatibility and Month 4 evidence base. Keep the
+first task to repo ownership, shared docs maps, release-state readbacks, and
+operator workflow reliability. Do not start RSI work.
 
 External beta has not launched, promotion is not requested or granted, and RSI
 remains denied. This is not a release train by default.
