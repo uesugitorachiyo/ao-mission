@@ -58,6 +58,20 @@ Use genuine bounded AO repository maintenance where it provides evidence, and
 use fixtures where a real mutation adds no proof. Do not start a release train,
 external beta, promotion, provider pilot, live self-modification, or RSI work.
 
+Bounded Autonomy Month 5 is closed:
+[Bounded Autonomy Month 5 Closure](roadmap/bounded-autonomy-month5-dogfood-closure.md).
+
+Month 5 completed the five-task one-operator dogfood portfolio and records the
+result as machine-checked AO Mission production-readiness evidence. The
+portfolio covered support handoff, product/reliability readiness, cross-repo
+Command readback, failure recovery, and a correctly denied RSI/live
+self-modification route. The compatibility gate remains `ready`, not active.
+
+Next action: start Bounded Autonomy Month 6 autonomy qualification. Rerun the
+full evidence base, compare final measurements with Month 1, and make a
+release/no-release assessment. Do not publish unless Month 6 selects a release
+and all release gates pass.
+
 Month 6 is closed with a no-release decision. AO2 v0.5.1 remains the current
 public AO2 release, AO2 Control Plane v0.1.15 remains the companion release, AO
 Architecture records all 16 live compatibility matrix edges with canonical
