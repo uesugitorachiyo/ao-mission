@@ -851,20 +851,22 @@ type MissionEvent struct {
 }
 
 type MissionEventIndex struct {
-	Schema              string         `json:"schema"`
-	Status              string         `json:"status"`
-	IndexVersion        string         `json:"index_version"`
-	IndexDigest         string         `json:"index_digest"`
-	SourceDigest        string         `json:"source_digest"`
-	Root                string         `json:"root"`
-	MissionCount        int            `json:"mission_count"`
-	TotalEvents         int            `json:"total_events"`
-	Events              []MissionEvent `json:"events"`
-	SafeToExecute       bool           `json:"safe_to_execute"`
-	ExecutesWork        bool           `json:"executes_work"`
-	ApprovesWork        bool           `json:"approves_work"`
-	MutatesRepositories bool           `json:"mutates_repositories"`
-	GeneratedAtUTC      string         `json:"generated_at_utc"`
+	Schema                 string         `json:"schema"`
+	Status                 string         `json:"status"`
+	IndexVersion           string         `json:"index_version"`
+	IndexDigest            string         `json:"index_digest"`
+	SourceDigest           string         `json:"source_digest"`
+	Root                   string         `json:"root"`
+	MissionCount           int            `json:"mission_count"`
+	TotalEvents            int            `json:"total_events"`
+	StoreFileReads         int            `json:"store_file_reads,omitempty"`
+	EventConstructionCount int            `json:"event_construction_count,omitempty"`
+	Events                 []MissionEvent `json:"events"`
+	SafeToExecute          bool           `json:"safe_to_execute"`
+	ExecutesWork           bool           `json:"executes_work"`
+	ApprovesWork           bool           `json:"approves_work"`
+	MutatesRepositories    bool           `json:"mutates_repositories"`
+	GeneratedAtUTC         string         `json:"generated_at_utc"`
 }
 
 type MissionEventSearchReadback struct {
@@ -972,6 +974,8 @@ type MissionDoctorReadback struct {
 	Root                      string              `json:"root"`
 	MissionCount              int                 `json:"mission_count"`
 	EventCount                int                 `json:"event_count"`
+	StoreListCount            int                 `json:"store_list_count,omitempty"`
+	StoreFileReads            int                 `json:"store_file_reads,omitempty"`
 	LeaseCount                int                 `json:"lease_count"`
 	LeaseHealthStatus         string              `json:"lease_health_status"`
 	FreshCheckpoints          int                 `json:"fresh_checkpoints"`

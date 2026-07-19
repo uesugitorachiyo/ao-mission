@@ -9,8 +9,10 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestMissionLifecycleAndSnapshot(t *testing.T) {
@@ -4108,6 +4110,85 @@ func TestMissionEventIndexSearchAndCLIReadback(t *testing.T) {
 	}
 }
 
+func TestMissionDashboardUsesOneMissionReadPathWithCorruptUnrelatedRecord(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("dashboard one mission read path")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Continue(s, rec.MissionID, ContinueOptions{MaxIterations: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "missions", "unrelated-corrupt.json"), []byte("{"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	dashboard, err := BuildMissionDashboardReadback(s, rec.MissionID, true)
+	if err != nil {
+		t.Fatalf("dashboard for one healthy mission should not read corrupt unrelated records: %v", err)
+	}
+	if dashboard.MissionID != rec.MissionID || dashboard.EventCount == 0 || dashboard.SafeToExecute || dashboard.ExecutesWork || dashboard.ApprovesWork || dashboard.MutatesRepositories {
+		t.Fatalf("bad one-mission dashboard readback: %+v", dashboard)
+	}
+}
+
+func TestMissionEventIndexDigestStableAcrossGenerationTime(t *testing.T) {
+	dir := t.TempDir()
+	stamp := time.Date(2026, 7, 19, 12, 0, 0, 0, time.UTC)
+	s := NewStore(dir)
+	s.Clock = func() time.Time { return stamp }
+	if _, err := s.Start("deterministic event index digest mission"); err != nil {
+		t.Fatal(err)
+	}
+	first, err := BuildMissionEventIndex(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Clock = func() time.Time { return stamp.Add(5 * time.Minute) }
+	second, err := BuildMissionEventIndex(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.SourceDigest != second.SourceDigest {
+		t.Fatalf("source digest should be stable for unchanged mission records: first=%s second=%s", first.SourceDigest, second.SourceDigest)
+	}
+	if first.IndexDigest != second.IndexDigest {
+		t.Fatalf("index digest should be stable for unchanged mission records: first=%s second=%s", first.IndexDigest, second.IndexDigest)
+	}
+}
+
+func TestMissionEventIndexScaleMetricsExposeReadAndEventCounts(t *testing.T) {
+	for _, count := range []int{100, 1000, 10000} {
+		t.Run(strconv.Itoa(count), func(t *testing.T) {
+			s := seedMissionRecordStore(t, count)
+			index, err := BuildMissionEventIndex(s)
+			if err != nil {
+				t.Fatal(err)
+			}
+			packet := marshalMapForTest(t, index)
+			if got, ok := packet["store_file_reads"].(float64); !ok || got != float64(count) {
+				t.Fatalf("event index should expose bounded store file reads for %d records, got=%v present=%t total_events=%d", count, packet["store_file_reads"], ok, index.TotalEvents)
+			}
+			if got, ok := packet["event_construction_count"].(float64); !ok || got != float64(index.TotalEvents) || index.TotalEvents < count {
+				t.Fatalf("event index should expose event construction count for %d records, got=%v present=%t total_events=%d", count, packet["event_construction_count"], ok, index.TotalEvents)
+			}
+		})
+	}
+}
+
+func TestMissionDoctorUsesSingleStoreListingMetrics(t *testing.T) {
+	s := seedMissionRecordStore(t, 100)
+	readback := BuildMissionDoctorReadback(s)
+	packet := marshalMapForTest(t, readback)
+	if got, ok := packet["store_list_count"].(float64); !ok || got != float64(1) {
+		t.Fatalf("doctor should expose exactly one store listing, got=%v present=%t mission_count=%d", packet["store_list_count"], ok, readback.MissionCount)
+	}
+	if got, ok := packet["store_file_reads"].(float64); !ok || got != float64(readback.MissionCount) {
+		t.Fatalf("doctor should reuse the listed records instead of reading the store twice, got=%v present=%t mission_count=%d", packet["store_file_reads"], ok, readback.MissionCount)
+	}
+}
+
 func TestMissionTimelineQueryIndexBindsEventIndexDigestAndCLIOutput(t *testing.T) {
 	dir := t.TempDir()
 	var out, errb bytes.Buffer
@@ -5236,4 +5317,52 @@ func writeJSONForTest(t *testing.T, path string, value any) {
 	if err := os.WriteFile(path, append(body, '\n'), 0o644); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func marshalMapForTest(t *testing.T, value any) map[string]any {
+	t.Helper()
+	body, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(body, &out); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func seedMissionRecordStore(t *testing.T, count int) Store {
+	t.Helper()
+	dir := t.TempDir()
+	s := NewStore(dir)
+	if err := s.Init(); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < count; i++ {
+		id := "mission-scale-" + strconv.Itoa(i)
+		rec := Record{
+			Schema:          RecordSchema,
+			MissionID:       id,
+			Objective:       "scale mission " + strconv.Itoa(i),
+			ObjectiveDigest: DigestObjective("scale mission " + strconv.Itoa(i)),
+			Status:          "active",
+			CreatedAtUTC:    "2026-07-19T00:00:00Z",
+			UpdatedAtUTC:    "2026-07-19T00:00:00Z",
+			CurrentRoute:    "ao-atlas",
+			CurrentPhase:    "routing",
+			ExactNextAction: "continue bounded mission",
+			ArtifactRefs:    []ArtifactRef{},
+			Blockers:        []string{},
+			Steps:           []ContinuationStep{},
+		}
+		body, err := json.Marshal(rec)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "missions", id+".json"), append(body, '\n'), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return s
 }
