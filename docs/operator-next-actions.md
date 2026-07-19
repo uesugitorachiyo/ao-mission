@@ -6,7 +6,55 @@ mission.
 
 ## Current AO Stack Roadmap Action
 
-The bounded-autonomy and product validation cycle has started.
+The post-release DSA hardening workgraph is active.
+
+Current public release pair:
+
+- AO2 `v0.5.2`
+  - Release: https://github.com/uesugitorachiyo/ao2/releases/tag/v0.5.2
+  - Release target: `732a97950121321b3cfad29d86526df9c0b5fad5`
+  - Current main after release hardening: `a1728338277f076f9122bff2718617193199a623`
+  - Approved asset manifest SHA-256:
+    `8268de6f7ccf2f9a194b9123df7a3845cb4660bc10476f6da1df7a5859f48574`
+- AO2 Control Plane `v0.1.17`
+  - Release: https://github.com/uesugitorachiyo/ao2-control-plane/releases/tag/v0.1.17
+  - Release target: `6336801eedc4a8402d12b306b98603ce0a6fb6b5`
+  - Current main after release notes closure: `2a2c4bfe6a65b2076e1e006639e661e14226e9d6`
+
+Post-release public verification is recorded in the excluded evidence root
+`ao-stack-qualification-release-dsa-20260718-20260718T224504Z`.
+
+Release closure evidence:
+
+- `publish-ao2-v052-result.json`: AO2 `v0.5.2` published as the latest stable
+  release; public checksum, provenance, macOS rollback, Windows rollback,
+  release comparison, Workbench export, and Docker Linux x86_64 smoke gates
+  passed.
+- `verify-public-ao2-v052-result.json`: fresh public AO2 download verification
+  passed against approved release assets.
+- `publish-control-plane-v0117-result.json`: AO2 Control Plane `v0.1.17`
+  published as the latest stable release with the annotated tag pointing to the
+  release commit.
+- `verify-public-control-plane-v0117-result.json`: fresh public Control Plane
+  download verification, asset parity, and AO2/Control Plane public pair
+  verification passed; generated at `2026-07-19T14:58:39Z`.
+- `post-public-architecture-current-pair-result.json`: AO Architecture records
+  AO2 `v0.5.2` plus AO2 Control Plane `v0.1.17` as the current public pair;
+  local verification and GitHub Verify passed; generated at
+  `2026-07-19T15:06:05Z`.
+
+Ubuntu/Linux native verification was not available in this Codex application
+run. AO2 Linux verification therefore used the authorized Docker Linux x86_64
+substitute, `AO2_LINUX_X86_64_SMOKE_MODE=docker`, matching the operator
+clarification for this handoff.
+
+Next action: continue the post-release DSA hardening workgraph at
+`n053-control-plane-index-baseline-red`. Do not start another release train,
+external beta, promotion, provider pilot, live self-modification, or RSI work
+from this Mission closure.
+
+The earlier bounded-autonomy and product validation cycle remains recorded
+below as historical closure context.
 
 Bounded Autonomy Month 1 is closed:
 [Bounded Autonomy Month 1 Closure](roadmap/bounded-autonomy-month1-baseline-closure.md).
