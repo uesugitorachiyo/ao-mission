@@ -3393,6 +3393,56 @@ func TestScheduleRecoverCLIEmitsImmediateContinuationReadback(t *testing.T) {
 	}
 }
 
+func TestQualificationOrchestrationRequiresAffectedShardsBeforeFullExactHead(t *testing.T) {
+	var out, errb bytes.Buffer
+	fixture := filepath.Join("..", "..", "examples", "valid", "stack-qualification-orchestration.json")
+	if code := Run([]string{"qualification", "orchestrate", "--fixture", fixture, "--json"}, &out, &errb); code != 0 {
+		t.Fatalf("qualification orchestrate: %s", errb.String())
+	}
+	var readback map[string]any
+	if err := json.Unmarshal(out.Bytes(), &readback); err != nil {
+		t.Fatal(err)
+	}
+	if readback["schema"] != "ao.mission.qualification-orchestration-readback.v0.1" ||
+		readback["status"] != "ready" ||
+		readback["affected_shard_count"] != float64(4) ||
+		readback["final_qualification_mode"] != "full_exact_head" ||
+		readback["source_head_count"] != float64(4) ||
+		readback["exact_head_required"] != true ||
+		readback["restart_from_zero_allowed"] != false {
+		t.Fatalf("unexpected qualification orchestration readback: %#v", readback)
+	}
+	for _, flag := range []string{"safe_to_execute", "executes_work", "approves_work", "mutates_repositories", "calls_providers", "releases_or_deploys"} {
+		if readback[flag] != false {
+			t.Fatalf("qualification orchestration widened %s: %#v", flag, readback)
+		}
+	}
+	if !strings.Contains(readback["exact_next_action"].(string), "run affected Windows qualification shards") ||
+		!strings.Contains(readback["exact_next_action"].(string), "final full exact-head qualification") {
+		t.Fatalf("qualification orchestration lost exact next action: %#v", readback)
+	}
+}
+
+func TestQualificationOrchestrationRejectsRestartFromZero(t *testing.T) {
+	fixture := filepath.Join("..", "..", "examples", "valid", "stack-qualification-orchestration.json")
+	body, err := os.ReadFile(fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unsafeBody := strings.Replace(string(body), `"no_restart_from_zero": true`, `"no_restart_from_zero": false`, 1)
+	unsafePath := filepath.Join(t.TempDir(), "restart-from-zero.json")
+	if err := os.WriteFile(unsafePath, []byte(unsafeBody), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var out, errb bytes.Buffer
+	if code := Run([]string{"qualification", "orchestrate", "--fixture", unsafePath, "--json"}, &out, &errb); code == 0 {
+		t.Fatalf("unsafe qualification orchestration unexpectedly passed: %s", out.String())
+	}
+	if !strings.Contains(errb.String(), "forbid restart from zero") {
+		t.Fatalf("unsafe qualification orchestration stderr missing restart denial:\n%s", errb.String())
+	}
+}
+
 func TestArtifactManifestSelfValidationRejectsTampering(t *testing.T) {
 	dir := t.TempDir()
 	artifactPath := filepath.Join(dir, "route.json")
