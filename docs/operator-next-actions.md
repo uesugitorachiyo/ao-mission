@@ -6,7 +6,8 @@ mission.
 
 ## Current AO Stack Roadmap Action
 
-The post-release DSA hardening workgraph is active.
+The post-release DSA hardening workgraph has reached final closure
+reconciliation.
 
 Current public release pair:
 
@@ -48,10 +49,22 @@ run. AO2 Linux verification therefore used the authorized Docker Linux x86_64
 substitute, `AO2_LINUX_X86_64_SMOKE_MODE=docker`, matching the operator
 clarification for this handoff.
 
-Next action: continue the post-release DSA hardening workgraph at
-`n053-control-plane-index-baseline-red`. Do not start another release train,
-external beta, promotion, provider pilot, live self-modification, or RSI work
-from this Mission closure.
+Final closure evidence:
+
+- `stable-release-qualification.json`: frozen-head qualification, retained
+  Windows topology, three-OS verification, and release immutability passed.
+- `repository-decisions.json`: all fourteen repositories are recorded with
+  evaluated decisions, PRs, merge commits, and no-change evidence.
+- `boundary-confirmation.json`: promotion, external beta, and provider pilot
+  remain denied or unrequested. RSI remains denied. The only published pair
+  recorded here is AO2 `v0.5.2` with AO2 Control Plane `v0.1.17`.
+- `final-report.md`: terminal report for the AO Stack qualification, release,
+  and DSA hardening run.
+
+Next action: plan the next bounded AO Stack maintenance pass from the final
+report's recommended action. Do not start another release train, external beta,
+promotion, provider pilot, live self-modification, or RSI work from this
+Mission closure.
 
 The earlier bounded-autonomy and product validation cycle remains recorded
 below as historical closure context.
