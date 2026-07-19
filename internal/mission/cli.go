@@ -804,6 +804,42 @@ func run(args []string, stdout io.Writer) error {
 		}
 		_ = every
 		return printJSON(stdout, ScheduleReadback(*id, *every, *eventLoop))
+	case "qualification":
+		if len(args) < 2 {
+			return errors.New("qualification requires orchestrate")
+		}
+		switch args[1] {
+		case "orchestrate":
+			fs := flag.NewFlagSet("qualification orchestrate", flag.ContinueOnError)
+			fixturePath := fs.String("fixture", "", "")
+			jsonOut := fs.Bool("json", false, "json output")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*fixturePath) == "" {
+				return errors.New("qualification orchestrate requires --fixture")
+			}
+			readback, err := BuildQualificationOrchestrationReadback(*fixturePath)
+			if err != nil {
+				return err
+			}
+			if *jsonOut {
+				return printJSON(stdout, readback)
+			}
+			fmt.Fprintf(stdout, "qualification_orchestration=%s\nmission=%s\naffected_shards=%d\nfinal_qualification_mode=%s\nsource_heads=%d\nexact_head_required=%t\ncheckpoint_after_each_shard=%t\nrestart_from_zero_allowed=%t\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\nmutates_repositories=false\ncalls_providers=false\nreleases_or_deploys=false\nnext=%s\n",
+				readback.Status,
+				readback.MissionID,
+				readback.AffectedShardCount,
+				readback.FinalQualificationMode,
+				readback.SourceHeadCount,
+				readback.ExactHeadRequired,
+				readback.CheckpointAfterEachShard,
+				readback.RestartFromZeroAllowed,
+				readback.ExactNextAction)
+			return nil
+		default:
+			return errors.New("qualification requires orchestrate")
+		}
 	case "daemon":
 		if len(args) < 2 {
 			return errors.New("daemon requires install/status/uninstall")
