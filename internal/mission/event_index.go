@@ -16,16 +16,21 @@ type MissionEventSearchFilters struct {
 }
 
 func BuildMissionEventIndex(s Store) (MissionEventIndex, error) {
-	records, err := s.List()
+	records, stats, err := s.listFilteredWithStats(ListFilters{})
 	if err != nil {
 		return MissionEventIndex{}, err
 	}
+	return buildMissionEventIndexFromRecords(s, records, stats)
+}
+
+func buildMissionEventIndexFromRecords(s Store, records []Record, stats storeListStats) (MissionEventIndex, error) {
 	index := MissionEventIndex{
 		Schema:              "ao.mission.event-index.v0.2",
 		Status:              "ready",
 		IndexVersion:        "v0.2",
 		Root:                s.Root,
 		MissionCount:        len(records),
+		StoreFileReads:      stats.StoreFileReads,
 		Events:              []MissionEvent{},
 		SafeToExecute:       false,
 		ExecutesWork:        false,
@@ -34,7 +39,9 @@ func BuildMissionEventIndex(s Store) (MissionEventIndex, error) {
 		GeneratedAtUTC:      now(s.Clock),
 	}
 	for _, record := range records {
-		index.Events = append(index.Events, missionEventsForRecord(record)...)
+		events := missionEventsForRecord(record)
+		index.EventConstructionCount += len(events)
+		index.Events = append(index.Events, events...)
 	}
 	index.TotalEvents = len(index.Events)
 	sourceBody, err := json.Marshal(records)
@@ -72,6 +79,9 @@ func ValidateMissionEventIndexDigest(index MissionEventIndex) error {
 func digestMissionEventIndex(index MissionEventIndex) (string, error) {
 	copy := index
 	copy.IndexDigest = ""
+	copy.GeneratedAtUTC = ""
+	copy.StoreFileReads = 0
+	copy.EventConstructionCount = 0
 	body, err := json.Marshal(copy)
 	if err != nil {
 		return "", err
@@ -553,7 +563,15 @@ func BuildMissionDoctorReadback(s Store) MissionDoctorReadback {
 		return readback
 	}
 	readback.Checks = append(readback.Checks, "mission_store_initialized")
-	index, err := BuildMissionEventIndex(s)
+	records, stats, err := s.listFilteredWithStats(ListFilters{})
+	if err != nil {
+		readback.Status = "blocked"
+		readback.Blockers = append(readback.Blockers, "mission records reload failed: "+err.Error())
+		return readback
+	}
+	readback.StoreListCount = stats.StoreListCount
+	readback.StoreFileReads = stats.StoreFileReads
+	index, err := buildMissionEventIndexFromRecords(s, records, stats)
 	if err != nil {
 		readback.Status = "blocked"
 		readback.Blockers = append(readback.Blockers, "mission event index failed: "+err.Error())
@@ -561,12 +579,6 @@ func BuildMissionDoctorReadback(s Store) MissionDoctorReadback {
 	}
 	readback.MissionCount = index.MissionCount
 	readback.EventCount = index.TotalEvents
-	records, err := s.List()
-	if err != nil {
-		readback.Status = "blocked"
-		readback.Blockers = append(readback.Blockers, "mission records reload failed: "+err.Error())
-		return readback
-	}
 	for _, record := range records {
 		if record.GoalLease != nil {
 			readback.LeaseCount++
@@ -727,16 +739,11 @@ func BuildMissionDashboardReadback(s Store, missionID string, compact bool) (Mis
 	if err != nil {
 		return MissionDashboardReadback{}, err
 	}
-	index, err := BuildMissionEventIndex(s)
+	index, err := buildMissionEventIndexFromRecords(s, []Record{record}, storeListStats{StoreFileReads: 1})
 	if err != nil {
 		return MissionDashboardReadback{}, err
 	}
-	events := []MissionEvent{}
-	for _, event := range index.Events {
-		if event.MissionID == record.MissionID {
-			events = append(events, event)
-		}
-	}
+	events := append([]MissionEvent(nil), index.Events...)
 	if compact && len(events) > 5 {
 		events = events[len(events)-5:]
 	}

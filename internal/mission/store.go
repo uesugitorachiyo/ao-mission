@@ -81,17 +81,28 @@ type ListFilters struct {
 	Route  string
 }
 
+type storeListStats struct {
+	StoreListCount int
+	StoreFileReads int
+}
+
 func (s Store) List() ([]Record, error) {
 	return s.ListFiltered(ListFilters{})
 }
 
 func (s Store) ListFiltered(filters ListFilters) ([]Record, error) {
+	records, _, err := s.listFilteredWithStats(filters)
+	return records, err
+}
+
+func (s Store) listFilteredWithStats(filters ListFilters) ([]Record, storeListStats, error) {
+	stats := storeListStats{StoreListCount: 1}
 	if err := s.Init(); err != nil {
-		return nil, err
+		return nil, stats, err
 	}
 	entries, err := os.ReadDir(filepath.Join(s.Root, "missions"))
 	if err != nil {
-		return nil, err
+		return nil, stats, err
 	}
 	records := make([]Record, 0, len(entries))
 	for _, entry := range entries {
@@ -101,10 +112,11 @@ func (s Store) ListFiltered(filters ListFilters) ([]Record, error) {
 		var rec Record
 		body, err := os.ReadFile(filepath.Join(s.Root, "missions", entry.Name()))
 		if err != nil {
-			return nil, err
+			return nil, stats, err
 		}
+		stats.StoreFileReads++
 		if err := json.Unmarshal(body, &rec); err != nil {
-			return nil, err
+			return nil, stats, err
 		}
 		if rec.Schema != RecordSchema || rec.MissionID == "" {
 			continue
@@ -123,7 +135,7 @@ func (s Store) ListFiltered(filters ListFilters) ([]Record, error) {
 		}
 		return records[i].CreatedAtUTC < records[j].CreatedAtUTC
 	})
-	return records, nil
+	return records, stats, nil
 }
 func (s Store) Save(r Record) error {
 	if err := s.Init(); err != nil {
