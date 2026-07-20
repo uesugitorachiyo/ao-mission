@@ -416,6 +416,8 @@ func TestNativeCandidatesEmitSeparateHelpVersionAndFunctionalSmokeEvidence(t *te
 		`version_output=$("$package_dir/$binary" --version)`,
 		`version_output=${version_output%$'\r'}`,
 		`[ "$version_output" = "$expected_version_output" ]`,
+		`git cat-file blob "${SOURCE_SHA}:${VERSION_SOURCE_PATH}" > "$version_source_blob"`,
+		`actual_version_source_sha256=$(sha256sum "$version_source_blob" | awk '{print $1}')`,
 		"docs/sdd/AO-MISSION-V0.1.md",
 		"DISPATCH_SHA: ${{ github.sha }}",
 		`[ "$SOURCE_SHA" = "$DISPATCH_SHA" ]`,
@@ -434,6 +436,10 @@ func TestNativeCandidatesEmitSeparateHelpVersionAndFunctionalSmokeEvidence(t *te
 	}
 	if strings.Contains(workflow, `grep -F '"status": "ready"'`) {
 		t.Fatal("workflow must parse functional smoke JSON instead of matching its formatting")
+	}
+	if strings.Contains(workflow, `sha256sum "$VERSION_SOURCE_PATH"`) ||
+		strings.Contains(workflow, `shasum -a 256 "$VERSION_SOURCE_PATH"`) {
+		t.Fatal("workflow must hash exact committed version-source bytes, not a checkout-normalized working-tree file")
 	}
 }
 

@@ -962,13 +962,15 @@ jobs:
           {"command":"no-args-usage","expected_exit":"nonzero","status":"passed"}
           EOF
 
+          version_source_blob="$package_dir/version-source.txt"
+          git cat-file blob "${SOURCE_SHA}:${VERSION_SOURCE_PATH}" > "$version_source_blob"
           if command -v sha256sum >/dev/null 2>&1; then
-            actual_version_source_sha256=$(sha256sum "$VERSION_SOURCE_PATH" | awk '{print $1}')
+            actual_version_source_sha256=$(sha256sum "$version_source_blob" | awk '{print $1}')
           else
-            actual_version_source_sha256=$(shasum -a 256 "$VERSION_SOURCE_PATH" | awk '{print $1}')
+            actual_version_source_sha256=$(shasum -a 256 "$version_source_blob" | awk '{print $1}')
           fi
           [ "$actual_version_source_sha256" = "$VERSION_SOURCE_SHA256" ]
-          head -n 1 "$VERSION_SOURCE_PATH" | grep -F "# AO Mission v0.1 SDD"
+          head -n 1 "$version_source_blob" | grep -F "# AO Mission v0.1 SDD"
           expected_version_output="ao-mission version=${RELEASE_VERSION} source_sha=${SOURCE_SHA}"
           version_output=$("$package_dir/$binary" --version)
           version_output=${version_output%$'\r'}
