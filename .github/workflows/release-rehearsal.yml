@@ -1,0 +1,394 @@
+name: Release rehearsal
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact AO Mission release version without the v prefix.
+        required: true
+        type: string
+      tag:
+        description: Exact release tag, which must match v<version>.
+        required: true
+        type: string
+      source_sha:
+        description: Exact source commit for every candidate and the plan.
+        required: true
+        type: string
+      approved_manifest_digest:
+        description: SHA-256 digest of the approved release asset manifest.
+        required: true
+        type: string
+      release_notes:
+        description: Approved release notes bound into the promotion plan.
+        required: true
+        type: string
+      dry_run:
+        description: Keep publication disabled and emit the no-publication boundary.
+        required: true
+        default: true
+        type: boolean
+      live_confirmation:
+        description: Required only for a future live publication.
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  bind-release-inputs:
+    name: Bind release inputs to this exact workflow source
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.bind.outputs.version }}
+      tag: ${{ steps.bind.outputs.tag }}
+      source_sha: ${{ steps.bind.outputs.source_sha }}
+      approved_manifest_digest: ${{ steps.bind.outputs.approved_manifest_digest }}
+      release_notes_sha256: ${{ steps.bind.outputs.release_notes_sha256 }}
+    steps:
+      - id: bind
+        name: Validate version, tag, source, and approved manifest digest
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          APPROVED_MANIFEST_DIGEST: ${{ inputs.approved_manifest_digest }}
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]
+          [ "$RELEASE_TAG" = "v$RELEASE_VERSION" ]
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [ "$SOURCE_SHA" = "$GITHUB_SHA" ]
+          [[ "$APPROVED_MANIFEST_DIGEST" =~ ^[0-9a-f]{64}$ ]]
+          [ -n "$RELEASE_NOTES" ]
+          release_notes_sha256=$(printf '%s' "$RELEASE_NOTES" | sha256sum | awk '{print $1}')
+          {
+            echo "version=$RELEASE_VERSION"
+            echo "tag=$RELEASE_TAG"
+            echo "source_sha=$SOURCE_SHA"
+            echo "approved_manifest_digest=$APPROVED_MANIFEST_DIGEST"
+            echo "release_notes_sha256=$release_notes_sha256"
+          } >> "$GITHUB_OUTPUT"
+
+  native-candidates:
+    name: Native candidate (${{ matrix.target_label }})
+    needs: bind-release-inputs
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target_label: linux-x86_64
+            archive_extension: tar.gz
+            binary_suffix: ""
+          - os: macos-latest
+            target_label: macos-aarch64
+            archive_extension: tar.gz
+            binary_suffix: ""
+          - os: windows-latest
+            target_label: windows-x86_64
+            archive_extension: zip
+            binary_suffix: ".exe"
+    steps:
+      - name: Check out the bound source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.bind-release-inputs.outputs.source_sha }}
+          fetch-depth: 1
+
+      - name: Verify exact source checkout
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ needs.bind-release-inputs.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          [ "$(git rev-parse HEAD)" = "$SOURCE_SHA" ]
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Build, package, and smoke the native candidate
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.bind-release-inputs.outputs.version }}
+          RELEASE_TAG: ${{ needs.bind-release-inputs.outputs.tag }}
+          SOURCE_SHA: ${{ needs.bind-release-inputs.outputs.source_sha }}
+          APPROVED_MANIFEST_DIGEST: ${{ needs.bind-release-inputs.outputs.approved_manifest_digest }}
+          RELEASE_NOTES_SHA256: ${{ needs.bind-release-inputs.outputs.release_notes_sha256 }}
+          TARGET_LABEL: ${{ matrix.target_label }}
+          ARCHIVE_EXTENSION: ${{ matrix.archive_extension }}
+          BINARY_SUFFIX: ${{ matrix.binary_suffix }}
+        run: |
+          set -euo pipefail
+          artifact_dir="target/release-rehearsal/candidate-${TARGET_LABEL}"
+          binary="ao-mission${BINARY_SUFFIX}"
+          archive="ao-mission-${RELEASE_VERSION}-${TARGET_LABEL}.${ARCHIVE_EXTENSION}"
+          mkdir -p "$artifact_dir"
+          go build -trimpath -o "$artifact_dir/$binary" ./cmd/ao-mission
+          set +e
+          "$artifact_dir/$binary" > "$artifact_dir/smoke.txt" 2>&1
+          smoke_exit=$?
+          set -e
+          if [ "$smoke_exit" -eq 0 ]; then
+            echo "expected no-argument usage smoke to return non-zero" >&2
+            exit 1
+          fi
+          cp LICENSE "$artifact_dir/"
+          if [ -f NOTICE ]; then
+            cp NOTICE "$artifact_dir/"
+          fi
+          go list -m -json all > "$artifact_dir/sbom.json"
+          go_version=$(go version | sed 's/"/\\"/g')
+          cat > "$artifact_dir/provenance.json" <<EOF
+          {"approved_manifest_digest":"${APPROVED_MANIFEST_DIGEST}","go_version":"${go_version}","release_notes_sha256":"${RELEASE_NOTES_SHA256}","repository":"ao-mission","runner_os":"${RUNNER_OS}","source_sha":"${SOURCE_SHA}","target_label":"${TARGET_LABEL}","version":"${RELEASE_VERSION}","workflow_ref":"${GITHUB_WORKFLOW_REF}","workflow_sha":"${GITHUB_WORKFLOW_SHA}"}
+          EOF
+          if [ "$ARCHIVE_EXTENSION" = "zip" ]; then
+            (cd "$artifact_dir" && 7z a "$archive" "$binary" LICENSE NOTICE smoke.txt sbom.json provenance.json)
+          else
+            (cd "$artifact_dir" && tar -czf "$archive" "$binary" LICENSE NOTICE smoke.txt sbom.json provenance.json)
+          fi
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "$artifact_dir/$archive" > "$artifact_dir/SHA256SUMS"
+          else
+            shasum -a 256 "$artifact_dir/$archive" > "$artifact_dir/SHA256SUMS"
+          fi
+          archive_sha256=$(awk '{print $1}' "$artifact_dir/SHA256SUMS")
+          cat > "$artifact_dir/candidate-summary.json" <<EOF
+          {"approved_manifest_digest":"${APPROVED_MANIFEST_DIGEST}","archive":"${archive}","archive_sha256":"${archive_sha256}","license":"LICENSE","release_notes_sha256":"${RELEASE_NOTES_SHA256}","repository":"ao-mission","schema_version":"ao.release-rehearsal-candidate.v0.1","smoke":{"command":"no-args-usage","expected_success":false,"status":"passed"},"source_sha":"${SOURCE_SHA}","target_label":"${TARGET_LABEL}","version":"${RELEASE_VERSION}"}
+          EOF
+
+      - name: Upload immutable native candidate
+        uses: actions/upload-artifact@v7
+        with:
+          name: ao-mission-release-candidate-${{ matrix.target_label }}-${{ needs.bind-release-inputs.outputs.source_sha }}
+          path: target/release-rehearsal/candidate-${{ matrix.target_label }}
+          retention-days: 14
+
+  assemble-promotion-plan:
+    name: Assemble immutable checksummed promotion plan
+    needs:
+      - bind-release-inputs
+      - native-candidates
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download all bound native candidates
+        uses: actions/download-artifact@v8
+        with:
+          pattern: ao-mission-release-candidate-*-${{ needs.bind-release-inputs.outputs.source_sha }}
+          path: target/release-rehearsal/downloads
+
+      - name: Assemble immutable promotion plan and dry-run boundary
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.bind-release-inputs.outputs.version }}
+          RELEASE_TAG: ${{ needs.bind-release-inputs.outputs.tag }}
+          SOURCE_SHA: ${{ needs.bind-release-inputs.outputs.source_sha }}
+          APPROVED_MANIFEST_DIGEST: ${{ needs.bind-release-inputs.outputs.approved_manifest_digest }}
+          RELEASE_NOTES_SHA256: ${{ needs.bind-release-inputs.outputs.release_notes_sha256 }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path("target/release-rehearsal/downloads")
+          out = Path("target/release-rehearsal/promotion-plan")
+          out.mkdir(parents=True, exist_ok=True)
+          expected_targets = {"linux-x86_64", "macos-aarch64", "windows-x86_64"}
+          candidates = []
+          summaries = sorted(root.rglob("candidate-summary.json"))
+          if len(summaries) != len(expected_targets):
+              raise SystemExit(f"expected {len(expected_targets)} candidate summaries, found {len(summaries)}")
+          for summary_path in summaries:
+              candidate = json.loads(summary_path.read_text(encoding="utf-8"))
+              archive = summary_path.parent / candidate["archive"]
+              if not archive.is_file() or not (summary_path.parent / "LICENSE").is_file():
+                  raise SystemExit(f"candidate material missing beside {summary_path}")
+              actual_digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+              if actual_digest != candidate["archive_sha256"]:
+                  raise SystemExit(f"archive checksum mismatch for {archive}")
+              if candidate["source_sha"] != os.environ["SOURCE_SHA"]:
+                  raise SystemExit(f"source drift in {summary_path}")
+              if candidate["version"] != os.environ["RELEASE_VERSION"]:
+                  raise SystemExit(f"version drift in {summary_path}")
+              if candidate["approved_manifest_digest"] != os.environ["APPROVED_MANIFEST_DIGEST"]:
+                  raise SystemExit(f"approved manifest drift in {summary_path}")
+              if candidate["smoke"] != {"command": "no-args-usage", "expected_success": False, "status": "passed"}:
+                  raise SystemExit(f"smoke contract mismatch in {summary_path}")
+              candidates.append(candidate)
+          targets = [candidate["target_label"] for candidate in candidates]
+          if set(targets) != expected_targets or len(targets) != len(set(targets)):
+              raise SystemExit(f"missing, duplicate, or unexpected target: {targets}")
+          plan = {
+              "approved_manifest_digest": os.environ["APPROVED_MANIFEST_DIGEST"],
+              "candidates": sorted(candidates, key=lambda candidate: candidate["target_label"]),
+              "immutable": True,
+              "release_notes_sha256": os.environ["RELEASE_NOTES_SHA256"],
+              "repository": "ao-mission",
+              "schema_version": "ao.release-rehearsal-promotion-plan.v0.1",
+              "source_sha": os.environ["SOURCE_SHA"],
+              "tag": os.environ["RELEASE_TAG"],
+              "version": os.environ["RELEASE_VERSION"],
+          }
+          boundary = {
+              "dry_run": os.environ["DRY_RUN"].lower() == "true",
+              "publication_performed": False,
+              "public_upload_attempted": False,
+              "release_creation_attempted": False,
+              "schema_version": "ao.release-rehearsal-dry-run-boundary.v0.1",
+              "source_sha": os.environ["SOURCE_SHA"],
+              "tag_creation_attempted": False,
+          }
+          (out / "immutable-promotion-plan.json").write_text(json.dumps(plan, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          (out / "dry-run-boundary.json").write_text(json.dumps(boundary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          digest = hashlib.sha256((out / "immutable-promotion-plan.json").read_bytes()).hexdigest()
+          (out / "immutable-promotion-plan.sha256").write_text(f"{digest}  immutable-promotion-plan.json\n", encoding="utf-8")
+          PY
+
+      - name: Upload immutable promotion plan
+        uses: actions/upload-artifact@v7
+        with:
+          name: ao-mission-release-rehearsal-plan-${{ needs.bind-release-inputs.outputs.source_sha }}
+          path: target/release-rehearsal/promotion-plan
+          retention-days: 14
+
+  publish-release:
+    name: Publish approved release
+    needs:
+      - bind-release-inputs
+      - assemble-promotion-plan
+    if: ${{ inputs.dry_run == false && inputs.live_confirmation == format('publish-ao-mission-{0}-{1}-{2}-{3}', inputs.version, inputs.tag, inputs.source_sha, inputs.approved_manifest_digest) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    environment: ao-mission-release
+    steps:
+      - name: Check out the bound source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.bind-release-inputs.outputs.source_sha }}
+          fetch-depth: 1
+
+      - name: Download immutable promotion plan
+        uses: actions/download-artifact@v8
+        with:
+          name: ao-mission-release-rehearsal-plan-${{ needs.bind-release-inputs.outputs.source_sha }}
+          path: target/release-rehearsal/promotion-plan
+
+      - name: Download approved native candidate archives
+        uses: actions/download-artifact@v8
+        with:
+          pattern: ao-mission-release-candidate-*-${{ needs.bind-release-inputs.outputs.source_sha }}
+          path: target/release-rehearsal/candidates
+
+      - name: Verify the exact immutable promotion plan
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          APPROVED_MANIFEST_DIGEST: ${{ inputs.approved_manifest_digest }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          plan_dir = Path("target/release-rehearsal/promotion-plan")
+          plan_path = plan_dir / "immutable-promotion-plan.json"
+          expected = (plan_dir / "immutable-promotion-plan.sha256").read_text(encoding="utf-8").split()[0]
+          actual = hashlib.sha256(plan_path.read_bytes()).hexdigest()
+          if actual != expected:
+              raise SystemExit("immutable promotion plan checksum mismatch")
+          plan = json.loads(plan_path.read_text(encoding="utf-8"))
+          for key, environment_key in {
+              "version": "RELEASE_VERSION",
+              "tag": "RELEASE_TAG",
+              "source_sha": "SOURCE_SHA",
+              "approved_manifest_digest": "APPROVED_MANIFEST_DIGEST",
+          }.items():
+              if plan[key] != os.environ[environment_key]:
+                  raise SystemExit(f"promotion plan {key} does not match bound input")
+          if {candidate["target_label"] for candidate in plan["candidates"]} != {"linux-x86_64", "macos-aarch64", "windows-x86_64"}:
+              raise SystemExit("promotion plan does not contain exactly three native candidates")
+          candidate_root = Path("target/release-rehearsal/candidates")
+          expected_assets = {candidate["archive"]: candidate["archive_sha256"] for candidate in plan["candidates"]}
+          downloaded_assets = {path.name: path for path in candidate_root.rglob("*") if path.is_file() and path.name in expected_assets}
+          if set(downloaded_assets) != set(expected_assets):
+              raise SystemExit("approved candidate archive set is incomplete or unexpected")
+          for asset_name, expected_digest in expected_assets.items():
+              actual_digest = hashlib.sha256(downloaded_assets[asset_name].read_bytes()).hexdigest()
+              if actual_digest != expected_digest:
+                  raise SystemExit(f"candidate archive checksum mismatch for {asset_name}")
+          PY
+
+      - name: Publish only the approved candidate archives
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+        run: |
+          set -euo pipefail
+          [ "$(git rev-parse HEAD)" = "$SOURCE_SHA" ]
+          mapfile -t archives < <(find target/release-rehearsal/candidates -type f \( -name '*.tar.gz' -o -name '*.zip' \) | sort)
+          [ "${#archives[@]}" -eq 3 ]
+          gh release create "$RELEASE_TAG" --target "$SOURCE_SHA" --title "AO Mission $RELEASE_VERSION" --notes "$RELEASE_NOTES" "${archives[@]}"
+
+  verify-published-release:
+    name: Independently verify published assets
+    needs:
+      - bind-release-inputs
+      - publish-release
+    if: ${{ needs.publish-release.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download immutable promotion plan
+        uses: actions/download-artifact@v8
+        with:
+          name: ao-mission-release-rehearsal-plan-${{ needs.bind-release-inputs.outputs.source_sha }}
+          path: target/release-rehearsal/promotion-plan
+
+      - name: Download and verify public assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.bind-release-inputs.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release download "$RELEASE_TAG" --dir target/release-rehearsal/public-assets
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          plan = json.loads(Path("target/release-rehearsal/promotion-plan/immutable-promotion-plan.json").read_text(encoding="utf-8"))
+          public_assets = Path("target/release-rehearsal/public-assets")
+          for candidate in plan["candidates"]:
+              asset = public_assets / candidate["archive"]
+              if not asset.is_file() or hashlib.sha256(asset.read_bytes()).hexdigest() != candidate["archive_sha256"]:
+                  raise SystemExit(f"public asset verification failed for {candidate['archive']}")
+          PY
