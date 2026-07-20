@@ -417,7 +417,12 @@ func TestNativeCandidatesEmitSeparateHelpVersionAndFunctionalSmokeEvidence(t *te
 		`version_output=${version_output%$'\r'}`,
 		`[ "$version_output" = "$expected_version_output" ]`,
 		`git cat-file blob "${SOURCE_SHA}:${VERSION_SOURCE_PATH}" > "$version_source_blob"`,
-		`actual_version_source_sha256=$(sha256sum "$version_source_blob" | awk '{print $1}')`,
+		`actual_version_source_sha256=$(sha256sum < "$version_source_blob" | awk '{print $1}')`,
+		`actual_version_source_sha256=$(shasum -a 256 < "$version_source_blob" | awk '{print $1}')`,
+		`binary_sha256=$(sha256sum < "$package_dir/$binary" | awk '{print $1}')`,
+		`binary_sha256=$(shasum -a 256 < "$package_dir/$binary" | awk '{print $1}')`,
+		`provenance_sha256=$(sha256sum < "$artifact_dir/provenance.json" | awk '{print $1}')`,
+		`provenance_sha256=$(shasum -a 256 < "$artifact_dir/provenance.json" | awk '{print $1}')`,
 		"docs/sdd/AO-MISSION-V0.1.md",
 		"DISPATCH_SHA: ${{ github.sha }}",
 		`[ "$SOURCE_SHA" = "$DISPATCH_SHA" ]`,
@@ -440,6 +445,18 @@ func TestNativeCandidatesEmitSeparateHelpVersionAndFunctionalSmokeEvidence(t *te
 	if strings.Contains(workflow, `sha256sum "$VERSION_SOURCE_PATH"`) ||
 		strings.Contains(workflow, `shasum -a 256 "$VERSION_SOURCE_PATH"`) {
 		t.Fatal("workflow must hash exact committed version-source bytes, not a checkout-normalized working-tree file")
+	}
+	for _, unsafe := range []string{
+		`sha256sum "$version_source_blob"`,
+		`shasum -a 256 "$version_source_blob"`,
+		`sha256sum "$package_dir/$binary"`,
+		`shasum -a 256 "$package_dir/$binary"`,
+		`sha256sum "$artifact_dir/provenance.json"`,
+		`shasum -a 256 "$artifact_dir/provenance.json"`,
+	} {
+		if strings.Contains(workflow, unsafe) {
+			t.Fatalf("workflow hashes a Windows path as a sha256sum filename, allowing an escaped digest marker: %s", unsafe)
+		}
 	}
 }
 
