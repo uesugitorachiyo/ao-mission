@@ -409,6 +409,7 @@ func TestNativeCandidatesEmitSeparateHelpVersionAndFunctionalSmokeEvidence(t *te
 		"version-output.txt",
 		"functional-smoke-evidence.json",
 		"validate contract --path examples/valid/mission-record.json",
+		`if json.load(open(sys.argv[1], encoding="utf-8")).get("status") != "ready":`,
 		"provider_calls",
 		"-X github.com/uesugitorachiyo/ao-mission/internal/mission.BuildVersion=${RELEASE_VERSION}",
 		"-X github.com/uesugitorachiyo/ao-mission/internal/mission.BuildSourceSHA=${SOURCE_SHA}",
@@ -430,6 +431,9 @@ func TestNativeCandidatesEmitSeparateHelpVersionAndFunctionalSmokeEvidence(t *te
 	}
 	if strings.Contains(workflow, `"smoke":{"command":"no-args-usage"`) {
 		t.Fatal("workflow still classifies no-argument failure as functional smoke")
+	}
+	if strings.Contains(workflow, `grep -F '"status": "ready"'`) {
+		t.Fatal("workflow must parse functional smoke JSON instead of matching its formatting")
 	}
 }
 

@@ -979,7 +979,13 @@ jobs:
           EOF
 
           "$package_dir/$binary" validate contract --path examples/valid/mission-record.json > "$package_dir/functional-smoke-output.json"
-          grep -F '"status": "ready"' "$package_dir/functional-smoke-output.json"
+          python3 - "$package_dir/functional-smoke-output.json" <<'PY'
+          import json
+          import sys
+
+          if json.load(open(sys.argv[1], encoding="utf-8")).get("status") != "ready":
+              raise SystemExit("functional smoke status is not ready")
+          PY
           cat > "$package_dir/functional-smoke-evidence.json" <<EOF
           {"command":"validate contract --path examples/valid/mission-record.json","provider_calls":false,"status":"passed"}
           EOF
