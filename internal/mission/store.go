@@ -67,6 +67,69 @@ func (s Store) Start(objective string) (Record, error) {
 	AppendRouteHistory(&rec, route)
 	return rec, s.Save(rec)
 }
+
+type ObjectiveStartOptions struct {
+	CorrelationID string
+}
+
+var correlationIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
+
+func (s Store) StartObjective(objective string, opts ObjectiveStartOptions) (ObjectiveWorkflowContract, error) {
+	objective = strings.TrimSpace(objective)
+	if objective == "" {
+		return ObjectiveWorkflowContract{}, errors.New("objective is required")
+	}
+	if err := s.Init(); err != nil {
+		return ObjectiveWorkflowContract{}, err
+	}
+	t := time.Now
+	if s.Clock != nil {
+		t = s.Clock
+	}
+	stamp := now(t)
+	id := MissionID(objective, t())
+	correlationID := strings.TrimSpace(opts.CorrelationID)
+	if correlationID == "" {
+		correlationID = "corr-" + strings.TrimPrefix(id, "mission-")
+	}
+	if !correlationIDPattern.MatchString(correlationID) {
+		return ObjectiveWorkflowContract{}, errors.New("correlation ID must match [A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
+	}
+	contract := DecideObjectiveWorkflow(id, correlationID, objective, stamp)
+	rec := Record{
+		Schema:           RecordSchema,
+		MissionID:        id,
+		CorrelationID:    correlationID,
+		Objective:        objective,
+		ObjectiveDigest:  contract.ObjectiveDigest,
+		Status:           "active",
+		CreatedAtUTC:     stamp,
+		UpdatedAtUTC:     stamp,
+		CurrentRoute:     contract.InitialRoute,
+		CurrentPhase:     "routing",
+		ExactNextAction:  contract.ExactNextAction,
+		ArtifactRefs:     []ArtifactRef{},
+		Blockers:         []string{},
+		Steps:            []ContinuationStep{},
+		WorkflowContract: &contract,
+	}
+	AppendRouteHistory(&rec, RouteDecision{
+		Schema:          RouteSchema,
+		MissionID:       id,
+		Route:           contract.InitialRoute,
+		Reason:          "objective workflow classified as " + contract.RoutingClass,
+		SafeToRequest:   true,
+		SafeToExecute:   false,
+		SafeToPromote:   false,
+		ExactNextAction: contract.ExactNextAction,
+		GeneratedAtUTC:  stamp,
+	})
+	if err := s.Save(rec); err != nil {
+		return ObjectiveWorkflowContract{}, err
+	}
+	return contract, nil
+}
+
 func (s Store) Load(id string) (Record, error) {
 	var r Record
 	b, err := os.ReadFile(s.path(id))

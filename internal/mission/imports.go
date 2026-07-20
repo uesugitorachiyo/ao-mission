@@ -12,6 +12,7 @@ import (
 type ImportReadback struct {
 	Schema          string      `json:"schema"`
 	MissionID       string      `json:"mission_id"`
+	CorrelationID   string      `json:"correlation_id,omitempty"`
 	Kind            string      `json:"kind"`
 	Status          string      `json:"status"`
 	Artifact        ArtifactRef `json:"artifact"`
@@ -39,6 +40,19 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 			if boolFromAny(doc[field]) {
 				return ImportReadback{}, fmt.Errorf("%s %s must be false", kind, field)
 			}
+		}
+	}
+	existing, err := s.Load(missionID)
+	if err != nil {
+		return ImportReadback{}, err
+	}
+	if existing.CorrelationID != "" {
+		correlationID := stringFromAny(doc["correlation_id"])
+		if correlationID == "" {
+			return ImportReadback{}, fmt.Errorf("%s correlation_id is required for correlated mission", kind)
+		}
+		if correlationID != existing.CorrelationID {
+			return ImportReadback{}, fmt.Errorf("%s correlation_id does not match mission", kind)
 		}
 	}
 	ref := ArtifactRef{Schema: ArtifactRefSchema, Ref: path, Digest: digestBytes(body), Kind: kind}
@@ -233,6 +247,7 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 	return ImportReadback{
 		Schema:          "ao.mission.import-readback.v0.1",
 		MissionID:       r.MissionID,
+		CorrelationID:   r.CorrelationID,
 		Kind:            kind,
 		Status:          "recorded",
 		Artifact:        ref,

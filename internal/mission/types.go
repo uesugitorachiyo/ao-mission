@@ -1,6 +1,12 @@
 package mission
 
-import "time"
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"time"
+)
 
 const (
 	RecordSchema            = "ao.mission.record.v0.1"
@@ -19,6 +25,7 @@ const (
 	A2ATaskSchema           = "ao.mission.a2a-task.v0.1"
 	ArtifactRefSchema       = "ao.mission.artifact-ref.v0.1"
 	ErrorSchema             = "ao.mission.error.v0.1"
+	ObjectiveWorkflowSchema = "ao.mission.objective-workflow-contract.v0.1"
 )
 
 type ArtifactRef struct {
@@ -29,25 +36,71 @@ type ArtifactRef struct {
 }
 
 type Record struct {
-	Schema          string               `json:"schema"`
-	MissionID       string               `json:"mission_id"`
-	Objective       string               `json:"objective"`
-	ObjectiveDigest string               `json:"objective_digest"`
-	Status          string               `json:"status"`
-	CreatedAtUTC    string               `json:"created_at_utc"`
-	UpdatedAtUTC    string               `json:"updated_at_utc"`
-	CurrentRoute    string               `json:"current_route"`
-	CurrentPhase    string               `json:"current_phase"`
-	Blockers        []string             `json:"blockers"`
-	ExactNextAction string               `json:"exact_next_action"`
-	ArtifactRefs    []ArtifactRef        `json:"artifact_refs"`
-	Steps           []ContinuationStep   `json:"steps"`
-	RouteHistory    []RouteDecision      `json:"route_history,omitempty"`
-	Evidence        EvidenceSummary      `json:"evidence,omitempty"`
-	GoalLease       *GoalLease           `json:"goal_lease,omitempty"`
-	Checkpoints     []MissionCheckpoint  `json:"checkpoints,omitempty"`
-	ReturnGate      *ReturnGate          `json:"return_gate,omitempty"`
-	Reconciliation  *RouteReconciliation `json:"route_reconciliation,omitempty"`
+	Schema            string                     `json:"schema"`
+	MissionID         string                     `json:"mission_id"`
+	CorrelationID     string                     `json:"correlation_id,omitempty"`
+	Objective         string                     `json:"objective"`
+	ObjectiveDigest   string                     `json:"objective_digest"`
+	ObjectiveRedacted bool                       `json:"objective_redacted,omitempty"`
+	Status            string                     `json:"status"`
+	CreatedAtUTC      string                     `json:"created_at_utc"`
+	UpdatedAtUTC      string                     `json:"updated_at_utc"`
+	CurrentRoute      string                     `json:"current_route"`
+	CurrentPhase      string                     `json:"current_phase"`
+	Blockers          []string                   `json:"blockers"`
+	ExactNextAction   string                     `json:"exact_next_action"`
+	ArtifactRefs      []ArtifactRef              `json:"artifact_refs"`
+	Steps             []ContinuationStep         `json:"steps"`
+	RouteHistory      []RouteDecision            `json:"route_history,omitempty"`
+	Evidence          EvidenceSummary            `json:"evidence,omitempty"`
+	GoalLease         *GoalLease                 `json:"goal_lease,omitempty"`
+	Checkpoints       []MissionCheckpoint        `json:"checkpoints,omitempty"`
+	ReturnGate        *ReturnGate                `json:"return_gate,omitempty"`
+	Reconciliation    *RouteReconciliation       `json:"route_reconciliation,omitempty"`
+	WorkflowContract  *ObjectiveWorkflowContract `json:"workflow_contract,omitempty"`
+}
+
+type ObjectiveWorkflowStage struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
+	Reason string `json:"reason"`
+}
+
+type ObjectiveWorkflowContract struct {
+	Schema              string                   `json:"schema"`
+	Status              string                   `json:"status"`
+	MissionID           string                   `json:"mission_id"`
+	CorrelationID       string                   `json:"correlation_id"`
+	ObjectiveDigest     string                   `json:"objective_digest"`
+	RoutingClass        string                   `json:"routing_class"`
+	AcceptanceStatus    string                   `json:"acceptance_status"`
+	InitialRoute        string                   `json:"initial_route"`
+	Stages              []ObjectiveWorkflowStage `json:"stages"`
+	LifecycleCommands   []string                 `json:"lifecycle_commands"`
+	ExactNextAction     string                   `json:"exact_next_action"`
+	SafeToExecute       bool                     `json:"safe_to_execute"`
+	ExecutesWork        bool                     `json:"executes_work"`
+	ApprovesWork        bool                     `json:"approves_work"`
+	MutatesRepositories bool                     `json:"mutates_repositories"`
+	GeneratedAtUTC      string                   `json:"generated_at_utc"`
+}
+
+func (contract *ObjectiveWorkflowContract) UnmarshalJSON(data []byte) error {
+	type alias ObjectiveWorkflowContract
+	var decoded alias
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&decoded); err != nil {
+		return err
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		if err == nil {
+			return fmt.Errorf("workflow contract contains trailing JSON")
+		}
+		return err
+	}
+	*contract = ObjectiveWorkflowContract(decoded)
+	return nil
 }
 
 type EvidenceSummary struct {
@@ -127,6 +180,7 @@ type GoalLease struct {
 type MissionCheckpoint struct {
 	Schema          string `json:"schema"`
 	MissionID       string `json:"mission_id"`
+	CorrelationID   string `json:"correlation_id,omitempty"`
 	Sequence        int    `json:"sequence"`
 	Iteration       int    `json:"iteration"`
 	Route           string `json:"route"`
@@ -155,6 +209,7 @@ type ReturnGate struct {
 type RouteReconciliation struct {
 	Schema                string `json:"schema"`
 	MissionID             string `json:"mission_id"`
+	CorrelationID         string `json:"correlation_id,omitempty"`
 	Status                string `json:"status"`
 	CurrentRoute          string `json:"current_route"`
 	LatestRoute           string `json:"latest_route"`
@@ -181,6 +236,7 @@ type FeatureDepthRecommendation struct {
 type MissionCheckpointBundle struct {
 	Schema              string             `json:"schema"`
 	MissionID           string             `json:"mission_id"`
+	CorrelationID       string             `json:"correlation_id,omitempty"`
 	Status              string             `json:"status"`
 	CheckpointCount     int                `json:"checkpoint_count"`
 	LatestCheckpoint    *MissionCheckpoint `json:"latest_checkpoint,omitempty"`
@@ -283,6 +339,7 @@ type RouteDecision struct {
 type ContinuationStep struct {
 	Schema          string `json:"schema"`
 	MissionID       string `json:"mission_id"`
+	CorrelationID   string `json:"correlation_id,omitempty"`
 	Iteration       int    `json:"iteration"`
 	Route           string `json:"route"`
 	Result          string `json:"result"`
@@ -293,6 +350,7 @@ type ContinuationStep struct {
 type GovernanceSnapshot struct {
 	Schema                  string        `json:"schema"`
 	MissionID               string        `json:"mission_id"`
+	CorrelationID           string        `json:"correlation_id,omitempty"`
 	ObjectiveDigest         string        `json:"objective_digest"`
 	CurrentOwner            string        `json:"current_owner"`
 	CurrentPhase            string        `json:"current_phase"`
@@ -338,6 +396,7 @@ type SchedulerReadback struct {
 type EventLoopDecision struct {
 	Schema              string `json:"schema"`
 	MissionID           string `json:"mission_id"`
+	CorrelationID       string `json:"correlation_id,omitempty"`
 	Iteration           int    `json:"iteration"`
 	Status              string `json:"status"`
 	Route               string `json:"route"`
@@ -653,6 +712,7 @@ type TimelineCompactionReadback struct {
 type CommandStatus struct {
 	Schema                    string                             `json:"schema"`
 	MissionID                 string                             `json:"mission_id"`
+	CorrelationID             string                             `json:"correlation_id,omitempty"`
 	Status                    string                             `json:"status"`
 	CurrentRoute              string                             `json:"current_route"`
 	CurrentPhase              string                             `json:"current_phase"`
@@ -674,6 +734,7 @@ type CommandStatus struct {
 type MissionFinalReconciliationPacket struct {
 	Schema                    string `json:"schema"`
 	MissionID                 string `json:"mission_id"`
+	CorrelationID             string `json:"correlation_id,omitempty"`
 	Status                    string `json:"status"`
 	ArtifactsAgree            bool   `json:"artifacts_agree"`
 	MissionStatus             string `json:"mission_status"`
@@ -840,6 +901,7 @@ type GatewayReadinessRollup struct {
 type MissionEvent struct {
 	Schema         string `json:"schema"`
 	MissionID      string `json:"mission_id"`
+	CorrelationID  string `json:"correlation_id,omitempty"`
 	Kind           string `json:"kind"`
 	Sequence       int    `json:"sequence"`
 	Status         string `json:"status,omitempty"`
@@ -1063,6 +1125,7 @@ type MissionDashboardReadback struct {
 	Schema              string         `json:"schema"`
 	Status              string         `json:"status"`
 	MissionID           string         `json:"mission_id"`
+	CorrelationID       string         `json:"correlation_id,omitempty"`
 	MissionStatus       string         `json:"mission_status"`
 	CurrentPhase        string         `json:"current_phase"`
 	CurrentRoute        string         `json:"current_route"`
@@ -1096,6 +1159,7 @@ type MissionVerificationBundleReadback struct {
 	Schema              string                               `json:"schema"`
 	Status              string                               `json:"status"`
 	MissionID           string                               `json:"mission_id"`
+	CorrelationID       string                               `json:"correlation_id,omitempty"`
 	ComponentCount      int                                  `json:"component_count"`
 	Components          []MissionVerificationBundleComponent `json:"components"`
 	BundleDigest        string                               `json:"bundle_digest"`

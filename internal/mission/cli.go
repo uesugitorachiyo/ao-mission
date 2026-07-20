@@ -40,7 +40,7 @@ func run(args []string, stdout io.Writer) error {
 		return nil
 	}
 	if len(args) == 0 {
-		return errors.New("usage: ao-mission [--home <dir>] <init|start|mission|continue|checkpoint|status|next|stop|pause|resume|doctor|schedule|daemon|telegram|a2a|gateway|governance|command|artifacts|validate|import|final>")
+		return errors.New("usage: ao-mission [--home <dir>] <init|start|objective|mission|continue|checkpoint|status|next|stop|pause|resume|doctor|schedule|daemon|telegram|a2a|gateway|governance|command|artifacts|validate|import|final>")
 	}
 	home, args, err := parseGlobalHome(args)
 	if err != nil {
@@ -66,6 +66,24 @@ func run(args []string, stdout io.Writer) error {
 			return err
 		}
 		return printJSON(stdout, r)
+	case "objective":
+		if len(args) < 2 || args[1] != "start" {
+			return errors.New("objective requires start")
+		}
+		fs := flag.NewFlagSet("objective start", flag.ContinueOnError)
+		objective := fs.String("objective", "", "")
+		correlationID := fs.String("correlation-id", "", "")
+		if err := fs.Parse(args[2:]); err != nil {
+			return err
+		}
+		if fs.NArg() != 0 {
+			return errors.New("objective start does not accept positional arguments")
+		}
+		contract, err := s.StartObjective(*objective, ObjectiveStartOptions{CorrelationID: *correlationID})
+		if err != nil {
+			return err
+		}
+		return printJSON(stdout, contract)
 	case "mission":
 		if len(args) < 2 {
 			return errors.New("mission requires list or inspect")
@@ -672,7 +690,7 @@ func run(args []string, stdout io.Writer) error {
 		}
 		var d RouteDecision
 		_, err := s.Update(*id, func(r *Record) error {
-			d = NextAction(*r)
+			d = NextActionForRecord(*r)
 			AppendRouteHistory(r, d)
 			return nil
 		})

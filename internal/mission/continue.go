@@ -28,8 +28,8 @@ func Continue(s Store, missionID string, opts ContinueOptions) (Record, error) {
 			if r.Status == "done" || hardBlockerExists(*r) {
 				break
 			}
-			decision := NextAction(*r)
-			step := ContinuationStep{Schema: StepSchema, MissionID: r.MissionID, Iteration: len(r.Steps) + 1, Route: decision.Route, Result: "handoff_required", ExactNextAction: decision.ExactNextAction, GeneratedAtUTC: now(s.Clock)}
+			decision := NextActionForRecord(*r)
+			step := ContinuationStep{Schema: StepSchema, MissionID: r.MissionID, CorrelationID: r.CorrelationID, Iteration: len(r.Steps) + 1, Route: decision.Route, Result: "handoff_required", ExactNextAction: decision.ExactNextAction, GeneratedAtUTC: now(s.Clock)}
 			r.Steps = append(r.Steps, step)
 			r.CurrentRoute = decision.Route
 			r.CurrentPhase = "handoff_required"
@@ -42,6 +42,7 @@ func Continue(s Store, missionID string, opts ContinueOptions) (Record, error) {
 			if err := s.SaveEventLoopDecision(EventLoopDecision{
 				Schema:              EventLoopDecisionSchema,
 				MissionID:           r.MissionID,
+				CorrelationID:       r.CorrelationID,
 				Iteration:           step.Iteration,
 				Status:              step.Result,
 				Route:               step.Route,
@@ -83,7 +84,11 @@ func Resume(s Store, id string) (Record, error) {
 	return s.Update(id, func(r *Record) error {
 		r.Status = "active"
 		r.CurrentPhase = "routing"
-		r.ExactNextAction = NextAction(*r).ExactNextAction
+		if r.WorkflowContract != nil && r.CurrentRoute == r.WorkflowContract.InitialRoute {
+			r.ExactNextAction = r.WorkflowContract.ExactNextAction
+		} else {
+			r.ExactNextAction = NextActionForRecord(*r).ExactNextAction
+		}
 		gate := EvaluateReturnGate(*r)
 		r.ReturnGate = &gate
 		reconciliation := BuildRouteReconciliation(*r)

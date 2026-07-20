@@ -171,6 +171,7 @@ func BuildCommandStatus(r Record) CommandStatus {
 	return CommandStatus{
 		Schema:                    "ao.command.mission-status.v0.1",
 		MissionID:                 r.MissionID,
+		CorrelationID:             r.CorrelationID,
 		Status:                    r.Status,
 		CurrentRoute:              r.CurrentRoute,
 		CurrentPhase:              r.CurrentPhase,

@@ -8,6 +8,7 @@ func BuildFinalReconciliationPacket(r Record) MissionFinalReconciliationPacket {
 	packet := MissionFinalReconciliationPacket{
 		Schema:                 "ao.mission.final-reconciliation-packet.v0.1",
 		MissionID:              r.MissionID,
+		CorrelationID:          r.CorrelationID,
 		Status:                 "blocked",
 		MissionStatus:          r.Status,
 		CommandStatus:          command.Status,

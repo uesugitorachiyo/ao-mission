@@ -14,6 +14,7 @@
   "properties": {
     "schema": { "type": "string", "const": "ao.mission.governance-snapshot.v0.1" },
     "mission_id": { "type": "string" },
+    "correlation_id": { "type": "string" },
     "highest_proven_live_class": { "type": "string" },
     "next_denied_class": { "type": "string" },
     "safe_to_execute": { "type": "boolean" },
