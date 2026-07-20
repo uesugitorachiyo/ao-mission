@@ -13,6 +13,11 @@ import (
 	"strings"
 )
 
+var (
+	BuildVersion   = "dev"
+	BuildSourceSHA = "unknown"
+)
+
 func Run(args []string, stdout, stderr io.Writer) int {
 	if err := run(args, stdout); err != nil {
 		fmt.Fprintln(stderr, "error:", err)
@@ -30,6 +35,10 @@ func printJSON(w io.Writer, v any) error {
 }
 
 func run(args []string, stdout io.Writer) error {
+	if len(args) == 1 && args[0] == "--version" {
+		fmt.Fprintf(stdout, "ao-mission version=%s source_sha=%s\n", BuildVersion, BuildSourceSHA)
+		return nil
+	}
 	if len(args) == 0 {
 		return errors.New("usage: ao-mission [--home <dir>] <init|start|mission|continue|checkpoint|status|next|stop|pause|resume|doctor|schedule|daemon|telegram|a2a|gateway|governance|command|artifacts|validate|import|final>")
 	}
