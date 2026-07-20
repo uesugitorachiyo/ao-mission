@@ -22,6 +22,23 @@ type ContractValidation struct {
 	Generated string   `json:"generated_at_utc"`
 }
 
+var (
+	objectiveWorkflowMissionIDPattern = regexp.MustCompile(`^mission-[0-9a-f]{16}$`)
+	objectiveWorkflowTimestampPattern = regexp.MustCompile(
+		`^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$`,
+	)
+)
+
+func validateNoDuplicateJSONKeys(body []byte) error {
+	if _, err := decodeExactJSON(body); err != nil {
+		if strings.Contains(err.Error(), "duplicate key") {
+			return fmt.Errorf("duplicate JSON key: %w", err)
+		}
+		return err
+	}
+	return nil
+}
+
 func ValidateContractFile(path string) (ContractValidation, error) {
 	result := ContractValidation{
 		Schema:    "ao.mission.contract-validation.v0.1",
@@ -38,6 +55,11 @@ func ValidateContractFile(path string) (ContractValidation, error) {
 		return result, err
 	}
 	if err := ValidatePublicSafeText(string(body)); err != nil {
+		result.Status = "blocked"
+		result.Blockers = append(result.Blockers, err.Error())
+		return result, err
+	}
+	if err := validateNoDuplicateJSONKeys(body); err != nil {
 		result.Status = "blocked"
 		result.Blockers = append(result.Blockers, err.Error())
 		return result, err
@@ -75,20 +97,98 @@ func ValidateContractFile(path string) (ContractValidation, error) {
 			result.Blockers = append(result.Blockers, fmt.Sprintf("%s must be %s", field, want))
 		}
 	}
-	if blockers := validateAgainstSchemaFile(path, doc, schema); len(blockers) > 0 {
-		result.Status = "blocked"
-		result.Blockers = append(result.Blockers, blockers...)
-	}
-	if schema == ObjectiveWorkflowSchema {
-		if blockers := validateObjectiveWorkflowSemantics(doc); len(blockers) > 0 {
+	if intrinsic, blockers := validateIntrinsicCorrelationContract(body, schema); intrinsic {
+		if len(blockers) > 0 {
 			result.Status = "blocked"
 			result.Blockers = append(result.Blockers, blockers...)
 		}
+	} else if blockers := validateAgainstSchemaFile(path, doc, schema); len(blockers) > 0 {
+		result.Status = "blocked"
+		result.Blockers = append(result.Blockers, blockers...)
 	}
 	if result.Status != "ready" {
 		return result, fmt.Errorf(strings.Join(result.Blockers, "; "))
 	}
 	return result, nil
+}
+
+func validateIntrinsicCorrelationContract(body []byte, schema string) (bool, []string) {
+	switch schema {
+	case CorrelationChainSchema:
+		var chain CorrelationChain
+		if err := json.Unmarshal(body, &chain); err != nil {
+			return true, []string{err.Error()}
+		}
+		if err := validateCorrelationChainContract(chain); err != nil {
+			return true, []string{err.Error()}
+		}
+		return true, nil
+	case CorrelationChainReferenceSchema:
+		var reference CorrelationChainReference
+		if err := json.Unmarshal(body, &reference); err != nil {
+			return true, []string{err.Error()}
+		}
+		record := Record{
+			MissionID:     reference.MissionID,
+			CorrelationID: reference.CorrelationID,
+		}
+		if err := validateCorrelationChainReference(reference, record); err != nil {
+			return true, []string{err.Error()}
+		}
+		return true, nil
+	case ObjectiveWorkflowSchema:
+		var contract ObjectiveWorkflowContract
+		if err := json.Unmarshal(body, &contract); err != nil {
+			return true, []string{fmt.Sprintf("workflow contract: %v", err)}
+		}
+		if err := validateObjectiveWorkflowContract(contract); err != nil {
+			return true, []string{err.Error()}
+		}
+		return true, nil
+	case RecordSchema:
+		var record Record
+		if err := decodeRecordBytes(body, &record); err != nil {
+			return true, []string{err.Error()}
+		}
+		return true, nil
+	default:
+		return false, nil
+	}
+}
+
+func validateCorrelationChainContract(chain CorrelationChain) error {
+	switch {
+	case chain.Schema != CorrelationChainSchema:
+		return fmt.Errorf("correlation chain schema must be %s", CorrelationChainSchema)
+	case strings.TrimSpace(chain.MissionID) == "":
+		return fmt.Errorf("correlation chain mission_id is required")
+	case !correlationIDPattern.MatchString(chain.CorrelationID):
+		return fmt.Errorf("correlation chain correlation_id is invalid")
+	case len(chain.Entries) == 0:
+		return fmt.Errorf("correlation chain entries are required")
+	case chain.SafeToExecute || chain.ExecutesWork || chain.ApprovesWork ||
+		chain.MutatesRepositories || chain.WidensPolicy || chain.PublishesArtifacts:
+		return fmt.Errorf("correlation chain must not claim execution, approval, mutation, policy, or publication authority")
+	}
+	roles := make(map[string]struct{}, len(chain.Entries))
+	for _, entry := range chain.Entries {
+		if err := validateCorrelationEntryShape(entry); err != nil {
+			return fmt.Errorf("entry %q: %w", entry.Role, err)
+		}
+		if _, duplicate := roles[entry.Role]; duplicate {
+			return fmt.Errorf("duplicate artifact role %q", entry.Role)
+		}
+		roles[entry.Role] = struct{}{}
+	}
+	for _, entry := range chain.Entries {
+		if entry.BindingMode != CorrelationBindingDigestLink {
+			continue
+		}
+		if _, present := roles[entry.ParentRole]; !present {
+			return fmt.Errorf("entry %q parent role %q is missing", entry.Role, entry.ParentRole)
+		}
+	}
+	return validateCorrelationParentGraph(chainParentRoles(chain.Entries))
 }
 
 func validateObjectiveWorkflowSemantics(doc map[string]any) []string {
@@ -155,13 +255,12 @@ func validateObjectiveWorkflowSemantics(doc map[string]any) []string {
 func validateRecordWorkflowContract(record Record) error {
 	contract := record.WorkflowContract
 	if contract == nil {
-		return nil
+		return validateRecordCorrelationState(record)
+	}
+	if err := validateObjectiveWorkflowContract(*contract); err != nil {
+		return err
 	}
 	switch {
-	case contract.Schema != ObjectiveWorkflowSchema:
-		return fmt.Errorf("workflow contract schema must be %s", ObjectiveWorkflowSchema)
-	case contract.Status != "ready":
-		return fmt.Errorf("workflow contract status must be ready")
 	case record.CorrelationID == "" || contract.CorrelationID != record.CorrelationID:
 		return fmt.Errorf("workflow contract correlation_id does not match mission record")
 	case contract.MissionID != record.MissionID:
@@ -171,6 +270,24 @@ func validateRecordWorkflowContract(record Record) error {
 		return fmt.Errorf("mission record objective_digest does not match objective")
 	case contract.ObjectiveDigest != record.ObjectiveDigest:
 		return fmt.Errorf("workflow contract objective_digest does not match mission record")
+	}
+	return validateRecordCorrelationState(record)
+}
+
+func validateObjectiveWorkflowContract(contract ObjectiveWorkflowContract) error {
+	switch {
+	case contract.Schema != ObjectiveWorkflowSchema:
+		return fmt.Errorf("workflow contract schema must be %s", ObjectiveWorkflowSchema)
+	case contract.Status != "ready":
+		return fmt.Errorf("workflow contract status must be ready")
+	case !objectiveWorkflowMissionIDPattern.MatchString(contract.MissionID):
+		return fmt.Errorf("workflow contract mission_id is invalid")
+	case !correlationIDPattern.MatchString(contract.CorrelationID):
+		return fmt.Errorf("workflow contract correlation_id is invalid")
+	case !validSHA256Digest(contract.ObjectiveDigest):
+		return fmt.Errorf("workflow contract objective_digest is invalid")
+	case !objectiveWorkflowTimestampPattern.MatchString(contract.GeneratedAtUTC):
+		return fmt.Errorf("workflow contract generated_at_utc is invalid")
 	case contract.SafeToExecute || contract.ExecutesWork || contract.ApprovesWork || contract.MutatesRepositories:
 		return fmt.Errorf("workflow contract must not claim execution, approval, or mutation authority")
 	}
@@ -194,6 +311,19 @@ func contractRules(schema string) ([]string, map[string]string) {
 
 func requiredFieldsForContract(schema string) []string {
 	switch schema {
+	case CorrelationChainSchema:
+		return []string{
+			"schema", "mission_id", "correlation_id", "entries",
+			"safe_to_execute", "executes_work", "approves_work",
+			"mutates_repositories", "widens_policy", "publishes_artifacts",
+		}
+	case CorrelationChainReferenceSchema:
+		return []string{
+			"schema", "mission_id", "correlation_id", "chain_digest",
+			"reference_digest", "entries", "safe_to_execute", "executes_work",
+			"approves_work", "mutates_repositories", "widens_policy",
+			"publishes_artifacts",
+		}
 	case ObjectiveWorkflowSchema:
 		return []string{
 			"schema", "status", "mission_id", "correlation_id", "objective_digest",
@@ -225,6 +355,21 @@ func requiredFieldsForContract(schema string) []string {
 func propertyTypesForContract(schema string) map[string]string {
 	commonString := map[string]string{"schema": "string"}
 	switch schema {
+	case CorrelationChainSchema:
+		return map[string]string{
+			"schema": "string", "mission_id": "string", "correlation_id": "string",
+			"entries": "array", "safe_to_execute": "boolean", "executes_work": "boolean",
+			"approves_work": "boolean", "mutates_repositories": "boolean",
+			"widens_policy": "boolean", "publishes_artifacts": "boolean",
+		}
+	case CorrelationChainReferenceSchema:
+		return map[string]string{
+			"schema": "string", "mission_id": "string", "correlation_id": "string",
+			"chain_digest": "string", "reference_digest": "string", "entries": "array",
+			"safe_to_execute": "boolean", "executes_work": "boolean",
+			"approves_work": "boolean", "mutates_repositories": "boolean",
+			"widens_policy": "boolean", "publishes_artifacts": "boolean",
+		}
 	case ObjectiveWorkflowSchema:
 		return map[string]string{
 			"schema": "string", "status": "string", "mission_id": "string",
@@ -272,17 +417,31 @@ func validateAgainstSchemaFile(path string, doc map[string]any, schema string) [
 		}
 	}
 	if schemaPath == "" {
+		if knownContractRequiresSchemaDefinition(schema) {
+			return []string{fmt.Sprintf("schema definition unavailable for known contract %s", schema)}
+		}
 		return nil
 	}
 	body, err := os.ReadFile(schemaPath)
 	if err != nil {
+		if knownContractRequiresSchemaDefinition(schema) {
+			return []string{fmt.Sprintf("schema definition unavailable for known contract %s: %v", schema, err)}
+		}
 		return nil
 	}
 	var schemaDoc map[string]any
 	if err := json.Unmarshal(body, &schemaDoc); err != nil {
+		if knownContractRequiresSchemaDefinition(schema) {
+			return []string{fmt.Sprintf("schema definition is invalid for known contract %s: %v", schema, err)}
+		}
 		return nil
 	}
 	return validateJSONSchemaNode(doc, schemaDoc, "")
+}
+
+func knownContractRequiresSchemaDefinition(schema string) bool {
+	return strings.HasPrefix(schema, "ao.mission.") ||
+		schema == "ao.command.mission-status.v0.1"
 }
 
 func validateJSONSchemaNode(value any, schema map[string]any, path string) []string {
@@ -293,6 +452,52 @@ func validateJSONSchemaNode(value any, schema map[string]any, path string) []str
 	}
 	if want, _ := schema["type"].(string); want != "" && !jsonTypeMatches(value, want) {
 		return []string{fmt.Sprintf("%s must be %s", label, want)}
+	}
+	if allOf, ok := schema["allOf"].([]any); ok {
+		for _, raw := range allOf {
+			childSchema, ok := raw.(map[string]any)
+			if !ok {
+				continue
+			}
+			blockers = append(blockers, validateJSONSchemaNode(value, childSchema, path)...)
+		}
+	}
+	if anyOf, ok := schema["anyOf"].([]any); ok {
+		matches := 0
+		for _, raw := range anyOf {
+			childSchema, ok := raw.(map[string]any)
+			if ok && len(validateJSONSchemaNode(value, childSchema, path)) == 0 {
+				matches++
+			}
+		}
+		if matches == 0 {
+			blockers = append(blockers, fmt.Sprintf("%s must match at least one allowed schema", label))
+		}
+	}
+	if oneOf, ok := schema["oneOf"].([]any); ok {
+		matches := 0
+		for _, raw := range oneOf {
+			childSchema, ok := raw.(map[string]any)
+			if ok && len(validateJSONSchemaNode(value, childSchema, path)) == 0 {
+				matches++
+			}
+		}
+		if matches != 1 {
+			blockers = append(blockers, fmt.Sprintf("%s must match exactly one allowed schema", label))
+		}
+	}
+	if notSchema, ok := schema["not"].(map[string]any); ok &&
+		len(validateJSONSchemaNode(value, notSchema, path)) == 0 {
+		blockers = append(blockers, fmt.Sprintf("%s matches a forbidden schema", label))
+	}
+	if ifSchema, ok := schema["if"].(map[string]any); ok {
+		branch := "else"
+		if len(validateJSONSchemaNode(value, ifSchema, path)) == 0 {
+			branch = "then"
+		}
+		if branchSchema, ok := schema[branch].(map[string]any); ok {
+			blockers = append(blockers, validateJSONSchemaNode(value, branchSchema, path)...)
+		}
 	}
 	if constValue, ok := schema["const"]; ok && value != constValue {
 		blockers = append(blockers, fmt.Sprintf("%s must equal %v", label, constValue))
@@ -367,6 +572,12 @@ func validateJSONSchemaNode(value any, schema map[string]any, path string) []str
 }
 
 func contractFileName(schema string) string {
+	if schema == RecordSchema {
+		return "mission-record-v0.1.schema.json"
+	}
+	if schema == "ao.command.mission-status.v0.1" {
+		return "command-status-v0.1.schema.json"
+	}
 	name := strings.TrimPrefix(schema, "ao.mission.")
 	name = strings.ReplaceAll(name, ".v", "-v")
 	return name + ".schema.json"

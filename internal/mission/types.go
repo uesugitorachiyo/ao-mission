@@ -36,34 +36,73 @@ type ArtifactRef struct {
 }
 
 type Record struct {
-	Schema            string                     `json:"schema"`
-	MissionID         string                     `json:"mission_id"`
-	CorrelationID     string                     `json:"correlation_id,omitempty"`
-	Objective         string                     `json:"objective"`
-	ObjectiveDigest   string                     `json:"objective_digest"`
-	ObjectiveRedacted bool                       `json:"objective_redacted,omitempty"`
-	Status            string                     `json:"status"`
-	CreatedAtUTC      string                     `json:"created_at_utc"`
-	UpdatedAtUTC      string                     `json:"updated_at_utc"`
-	CurrentRoute      string                     `json:"current_route"`
-	CurrentPhase      string                     `json:"current_phase"`
-	Blockers          []string                   `json:"blockers"`
-	ExactNextAction   string                     `json:"exact_next_action"`
-	ArtifactRefs      []ArtifactRef              `json:"artifact_refs"`
-	Steps             []ContinuationStep         `json:"steps"`
-	RouteHistory      []RouteDecision            `json:"route_history,omitempty"`
-	Evidence          EvidenceSummary            `json:"evidence,omitempty"`
-	GoalLease         *GoalLease                 `json:"goal_lease,omitempty"`
-	Checkpoints       []MissionCheckpoint        `json:"checkpoints,omitempty"`
-	ReturnGate        *ReturnGate                `json:"return_gate,omitempty"`
-	Reconciliation    *RouteReconciliation       `json:"route_reconciliation,omitempty"`
-	WorkflowContract  *ObjectiveWorkflowContract `json:"workflow_contract,omitempty"`
+	Schema                     string                      `json:"schema"`
+	MissionID                  string                      `json:"mission_id"`
+	CorrelationID              string                      `json:"correlation_id,omitempty"`
+	Objective                  string                      `json:"objective"`
+	ObjectiveDigest            string                      `json:"objective_digest"`
+	ObjectiveRedacted          bool                        `json:"objective_redacted,omitempty"`
+	Status                     string                      `json:"status"`
+	CreatedAtUTC               string                      `json:"created_at_utc"`
+	UpdatedAtUTC               string                      `json:"updated_at_utc"`
+	CurrentRoute               string                      `json:"current_route"`
+	CurrentPhase               string                      `json:"current_phase"`
+	Blockers                   []string                    `json:"blockers"`
+	ExactNextAction            string                      `json:"exact_next_action"`
+	ArtifactRefs               []ArtifactRef               `json:"artifact_refs"`
+	Steps                      []ContinuationStep          `json:"steps"`
+	RouteHistory               []RouteDecision             `json:"route_history,omitempty"`
+	Evidence                   EvidenceSummary             `json:"evidence,omitempty"`
+	GoalLease                  *GoalLease                  `json:"goal_lease,omitempty"`
+	Checkpoints                []MissionCheckpoint         `json:"checkpoints,omitempty"`
+	ReturnGate                 *ReturnGate                 `json:"return_gate,omitempty"`
+	Reconciliation             *RouteReconciliation        `json:"route_reconciliation,omitempty"`
+	WorkflowContract           *ObjectiveWorkflowContract  `json:"workflow_contract,omitempty"`
+	CorrelationChainReferences []CorrelationChainReference `json:"correlation_chain_references,omitempty"`
+	CorrelatedImports          []CorrelatedImportBinding   `json:"correlated_imports,omitempty"`
+}
+
+func (record *Record) UnmarshalJSON(data []byte) error {
+	type alias Record
+	var decoded alias
+	if err := decodeStrictJSONObject(data, &decoded, "Mission record", map[string]string{
+		"schema": "string", "mission_id": "string", "correlation_id": "string",
+		"objective": "string", "objective_digest": "string", "objective_redacted": "boolean",
+		"status": "string", "created_at_utc": "string", "updated_at_utc": "string",
+		"current_route": "string", "current_phase": "string", "blockers": "array",
+		"exact_next_action": "string", "artifact_refs": "array", "steps": "array",
+		"route_history": "array", "evidence": "object", "goal_lease": "object",
+		"checkpoints": "array", "return_gate": "object", "route_reconciliation": "object",
+		"workflow_contract": "object", "correlation_chain_references": "array",
+		"correlated_imports": "array",
+	}, []string{
+		"schema", "mission_id", "objective_digest", "status", "created_at_utc", "current_route",
+	}); err != nil {
+		return err
+	}
+	*record = Record(decoded)
+	return nil
 }
 
 type ObjectiveWorkflowStage struct {
 	Name   string `json:"name"`
 	Status string `json:"status"`
 	Reason string `json:"reason"`
+}
+
+func (stage *ObjectiveWorkflowStage) UnmarshalJSON(data []byte) error {
+	type alias ObjectiveWorkflowStage
+	var decoded alias
+	if err := validateNoDuplicateJSONKeys(data); err != nil {
+		return err
+	}
+	if err := decodeStrictJSONObject(data, &decoded, "objective workflow stage", map[string]string{
+		"name": "string", "status": "string", "reason": "string",
+	}, []string{"name", "status", "reason"}); err != nil {
+		return err
+	}
+	*stage = ObjectiveWorkflowStage(decoded)
+	return nil
 }
 
 type ObjectiveWorkflowContract struct {
@@ -88,15 +127,24 @@ type ObjectiveWorkflowContract struct {
 func (contract *ObjectiveWorkflowContract) UnmarshalJSON(data []byte) error {
 	type alias ObjectiveWorkflowContract
 	var decoded alias
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&decoded); err != nil {
+	if err := validateNoDuplicateJSONKeys(data); err != nil {
 		return err
 	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		if err == nil {
-			return fmt.Errorf("workflow contract contains trailing JSON")
-		}
+	if err := decodeStrictJSONObject(data, &decoded, "objective workflow contract", map[string]string{
+		"schema": "string", "status": "string", "mission_id": "string",
+		"correlation_id": "string", "objective_digest": "string",
+		"routing_class": "string", "acceptance_status": "string",
+		"initial_route": "string", "stages": "array",
+		"lifecycle_commands": "array", "exact_next_action": "string",
+		"safe_to_execute": "boolean", "executes_work": "boolean",
+		"approves_work": "boolean", "mutates_repositories": "boolean",
+		"generated_at_utc": "string",
+	}, []string{
+		"schema", "status", "mission_id", "correlation_id", "objective_digest",
+		"routing_class", "acceptance_status", "initial_route", "stages",
+		"lifecycle_commands", "exact_next_action", "safe_to_execute",
+		"executes_work", "approves_work", "mutates_repositories", "generated_at_utc",
+	}); err != nil {
 		return err
 	}
 	*contract = ObjectiveWorkflowContract(decoded)
@@ -754,6 +802,8 @@ type MissionFinalReconciliationPacket struct {
 	ExecutesWork              bool   `json:"executes_work"`
 	ApprovesWork              bool   `json:"approves_work"`
 	MutatesRepositories       bool   `json:"mutates_repositories"`
+	CorrelationChainStatus    string `json:"correlation_chain_status,omitempty"`
+	CorrelationChainDigest    string `json:"correlation_chain_digest,omitempty"`
 	GeneratedAtUTC            string `json:"generated_at_utc"`
 }
 
@@ -857,6 +907,27 @@ type MissionArchive struct {
 	ExecutesWork          bool               `json:"executes_work"`
 	ApprovesWork          bool               `json:"approves_work"`
 	GeneratedAtUTC        string             `json:"generated_at_utc"`
+}
+
+func (archive *MissionArchive) UnmarshalJSON(data []byte) error {
+	type alias MissionArchive
+	var decoded alias
+	if err := validateNoDuplicateJSONKeys(data); err != nil {
+		return err
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&decoded); err != nil {
+		return err
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		if err == nil {
+			return fmt.Errorf("mission archive contains trailing JSON")
+		}
+		return err
+	}
+	*archive = MissionArchive(decoded)
+	return nil
 }
 
 type MissionArchiveValidation struct {

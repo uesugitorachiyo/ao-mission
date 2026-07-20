@@ -6,29 +6,128 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 )
 
+const correlationEvidenceImportKind = "correlation-evidence"
+
 type ImportReadback struct {
-	Schema          string      `json:"schema"`
-	MissionID       string      `json:"mission_id"`
-	CorrelationID   string      `json:"correlation_id,omitempty"`
-	Kind            string      `json:"kind"`
-	Status          string      `json:"status"`
-	Artifact        ArtifactRef `json:"artifact"`
-	ExactNextAction string      `json:"exact_next_action"`
-	SafeToExecute   bool        `json:"safe_to_execute"`
-	ExecutesWork    bool        `json:"executes_work"`
-	ApprovesWork    bool        `json:"approves_work"`
-	GeneratedAtUTC  string      `json:"generated_at_utc"`
+	Schema                 string      `json:"schema"`
+	MissionID              string      `json:"mission_id"`
+	CorrelationID          string      `json:"correlation_id,omitempty"`
+	CorrelationChainDigest string      `json:"correlation_chain_digest,omitempty"`
+	Kind                   string      `json:"kind"`
+	Status                 string      `json:"status"`
+	Artifact               ArtifactRef `json:"artifact"`
+	ExactNextAction        string      `json:"exact_next_action"`
+	SafeToExecute          bool        `json:"safe_to_execute"`
+	ExecutesWork           bool        `json:"executes_work"`
+	ApprovesWork           bool        `json:"approves_work"`
+	GeneratedAtUTC         string      `json:"generated_at_utc"`
 }
 
 func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, error) {
-	body, err := os.ReadFile(path)
+	return importArtifact(s, missionID, kind, path, "", kind, false)
+}
+
+func ImportArtifactWithCorrelationChain(s Store, missionID, kind, path, chainPath string) (ImportReadback, error) {
+	chainPath = strings.TrimSpace(chainPath)
+	if chainPath == "" {
+		return ImportReadback{}, fmt.Errorf("correlated import requires a correlation chain")
+	}
+	return importArtifact(s, missionID, kind, path, chainPath, kind, false)
+}
+
+func ImportCorrelationEvidence(
+	s Store,
+	missionID, path, chainPath, correlationRole string,
+) (ImportReadback, error) {
+	chainPath = strings.TrimSpace(chainPath)
+	if chainPath == "" {
+		return ImportReadback{}, fmt.Errorf("correlation-evidence import requires a correlation chain")
+	}
+	correlationRole = strings.TrimSpace(correlationRole)
+	if !correlationRolePattern.MatchString(correlationRole) {
+		return ImportReadback{}, fmt.Errorf("correlation-evidence import requires a valid correlation role")
+	}
+	return importArtifact(
+		s,
+		missionID,
+		correlationEvidenceImportKind,
+		path,
+		chainPath,
+		correlationRole,
+		true,
+	)
+}
+
+func importArtifact(
+	s Store,
+	missionID, kind, path, chainPath, correlationRole string,
+	neutral bool,
+) (ImportReadback, error) {
+	var existing Record
+	var body []byte
+	var err error
+	refPath := path
+	var chainReference *CorrelationChainReference
+	var correlatedBinding *CorrelatedImportBinding
+	chainDigest := ""
+	if chainPath == "" {
+		body, err = os.ReadFile(path)
+	} else {
+		existing, err = s.Load(missionID)
+		if err == nil {
+			var chain CorrelationChain
+			var validation CorrelationChainValidation
+			chain, validation, err = loadValidatedCorrelationChainForRecord(chainPath, existing)
+			if err == nil {
+				refPath, body, err = readCanonicalCorrelationArtifact(path)
+			}
+			if err == nil {
+				entry, present := correlationChainEntry(chain, correlationRole)
+				actualDigest := digestBytes(body)
+				if !present || entry.Digest != actualDigest {
+					err = fmt.Errorf("imported artifact role %q and digest %s are absent from correlation chain", correlationRole, actualDigest)
+				} else {
+					chainAbsolutePath, pathErr := filepath.Abs(chainPath)
+					var chainCanonicalPath string
+					if pathErr == nil {
+						chainCanonicalPath, pathErr = filepath.EvalSymlinks(chainAbsolutePath)
+					}
+					if pathErr != nil {
+						err = pathErr
+					} else {
+						reference := correlationChainReference(
+							chain,
+							validation.ChainDigest,
+							filepath.Dir(chainCanonicalPath),
+						)
+						binding := CorrelatedImportBinding{
+							Role:            correlationRole,
+							Digest:          actualDigest,
+							ArtifactPath:    refPath,
+							LocatorState:    correlationLocatorStateLive,
+							ChainDigest:     validation.ChainDigest,
+							ReferenceDigest: reference.ReferenceDigest,
+						}
+						chainReference = &reference
+						correlatedBinding = &binding
+						chainDigest = validation.ChainDigest
+					}
+				}
+			}
+		}
+	}
 	if err != nil {
 		return ImportReadback{}, err
 	}
 	if err := ValidatePublicSafeText(string(body)); err != nil {
+		return ImportReadback{}, err
+	}
+	if err := validateNoDuplicateJSONKeys(body); err != nil {
 		return ImportReadback{}, err
 	}
 	var doc map[string]any
@@ -42,11 +141,13 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 			}
 		}
 	}
-	existing, err := s.Load(missionID)
-	if err != nil {
-		return ImportReadback{}, err
+	if existing.MissionID == "" {
+		existing, err = s.Load(missionID)
+		if err != nil {
+			return ImportReadback{}, err
+		}
 	}
-	if existing.CorrelationID != "" {
+	if existing.CorrelationID != "" && chainReference == nil {
 		correlationID := stringFromAny(doc["correlation_id"])
 		if correlationID == "" {
 			return ImportReadback{}, fmt.Errorf("%s correlation_id is required for correlated mission", kind)
@@ -55,16 +156,22 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 			return ImportReadback{}, fmt.Errorf("%s correlation_id does not match mission", kind)
 		}
 	}
-	ref := ArtifactRef{Schema: ArtifactRefSchema, Ref: path, Digest: digestBytes(body), Kind: kind}
-	r, err := s.Update(missionID, func(rec *Record) error {
+	ref := ArtifactRef{Schema: ArtifactRefSchema, Ref: refPath, Digest: digestBytes(body), Kind: kind}
+	r, err := s.updateWithCheckpointTransaction(missionID, func(rec *Record) error {
+		if chainReference != nil &&
+			(rec.MissionID != chainReference.MissionID || rec.CorrelationID != chainReference.CorrelationID) {
+			return fmt.Errorf("correlation chain identity changed before import")
+		}
 		rec.ArtifactRefs = append(rec.ArtifactRefs, ref)
-		switch kind {
-		case "blueprint-authorization":
+		switch {
+		case neutral:
+			// Neutral evidence records provenance without changing Mission workflow state.
+		case kind == "blueprint-authorization":
 			rec.CurrentRoute = "ao-atlas"
 			rec.CurrentPhase = "blueprint_authorized"
 			rec.ExactNextAction = "send authorized Blueprint pack to AO Atlas"
 			AppendRouteHistory(rec, routeFromRecord(*rec, "Blueprint authorization imported"))
-		case "atlas-workgraph":
+		case kind == "atlas-workgraph":
 			counts := countWorkgraphNodes(doc)
 			rec.Evidence.AtlasWorkgraph = &counts
 			rec.CurrentRoute = "ao-foundry"
@@ -75,7 +182,7 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 			rec.ReturnGate = &gate
 			reconciliation := BuildRouteReconciliation(*rec)
 			rec.Reconciliation = &reconciliation
-		case "atlas-recommendation-readback":
+		case kind == "atlas-recommendation-readback":
 			readback := parseAtlasRecommendationReadbackCounts(doc)
 			foreignReadback := stringFromAny(doc["mission_id"]) != "" && stringFromAny(doc["mission_id"]) != missionID
 			rec.Evidence.AtlasRecommendation = &readback
@@ -112,7 +219,7 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 			rec.ReturnGate = &gate
 			reconciliation := BuildRouteReconciliation(*rec)
 			rec.Reconciliation = &reconciliation
-		case "atlas-final-synthesis-readback":
+		case kind == "atlas-final-synthesis-readback":
 			readback := parseAtlasFinalSynthesisReadbackCounts(doc)
 			if err := validateAtlasFinalSynthesisReadback(readback); err != nil {
 				return err
@@ -156,7 +263,7 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 			rec.ReturnGate = &gate
 			reconciliation := BuildRouteReconciliation(*rec)
 			rec.Reconciliation = &reconciliation
-		case "foundry-run-link":
+		case kind == "foundry-run-link":
 			rec.CurrentPhase = "foundry_run_link_recorded"
 			rec.ExactNextAction = "read next Atlas dependency-unblocked node or final rollup"
 			AppendRouteHistory(rec, routeFromRecord(*rec, "Foundry run-link imported"))
@@ -164,7 +271,7 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 			rec.ReturnGate = &gate
 			reconciliation := BuildRouteReconciliation(*rec)
 			rec.Reconciliation = &reconciliation
-		case "foundry-final-rollup":
+		case kind == "foundry-final-rollup":
 			rollup := parseFoundryRollupCounts(doc)
 			rec.Evidence.FoundryRollup = &rollup
 			switch normalizeFoundryRollupStatus(rollup.Status) {
@@ -199,7 +306,7 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 			rec.ReturnGate = &gate
 			reconciliation := BuildRouteReconciliation(*rec)
 			rec.Reconciliation = &reconciliation
-		case "scheduler-readback":
+		case kind == "scheduler-readback":
 			rec.Evidence.SchedulerReadback = &SchedulerEvidenceCounts{
 				Status:          stringFromAny(doc["status"]),
 				Scheduler:       stringFromAny(doc["scheduler"]),
@@ -210,7 +317,7 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 			rec.CurrentPhase = "scheduler_readback_recorded"
 			rec.ExactNextAction = "scheduler wakeup readback recorded; continue mission through AO Mission event loop"
 			AppendRouteHistory(rec, routeFromRecord(*rec, "Scheduler readback imported"))
-		case "scheduler-recovery-readback":
+		case kind == "scheduler-recovery-readback":
 			rec.Evidence.SchedulerRecovery = &SchedulerRecoveryCounts{
 				Status:        stringFromAny(doc["status"]),
 				RecoveryMode:  stringFromAny(doc["recovery_mode"]),
@@ -223,7 +330,7 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 				rec.ExactNextAction = "scheduler recovery readback recorded; continue mission through AO Mission event loop"
 			}
 			AppendRouteHistory(rec, routeFromRecord(*rec, "Scheduler recovery readback imported"))
-		case "ledger-compaction-readback":
+		case kind == "ledger-compaction-readback":
 			rec.Evidence.LedgerCompaction = &LedgerCompactionCounts{
 				RouteHistoryBefore: intFromAny(doc["route_history_before"]),
 				RouteHistoryAfter:  intFromAny(doc["route_history_after"]),
@@ -236,26 +343,29 @@ func ImportArtifact(s Store, missionID, kind, path string) (ImportReadback, erro
 		default:
 			return fmt.Errorf("unsupported import kind %q", kind)
 		}
+		if chainReference != nil {
+			if err := recordCorrelationChainImport(rec, *chainReference, *correlatedBinding); err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 	if err != nil {
 		return ImportReadback{}, err
 	}
-	if err := s.SaveCheckpointBundle(BuildCheckpointBundle(r)); err != nil {
-		return ImportReadback{}, err
-	}
 	return ImportReadback{
-		Schema:          "ao.mission.import-readback.v0.1",
-		MissionID:       r.MissionID,
-		CorrelationID:   r.CorrelationID,
-		Kind:            kind,
-		Status:          "recorded",
-		Artifact:        ref,
-		ExactNextAction: r.ExactNextAction,
-		SafeToExecute:   false,
-		ExecutesWork:    false,
-		ApprovesWork:    false,
-		GeneratedAtUTC:  now(nil),
+		Schema:                 "ao.mission.import-readback.v0.1",
+		MissionID:              r.MissionID,
+		CorrelationID:          r.CorrelationID,
+		CorrelationChainDigest: chainDigest,
+		Kind:                   kind,
+		Status:                 "recorded",
+		Artifact:               ref,
+		ExactNextAction:        r.ExactNextAction,
+		SafeToExecute:          false,
+		ExecutesWork:           false,
+		ApprovesWork:           false,
+		GeneratedAtUTC:         now(nil),
 	}, nil
 }
 

@@ -15,8 +15,9 @@ import (
 )
 
 type Store struct {
-	Root  string
-	Clock func() time.Time
+	Root             string
+	Clock            func() time.Time
+	transactionFault func(string, missionTransactionPaths) error
 }
 
 func DefaultRoot() string {
@@ -132,11 +133,17 @@ func (s Store) StartObjective(objective string, opts ObjectiveStartOptions) (Obj
 
 func (s Store) Load(id string) (Record, error) {
 	var r Record
-	b, err := os.ReadFile(s.path(id))
-	if err != nil {
-		return r, err
-	}
-	return r, json.Unmarshal(b, &r)
+	err := s.withMissionLock(id, func() error {
+		if err := s.recoverMissionTransactionLocked(id); err != nil {
+			return err
+		}
+		body, err := os.ReadFile(s.path(id))
+		if err != nil {
+			return err
+		}
+		return decodeRecordBytes(body, &r)
+	})
+	return r, err
 }
 
 type ListFilters struct {
@@ -169,19 +176,43 @@ func (s Store) listFilteredWithStats(filters ListFilters) ([]Record, storeListSt
 	}
 	records := make([]Record, 0, len(entries))
 	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+		if entry.IsDir() || !isMissionRecordCandidateName(entry.Name()) {
 			continue
 		}
 		var rec Record
-		body, err := os.ReadFile(filepath.Join(s.Root, "missions", entry.Name()))
-		if err != nil {
+		recordPath := filepath.Join(s.Root, "missions", entry.Name())
+		filenameMissionID := strings.TrimSuffix(entry.Name(), ".json")
+		isRecord := false
+		if err := s.withMissionLock(filenameMissionID, func() error {
+			if err := s.recoverMissionTransactionLocked(filenameMissionID); err != nil {
+				return err
+			}
+			body, err := os.ReadFile(recordPath)
+			if err != nil {
+				return err
+			}
+			stats.StoreFileReads++
+			var envelope struct {
+				Schema string `json:"schema"`
+			}
+			if err := json.Unmarshal(body, &envelope); err != nil {
+				return err
+			}
+			if envelope.Schema != RecordSchema {
+				return nil
+			}
+			if err := decodeRecordBytes(body, &rec); err != nil {
+				return err
+			}
+			if rec.MissionID != filenameMissionID {
+				return fmt.Errorf("Mission record filename does not match mission_id")
+			}
+			isRecord = true
+			return nil
+		}); err != nil {
 			return nil, stats, err
 		}
-		stats.StoreFileReads++
-		if err := json.Unmarshal(body, &rec); err != nil {
-			return nil, stats, err
-		}
-		if rec.Schema != RecordSchema || rec.MissionID == "" {
+		if !isRecord {
 			continue
 		}
 		if filters.Status != "" && rec.Status != filters.Status {
@@ -200,69 +231,236 @@ func (s Store) listFilteredWithStats(filters ListFilters) ([]Record, storeListSt
 	})
 	return records, stats, nil
 }
+
+func isMissionRecordCandidateName(name string) bool {
+	if filepath.Ext(name) != ".json" {
+		return false
+	}
+	for _, suffix := range []string{
+		".event-loop-decision.json",
+		".checkpoint-resume-bundle.json",
+		".import-transaction.json",
+	} {
+		if strings.HasSuffix(name, suffix) {
+			return false
+		}
+	}
+	return true
+}
 func (s Store) Save(r Record) error {
-	if err := s.Init(); err != nil {
+	if err := validateRecordWorkflowContract(r); err != nil {
 		return err
 	}
-	b, err := json.MarshalIndent(r, "", "  ")
+	if _, err := os.Stat(s.path(r.MissionID)); err == nil {
+		_, err = s.updateMissionTransactionWithTimestamp(
+			r.MissionID,
+			false,
+			true,
+			func(current *Record) (*EventLoopDecision, error) {
+				*current = r
+				return eventDecisionForRecord(r), nil
+			},
+		)
+		return err
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	body, err := marshalIndentedLine(r)
 	if err != nil {
 		return err
 	}
-	b = append(b, '\n')
-	return os.WriteFile(s.path(r.MissionID), b, 0o644)
+	return s.withMissionLock(r.MissionID, func() error {
+		if err := s.recoverMissionTransactionLocked(r.MissionID); err != nil {
+			return err
+		}
+		if _, err := os.Stat(s.path(r.MissionID)); err == nil {
+			return errors.New("Mission record appeared during save; retry the operation")
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+		if err := removeFileAndSync(s.checkpointPath(r.MissionID)); err != nil {
+			return err
+		}
+		if err := removeFileAndSync(s.eventLoopPath(r.MissionID)); err != nil {
+			return err
+		}
+		checkpointBody, err := marshalIndentedLine(BuildCheckpointBundle(r))
+		if err != nil {
+			return err
+		}
+		cleanupSidecars := func() {
+			_ = removeFileAndSync(s.checkpointPath(r.MissionID))
+			_ = removeFileAndSync(s.eventLoopPath(r.MissionID))
+		}
+		checkpointReplaced, checkpointErr := s.writeInitialMissionFile(
+			r.MissionID,
+			"after_initial_checkpoint_replace",
+			s.checkpointPath(r.MissionID),
+			checkpointBody,
+			0o644,
+		)
+		if checkpointErr != nil && !checkpointReplaced {
+			cleanupSidecars()
+			return checkpointErr
+		}
+		if decision := eventDecisionForRecord(r); decision != nil {
+			eventBody, err := marshalIndentedLine(decision)
+			if err != nil {
+				cleanupSidecars()
+				return err
+			}
+			eventReplaced, eventErr := s.writeInitialMissionFile(
+				r.MissionID,
+				"after_initial_event_decision_replace",
+				s.eventLoopPath(r.MissionID),
+				eventBody,
+				0o644,
+			)
+			if eventErr != nil && !eventReplaced {
+				cleanupSidecars()
+				return eventErr
+			}
+		}
+		recordReplaced, recordErr := s.writeInitialMissionFile(
+			r.MissionID,
+			"after_initial_record_replace",
+			s.path(r.MissionID),
+			body,
+			0o644,
+		)
+		if recordErr != nil && !recordReplaced {
+			cleanupSidecars()
+			return recordErr
+		}
+		return nil
+	})
+}
+
+func (s Store) writeInitialMissionFile(
+	missionID string,
+	faultStage string,
+	path string,
+	body []byte,
+	mode os.FileMode,
+) (bool, error) {
+	replaced, err := writeAtomicFileWithReplacementState(path, body, mode)
+	if err != nil {
+		return replaced, err
+	}
+	if err := s.runTransactionFault(faultStage, s.transactionPaths(missionID)); err != nil {
+		return true, err
+	}
+	return true, nil
 }
 
 func (s Store) SaveEventLoopDecision(decision EventLoopDecision) error {
-	if err := s.Init(); err != nil {
-		return err
-	}
-	b, err := json.MarshalIndent(decision, "", "  ")
+	body, err := marshalIndentedLine(decision)
 	if err != nil {
 		return err
 	}
-	b = append(b, '\n')
-	return os.WriteFile(s.eventLoopPath(decision.MissionID), b, 0o644)
+	return s.withMissionLock(decision.MissionID, func() error {
+		if err := s.recoverMissionTransactionLocked(decision.MissionID); err != nil {
+			return err
+		}
+		recordBody, err := os.ReadFile(s.path(decision.MissionID))
+		if err != nil {
+			return err
+		}
+		var record Record
+		if err := decodeRecordBytes(recordBody, &record); err != nil {
+			return err
+		}
+		if err := validateTransactionEventDecision(body, record); err != nil {
+			return err
+		}
+		return writeAtomicFile(s.eventLoopPath(decision.MissionID), body, 0o644)
+	})
 }
 
 func (s Store) LoadEventLoopDecision(id string) (EventLoopDecision, error) {
 	var decision EventLoopDecision
-	b, err := os.ReadFile(s.eventLoopPath(id))
-	if err != nil {
-		return decision, err
-	}
-	return decision, json.Unmarshal(b, &decision)
+	err := s.withMissionLock(id, func() error {
+		if err := s.recoverMissionTransactionLocked(id); err != nil {
+			return err
+		}
+		recordBody, err := os.ReadFile(s.path(id))
+		if err != nil {
+			return err
+		}
+		var record Record
+		if err := decodeRecordBytes(recordBody, &record); err != nil {
+			return err
+		}
+		body, err := os.ReadFile(s.eventLoopPath(id))
+		if err != nil {
+			return err
+		}
+		if err := validateTransactionEventDecision(body, record); err != nil {
+			return err
+		}
+		return json.Unmarshal(body, &decision)
+	})
+	return decision, err
 }
 
 func (s Store) SaveCheckpointBundle(bundle MissionCheckpointBundle) error {
-	if err := s.Init(); err != nil {
-		return err
-	}
-	b, err := json.MarshalIndent(bundle, "", "  ")
+	body, err := marshalIndentedLine(bundle)
 	if err != nil {
 		return err
 	}
-	b = append(b, '\n')
-	return os.WriteFile(s.checkpointPath(bundle.MissionID), b, 0o644)
+	return s.withMissionLock(bundle.MissionID, func() error {
+		if err := s.recoverMissionTransactionLocked(bundle.MissionID); err != nil {
+			return err
+		}
+		recordBody, err := os.ReadFile(s.path(bundle.MissionID))
+		if err != nil {
+			return err
+		}
+		var record Record
+		if err := decodeRecordBytes(recordBody, &record); err != nil {
+			return err
+		}
+		if err := validateTransactionCheckpointPreimage(body, record); err != nil {
+			return err
+		}
+		return writeAtomicFile(s.checkpointPath(bundle.MissionID), body, 0o644)
+	})
 }
 
 func (s Store) LoadCheckpointBundle(id string) (MissionCheckpointBundle, error) {
 	var bundle MissionCheckpointBundle
-	b, err := os.ReadFile(s.checkpointPath(id))
-	if err != nil {
-		return bundle, err
-	}
-	return bundle, json.Unmarshal(b, &bundle)
+	err := s.withMissionLock(id, func() error {
+		if err := s.recoverMissionTransactionLocked(id); err != nil {
+			return err
+		}
+		recordBody, err := os.ReadFile(s.path(id))
+		if err != nil {
+			return err
+		}
+		var record Record
+		if err := decodeRecordBytes(recordBody, &record); err != nil {
+			return err
+		}
+		body, err := os.ReadFile(s.checkpointPath(id))
+		if err != nil {
+			return err
+		}
+		if err := validateTransactionCheckpointPreimage(body, record); err != nil {
+			return err
+		}
+		return json.Unmarshal(body, &bundle)
+	})
+	return bundle, err
 }
 func (s Store) Update(id string, fn func(*Record) error) (Record, error) {
-	r, err := s.Load(id)
-	if err != nil {
-		return r, err
+	return s.updateWithCheckpointTransaction(id, fn)
+}
+
+func decodeRecordBytes(body []byte, record *Record) error {
+	if err := json.Unmarshal(body, record); err != nil {
+		return err
 	}
-	if err := fn(&r); err != nil {
-		return r, err
-	}
-	r.UpdatedAtUTC = now(s.Clock)
-	return r, s.Save(r)
+	return validateRecordWorkflowContract(*record)
 }
 
 func ValidatePublicSafeText(text string) error {

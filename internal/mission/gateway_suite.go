@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"regexp"
 	"sort"
@@ -174,6 +175,9 @@ func BuildA2ACompatibilityReadback(agentCardPath, httpFixturePath, lifecyclePath
 	if err := ValidatePublicSafeText(string(body)); err != nil {
 		return A2ACompatibilityReadback{}, err
 	}
+	if err := validateNoDuplicateJSONKeys(body); err != nil {
+		return A2ACompatibilityReadback{}, err
+	}
 	if err := json.Unmarshal(body, &card); err != nil {
 		return A2ACompatibilityReadback{}, err
 	}
@@ -221,6 +225,9 @@ func BuildA2AStreamingDenialReadback(agentCardPath string) (A2AStreamingDenialRe
 		return A2AStreamingDenialReadback{}, err
 	}
 	if err := ValidatePublicSafeText(string(body)); err != nil {
+		return A2AStreamingDenialReadback{}, err
+	}
+	if err := validateNoDuplicateJSONKeys(body); err != nil {
 		return A2AStreamingDenialReadback{}, err
 	}
 	if err := json.Unmarshal(body, &card); err != nil {
@@ -343,6 +350,9 @@ func LoadGovernanceSnapshot(path string) (GovernanceSnapshot, error) {
 	if err := ValidatePublicSafeText(string(body)); err != nil {
 		return snapshot, err
 	}
+	if err := validateNoDuplicateJSONKeys(body); err != nil {
+		return snapshot, err
+	}
 	return snapshot, json.Unmarshal(body, &snapshot)
 }
 
@@ -382,6 +392,7 @@ func publicSafeArchiveRecord(record Record) (Record, []string) {
 	body, _ = json.Marshal(value)
 	var archived Record
 	_ = json.Unmarshal(body, &archived)
+	bindArchiveCorrelationLocators(record, &archived)
 	archived.ObjectiveDigest = record.ObjectiveDigest
 	archived.ObjectiveRedacted = record.ObjectiveRedacted || archived.Objective != record.Objective
 	uniqueRedactions := []string{}
@@ -391,7 +402,14 @@ func publicSafeArchiveRecord(record Record) (Record, []string) {
 	return archived, uniqueRedactions
 }
 
-var archiveLocalPathPattern = regexp.MustCompile(`/` + `Users/[^\s",}]+`)
+var archiveLocalPathPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)(^|[^[:alnum:]_/\\])[a-z]:[\\/][^\s"',;)}\]]*`),
+	regexp.MustCompile(`(^|[^[:alnum:]_/\\])\\\\[^\\/\s]+[\\/][^\s"',;)}\]]*`),
+}
+
+var archivePOSIXPathPattern = regexp.MustCompile(
+	`(^|[^[:alnum:]_/])((//(?:\[[^]]+\]|[^/\s"',;)}\]]+)(?:/[^\s"',;)}\]]*)?)|(/[^\s"',;)}\]]*))`,
+)
 
 func redactArchiveLocalPathsValue(value any, path string, redactions []string) (any, []string) {
 	switch typed := value.(type) {
@@ -406,13 +424,50 @@ func redactArchiveLocalPathsValue(value any, path string, redactions []string) (
 		}
 		return typed, redactions
 	case string:
-		if !archiveLocalPathPattern.MatchString(typed) {
+		if isCorrelationProvenancePathField(path) && validCorrelationJSONPointer(typed) {
 			return typed, redactions
 		}
-		return archiveLocalPathPattern.ReplaceAllString(typed, "<local-path-redacted>"), append(redactions, path+" local path redacted")
+		redacted := typed
+		for _, pattern := range archiveLocalPathPatterns {
+			redacted = pattern.ReplaceAllString(
+				redacted,
+				"${1}"+correlationRedactedPathSentinel,
+			)
+		}
+		redacted = archivePOSIXPathPattern.ReplaceAllStringFunc(redacted, func(match string) string {
+			prefixLength := 0
+			if match[0] != '/' {
+				prefixLength = 1
+			}
+			prefix, candidate := match[:prefixLength], match[prefixLength:]
+			if isProtocolRelativeReference(candidate) {
+				return match
+			}
+			return prefix + correlationRedactedPathSentinel
+		})
+		if redacted == typed {
+			return typed, redactions
+		}
+		return redacted, append(redactions, path+" local path redacted")
 	default:
 		return value, redactions
 	}
+}
+
+func isCorrelationProvenancePathField(path string) bool {
+	return strings.HasSuffix(path, ".native_field") ||
+		strings.HasSuffix(path, ".parent_digest_field")
+}
+
+func isProtocolRelativeReference(candidate string) bool {
+	if !strings.HasPrefix(candidate, "//") {
+		return false
+	}
+	parsed, err := url.Parse(candidate)
+	return err == nil &&
+		parsed.Scheme == "" &&
+		parsed.Host != "" &&
+		parsed.User == nil
 }
 
 func LoadMissionArchive(path string) (MissionArchive, error) {
@@ -433,6 +488,12 @@ func LoadMissionArchive(path string) (MissionArchive, error) {
 	if archive.SafeToExecute || archive.ExecutesWork || archive.ApprovesWork {
 		return archive, fmt.Errorf("mission archive must not claim execution or approval authority")
 	}
+	if archive.Record.Schema != RecordSchema || archive.Record.MissionID != archive.MissionID {
+		return archive, fmt.Errorf("mission archive record does not match archive mission_id")
+	}
+	if err := validateRecordWorkflowContract(archive.Record); err != nil {
+		return archive, err
+	}
 	return archive, nil
 }
 
@@ -451,6 +512,12 @@ func ValidateMissionArchive(path string) (MissionArchiveValidation, error) {
 	actual := "sha256:" + hex.EncodeToString(sum[:])
 	if expected == "" || actual != expected {
 		return MissionArchiveValidation{}, fmt.Errorf("mission archive digest mismatch")
+	}
+	if archive.Record.Schema != RecordSchema || archive.Record.MissionID != archive.MissionID {
+		return MissionArchiveValidation{}, fmt.Errorf("mission archive record does not match archive mission_id")
+	}
+	if err := validateRecordWorkflowContract(archive.Record); err != nil {
+		return MissionArchiveValidation{}, err
 	}
 	return MissionArchiveValidation{
 		Schema:         "ao.mission.archive-validation.v0.1",
@@ -529,6 +596,9 @@ func BuildGatewayReadinessRollupWithMissionAndCorrelation(missionID, correlation
 			return GatewayReadinessRollup{}, err
 		}
 		if err := ValidatePublicSafeText(string(body)); err != nil {
+			return GatewayReadinessRollup{}, err
+		}
+		if err := validateNoDuplicateJSONKeys(body); err != nil {
 			return GatewayReadinessRollup{}, err
 		}
 		var packet map[string]any
