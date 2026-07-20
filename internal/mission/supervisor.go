@@ -87,6 +87,7 @@ func appendMissionCheckpoint(r *Record, step ContinuationStep) MissionCheckpoint
 	checkpoint := MissionCheckpoint{
 		Schema:          MissionCheckpointSchema,
 		MissionID:       r.MissionID,
+		CorrelationID:   r.CorrelationID,
 		Sequence:        len(r.Checkpoints) + 1,
 		Iteration:       step.Iteration,
 		Route:           step.Route,
@@ -110,6 +111,7 @@ func BuildCheckpointBundle(r Record) MissionCheckpointBundle {
 	return MissionCheckpointBundle{
 		Schema:              CheckpointBundleSchema,
 		MissionID:           r.MissionID,
+		CorrelationID:       r.CorrelationID,
 		Status:              "ready",
 		CheckpointCount:     len(r.Checkpoints),
 		LatestCheckpoint:    latest,
@@ -350,6 +352,7 @@ func BuildRouteReconciliation(r Record) RouteReconciliation {
 	return RouteReconciliation{
 		Schema:                RouteReconciliationSchema,
 		MissionID:             r.MissionID,
+		CorrelationID:         r.CorrelationID,
 		Status:                status,
 		CurrentRoute:          r.CurrentRoute,
 		LatestRoute:           latestRoute,

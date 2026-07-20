@@ -3,6 +3,7 @@ package mission
 type FinalRollup struct {
 	Schema                      string                       `json:"schema"`
 	MissionID                   string                       `json:"mission_id"`
+	CorrelationID               string                       `json:"correlation_id,omitempty"`
 	Status                      string                       `json:"status"`
 	CompletedSteps              int                          `json:"completed_steps"`
 	ArtifactRefs                []ArtifactRef                `json:"artifact_refs"`
@@ -43,6 +44,7 @@ func BuildFinalRollup(r Record) FinalRollup {
 	return FinalRollup{
 		Schema:                      "ao.mission.final-rollup.v0.1",
 		MissionID:                   r.MissionID,
+		CorrelationID:               r.CorrelationID,
 		Status:                      r.Status,
 		CompletedSteps:              len(r.Steps),
 		ArtifactRefs:                r.ArtifactRefs,

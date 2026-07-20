@@ -12,6 +12,9 @@ func BuildMissionVerificationBundleReadback(s Store, missionID string, opts Miss
 	if err != nil {
 		return MissionVerificationBundleReadback{}, err
 	}
+	if err := validateRecordWorkflowContract(record); err != nil {
+		return MissionVerificationBundleReadback{}, err
+	}
 	index, err := BuildMissionEventIndex(s)
 	if err != nil {
 		return MissionVerificationBundleReadback{}, err
@@ -37,6 +40,13 @@ func BuildMissionVerificationBundleReadback(s Store, missionID string, opts Miss
 	} else {
 		components = append(components, component)
 	}
+	if record.WorkflowContract != nil {
+		if component, err := componentFromValue("workflow_contract", record.WorkflowContract.Schema, record.WorkflowContract.Status, record.WorkflowContract); err != nil {
+			return MissionVerificationBundleReadback{}, err
+		} else {
+			components = append(components, component)
+		}
+	}
 	if strings.TrimSpace(opts.ReadinessBundlePath) != "" {
 		component, err := componentFromFile("readiness_bundle", opts.ReadinessBundlePath, "ao.mission.readiness-bundle-readback.v0.1")
 		if err != nil {
@@ -55,6 +65,7 @@ func BuildMissionVerificationBundleReadback(s Store, missionID string, opts Miss
 		Schema:              "ao.mission.verification-bundle-readback.v0.1",
 		Status:              "ready",
 		MissionID:           record.MissionID,
+		CorrelationID:       record.CorrelationID,
 		ComponentCount:      len(components),
 		Components:          components,
 		SafeToExecute:       false,

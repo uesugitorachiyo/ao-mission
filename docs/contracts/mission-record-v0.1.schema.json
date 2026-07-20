@@ -13,8 +13,10 @@
   "properties": {
     "schema": { "type": "string", "const": "ao.mission.record.v0.1" },
     "mission_id": { "type": "string" },
+    "correlation_id": { "type": "string" },
     "objective": { "type": "string" },
     "objective_digest": { "type": "string" },
+    "objective_redacted": { "type": "boolean" },
     "status": { "type": "string" },
     "created_at_utc": { "type": "string" },
     "updated_at_utc": { "type": "string" },
@@ -28,6 +30,7 @@
     "goal_lease": { "type": "object" },
     "checkpoints": { "type": "array" },
     "return_gate": { "type": "object" },
-    "route_reconciliation": { "type": "object" }
+    "route_reconciliation": { "type": "object" },
+    "workflow_contract": { "type": "object" }
   }
 }

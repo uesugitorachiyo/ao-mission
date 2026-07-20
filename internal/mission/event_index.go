@@ -755,6 +755,7 @@ func BuildMissionDashboardReadback(s Store, missionID string, compact bool) (Mis
 		Schema:              "ao.mission.dashboard-readback.v0.1",
 		Status:              "ready",
 		MissionID:           record.MissionID,
+		CorrelationID:       record.CorrelationID,
 		MissionStatus:       record.Status,
 		CurrentPhase:        record.CurrentPhase,
 		CurrentRoute:        record.CurrentRoute,
@@ -776,6 +777,7 @@ func missionEventsForRecord(record Record) []MissionEvent {
 	events := []MissionEvent{{
 		Schema:         "ao.mission.event.v0.1",
 		MissionID:      record.MissionID,
+		CorrelationID:  record.CorrelationID,
 		Kind:           "mission_record",
 		Sequence:       0,
 		Status:         record.Status,
@@ -974,6 +976,9 @@ func missionEventsForRecord(record Record) []MissionEvent {
 			Summary:        record.Reconciliation.ExactNextAction,
 			GeneratedAtUTC: record.Reconciliation.GeneratedAtUTC,
 		})
+	}
+	for i := range events {
+		events[i].CorrelationID = record.CorrelationID
 	}
 	return events
 }

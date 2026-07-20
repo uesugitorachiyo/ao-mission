@@ -347,6 +347,9 @@ func LoadGovernanceSnapshot(path string) (GovernanceSnapshot, error) {
 }
 
 func BuildMissionArchive(record Record) (MissionArchive, error) {
+	if err := validateRecordWorkflowContract(record); err != nil {
+		return MissionArchive{}, err
+	}
 	archivedRecord, redactions := publicSafeArchiveRecord(record)
 	archive := MissionArchive{
 		Schema:                "ao.mission.archive.v0.1",
@@ -379,7 +382,8 @@ func publicSafeArchiveRecord(record Record) (Record, []string) {
 	body, _ = json.Marshal(value)
 	var archived Record
 	_ = json.Unmarshal(body, &archived)
-	archived.ObjectiveDigest = DigestObjective(archived.Objective)
+	archived.ObjectiveDigest = record.ObjectiveDigest
+	archived.ObjectiveRedacted = record.ObjectiveRedacted || archived.Objective != record.Objective
 	uniqueRedactions := []string{}
 	for _, redaction := range redactions {
 		uniqueRedactions = appendMissingString(uniqueRedactions, redaction)
@@ -472,6 +476,12 @@ func ImportMissionArchive(store Store, path string) (MissionArchiveImportReadbac
 	}
 	if archive.Record.Schema != RecordSchema || archive.Record.MissionID != archive.MissionID {
 		return MissionArchiveImportReadback{}, fmt.Errorf("mission archive record does not match archive mission_id")
+	}
+	if archive.SourceObjectiveDigest != archive.Record.ObjectiveDigest {
+		return MissionArchiveImportReadback{}, fmt.Errorf("mission archive source objective digest does not match record")
+	}
+	if err := validateRecordWorkflowContract(archive.Record); err != nil {
+		return MissionArchiveImportReadback{}, err
 	}
 	if err := store.Save(archive.Record); err != nil {
 		return MissionArchiveImportReadback{}, err

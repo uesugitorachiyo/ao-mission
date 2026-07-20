@@ -25,6 +25,7 @@ for the cross-repository flow.
 ```sh
 ao-mission init
 ao-mission start "<objective>"
+ao-mission objective start --objective "<objective>" [--correlation-id <id>]
 ao-mission mission list [--status <status>] [--route <route>] [--json]
 ao-mission mission inspect --mission <id> [--json]
 ao-mission mission history --mission <id> [--json]
@@ -86,6 +87,30 @@ ao-mission final reconcile --mission <id>
 
 By default state is stored under `.ao-mission/`. Use `AO_MISSION_HOME` to choose another state root.
 Every command also accepts `--home <dir>` before the command name for explicit local state routing.
+
+### Objective workflow entry
+
+`ao-mission objective start` is the correlation-bound entry path for a complete
+objective workflow. It emits and persists the strict
+`ao.mission.objective-workflow-contract.v0.1` contract. If
+`--correlation-id` is omitted, Mission derives a stable identifier from the new
+mission ID. The legacy `ao-mission start "<objective>"` command and its record
+output remain unchanged.
+
+The workflow contract classifies an underspecified objective as
+`pending_blueprint`, a workgraph or multi-file objective as `complex`, and a
+concrete small objective as `reduced`. These classes begin at AO Blueprint, AO
+Atlas, and AO Foundry respectively. Every stage is listed as `required`,
+`conditional`, or `omitted`, and the contract includes the exact lifecycle
+commands for status, continuation, pause, resume, verification, and final
+reconciliation. Contract authority flags remain false: the readback does not
+itself execute, approve, or mutate repository work.
+
+Correlation-bound missions require imported evidence to carry the exact same
+`correlation_id`. Missing or mismatched identity fails before mission state is
+updated. Correlation is retained in continuation steps, checkpoints,
+event-loop decisions, dashboard events, import readbacks, and the final
+verification bundle. Legacy records omit these additive fields.
 
 ## Gateway References
 
