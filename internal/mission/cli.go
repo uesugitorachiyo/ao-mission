@@ -18,6 +18,17 @@ var (
 	BuildSourceSHA = "unknown"
 )
 
+type repeatedStringFlag []string
+
+func (values *repeatedStringFlag) String() string {
+	return strings.Join(*values, ",")
+}
+
+func (values *repeatedStringFlag) Set(value string) error {
+	*values = append(*values, value)
+	return nil
+}
+
 func Run(args []string, stdout, stderr io.Writer) int {
 	if err := run(args, stdout); err != nil {
 		fmt.Fprintln(stderr, "error:", err)
@@ -40,7 +51,7 @@ func run(args []string, stdout io.Writer) error {
 		return nil
 	}
 	if len(args) == 0 {
-		return errors.New("usage: ao-mission [--home <dir>] <init|start|objective|mission|continue|checkpoint|status|next|stop|pause|resume|doctor|schedule|daemon|telegram|a2a|gateway|governance|command|artifacts|validate|import|final>")
+		return errors.New("usage: ao-mission [--home <dir>] <init|start|objective|mission|continue|checkpoint|status|next|stop|pause|resume|doctor|schedule|daemon|telegram|a2a|gateway|governance|command|artifacts|correlation|validate|import|final>")
 	}
 	home, args, err := parseGlobalHome(args)
 	if err != nil {
@@ -1469,6 +1480,57 @@ func run(args []string, stdout io.Writer) error {
 			return err
 		}
 		return printJSON(stdout, r.ArtifactRefs)
+	case "correlation":
+		if len(args) >= 2 && args[1] == "build" {
+			fs := flag.NewFlagSet("correlation build", flag.ContinueOnError)
+			id := fs.String("mission", "", "")
+			outPath := fs.String("out", "", "")
+			var artifactFlags repeatedStringFlag
+			fs.Var(&artifactFlags, "artifact", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*id) == "" || strings.TrimSpace(*outPath) == "" || len(artifactFlags) == 0 {
+				return errors.New("correlation build requires --mission, at least one --artifact <role>=<path>, and --out")
+			}
+			record, err := s.Load(*id)
+			if err != nil {
+				return err
+			}
+			specs := make([]CorrelationArtifactSpec, 0, len(artifactFlags))
+			for _, value := range artifactFlags {
+				role, path, found := strings.Cut(value, "=")
+				if !found || strings.TrimSpace(role) == "" || strings.TrimSpace(path) == "" {
+					return fmt.Errorf("correlation artifact %q must be <role>=<path>", value)
+				}
+				specs = append(specs, CorrelationArtifactSpec{Role: role, Path: path})
+			}
+			chain, err := BuildCorrelationChain(record, specs)
+			if err != nil {
+				return err
+			}
+			if err := WriteCorrelationChainFile(*outPath, chain); err != nil {
+				return err
+			}
+			fmt.Fprintf(stdout, "correlation_chain=%s\nmission=%s\nartifacts=%d\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\nmutates_repositories=false\nwidens_policy=false\npublishes_artifacts=false\n", *outPath, chain.MissionID, len(chain.Entries))
+			return nil
+		}
+		if len(args) >= 2 && args[1] == "validate" {
+			fs := flag.NewFlagSet("correlation validate", flag.ContinueOnError)
+			path := fs.String("path", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if strings.TrimSpace(*path) == "" {
+				return errors.New("correlation validate requires --path")
+			}
+			validation, err := ValidateCorrelationChainFile(*path)
+			if printErr := printJSON(stdout, validation); printErr != nil {
+				return printErr
+			}
+			return err
+		}
+		return errors.New("correlation requires build or validate")
 	case "validate":
 		if len(args) >= 2 && args[1] == "contract" {
 			fs := flag.NewFlagSet("validate contract", flag.ContinueOnError)
@@ -1485,15 +1547,36 @@ func run(args []string, stdout io.Writer) error {
 		return errors.New("validate requires contract --path <file>")
 	case "import":
 		if len(args) < 2 {
-			return errors.New("import requires blueprint-authorization, atlas-workgraph, atlas-recommendation-readback, atlas-final-synthesis-readback, foundry-run-link, foundry-final-rollup, scheduler-readback, scheduler-recovery-readback, or ledger-compaction-readback")
+			return errors.New("import requires correlation-evidence, blueprint-authorization, atlas-workgraph, atlas-recommendation-readback, atlas-final-synthesis-readback, foundry-run-link, foundry-final-rollup, scheduler-readback, scheduler-recovery-readback, or ledger-compaction-readback")
 		}
 		fs := flag.NewFlagSet("import "+args[1], flag.ContinueOnError)
 		id := fs.String("mission", "", "")
 		path := fs.String("path", "", "")
+		correlationChainPath := fs.String("correlation-chain", "", "")
+		correlationRole := fs.String("correlation-role", "", "")
 		if err := fs.Parse(args[2:]); err != nil {
 			return err
 		}
-		rb, err := ImportArtifact(s, *id, args[1], *path)
+		var rb ImportReadback
+		var err error
+		if args[1] == correlationEvidenceImportKind {
+			if strings.TrimSpace(*correlationChainPath) == "" || strings.TrimSpace(*correlationRole) == "" {
+				return errors.New("correlation-evidence import requires --correlation-chain and --correlation-role")
+			}
+			rb, err = ImportCorrelationEvidence(
+				s,
+				*id,
+				*path,
+				*correlationChainPath,
+				*correlationRole,
+			)
+		} else if strings.TrimSpace(*correlationRole) != "" {
+			return errors.New("--correlation-role is only valid for correlation-evidence import")
+		} else if strings.TrimSpace(*correlationChainPath) == "" {
+			rb, err = ImportArtifact(s, *id, args[1], *path)
+		} else {
+			rb, err = ImportArtifactWithCorrelationChain(s, *id, args[1], *path, *correlationChainPath)
+		}
 		if printErr := printJSON(stdout, rb); printErr != nil {
 			return printErr
 		}
@@ -1508,10 +1591,22 @@ func run(args []string, stdout io.Writer) error {
 			return printJSON(stdout, BuildFinalRollup(r))
 		}
 		if len(args) >= 2 && args[1] == "reconcile" {
-			id := missionFlag(args[2:])
-			r, err := s.Load(id)
+			fs := flag.NewFlagSet("final reconcile", flag.ContinueOnError)
+			id := fs.String("mission", "", "")
+			correlationChainPath := fs.String("correlation-chain", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			r, err := s.Load(*id)
 			if err != nil {
 				return err
+			}
+			if strings.TrimSpace(*correlationChainPath) != "" {
+				packet, err := BuildFinalReconciliationPacketWithCorrelationChain(r, *correlationChainPath)
+				if err != nil {
+					return err
+				}
+				return printJSON(stdout, packet)
 			}
 			return printJSON(stdout, BuildFinalReconciliationPacket(r))
 		}

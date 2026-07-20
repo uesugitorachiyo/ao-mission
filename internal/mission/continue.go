@@ -16,60 +16,65 @@ func Continue(s Store, missionID string, opts ContinueOptions) (Record, error) {
 	if opts.MaxIterations <= 0 {
 		opts.MaxIterations = 1
 	}
-	return s.Update(missionID, func(r *Record) error {
-		if r.Status == "stopped" {
-			return errors.New("mission is stopped")
-		}
-		if r.Status == "paused" {
-			return errors.New("mission is paused")
-		}
-		lease := ensureGoalLease(r, opts)
-		for i := 0; i < opts.MaxIterations; i++ {
-			if r.Status == "done" || hardBlockerExists(*r) {
-				break
+	var record Record
+	for i := 0; i < opts.MaxIterations; i++ {
+		iterationAdded := false
+		var err error
+		record, err = s.updateWithCheckpointAndEventDecisionTransaction(missionID, func(r *Record) (*EventLoopDecision, error) {
+			if r.Status == "stopped" {
+				return nil, errors.New("mission is stopped")
 			}
-			decision := NextActionForRecord(*r)
-			step := ContinuationStep{Schema: StepSchema, MissionID: r.MissionID, CorrelationID: r.CorrelationID, Iteration: len(r.Steps) + 1, Route: decision.Route, Result: "handoff_required", ExactNextAction: decision.ExactNextAction, GeneratedAtUTC: now(s.Clock)}
-			r.Steps = append(r.Steps, step)
-			r.CurrentRoute = decision.Route
-			r.CurrentPhase = "handoff_required"
-			r.ExactNextAction = decision.ExactNextAction
-			appendMissionCheckpoint(r, step)
+			if r.Status == "paused" {
+				return nil, errors.New("mission is paused")
+			}
+			var eventDecision *EventLoopDecision
+			ensureGoalLease(r, opts)
+			if r.Status != "done" && !hardBlockerExists(*r) {
+				decision := NextActionForRecord(*r)
+				step := ContinuationStep{Schema: StepSchema, MissionID: r.MissionID, CorrelationID: r.CorrelationID, Iteration: len(r.Steps) + 1, Route: decision.Route, Result: "handoff_required", ExactNextAction: decision.ExactNextAction, GeneratedAtUTC: now(s.Clock)}
+				r.Steps = append(r.Steps, step)
+				r.CurrentRoute = decision.Route
+				r.CurrentPhase = "handoff_required"
+				r.ExactNextAction = decision.ExactNextAction
+				appendMissionCheckpoint(r, step)
+				gate := EvaluateReturnGate(*r)
+				r.ReturnGate = &gate
+				reconciliation := BuildRouteReconciliation(*r)
+				r.Reconciliation = &reconciliation
+				decisionRecord := EventLoopDecision{
+					Schema:              EventLoopDecisionSchema,
+					MissionID:           r.MissionID,
+					CorrelationID:       r.CorrelationID,
+					Iteration:           step.Iteration,
+					Status:              step.Result,
+					Route:               step.Route,
+					ExactNextAction:     step.ExactNextAction,
+					ExecutesWork:        false,
+					ApprovesWork:        false,
+					MutatesRepositories: false,
+					GeneratedAtUTC:      step.GeneratedAtUTC,
+				}
+				eventDecision = &decisionRecord
+				iterationAdded = true
+			}
 			gate := EvaluateReturnGate(*r)
 			r.ReturnGate = &gate
 			reconciliation := BuildRouteReconciliation(*r)
 			r.Reconciliation = &reconciliation
-			if err := s.SaveEventLoopDecision(EventLoopDecision{
-				Schema:              EventLoopDecisionSchema,
-				MissionID:           r.MissionID,
-				CorrelationID:       r.CorrelationID,
-				Iteration:           step.Iteration,
-				Status:              step.Result,
-				Route:               step.Route,
-				ExactNextAction:     step.ExactNextAction,
-				ExecutesWork:        false,
-				ApprovesWork:        false,
-				MutatesRepositories: false,
-				GeneratedAtUTC:      step.GeneratedAtUTC,
-			}); err != nil {
-				return err
-			}
-			if err := s.SaveCheckpointBundle(BuildCheckpointBundle(*r)); err != nil {
-				return err
-			}
-			if !opts.UntilDone {
-				break
-			}
-			if r.ReturnGate != nil && r.ReturnGate.FinalResponseAllowed && len(r.Steps) >= lease.MinNodes {
-				break
-			}
+			return eventDecision, nil
+		})
+		if err != nil {
+			return record, err
 		}
-		gate := EvaluateReturnGate(*r)
-		r.ReturnGate = &gate
-		reconciliation := BuildRouteReconciliation(*r)
-		r.Reconciliation = &reconciliation
-		return nil
-	})
+		if !iterationAdded || !opts.UntilDone {
+			break
+		}
+		if record.ReturnGate != nil && record.ReturnGate.FinalResponseAllowed &&
+			record.GoalLease != nil && len(record.Steps) >= record.GoalLease.MinNodes {
+			break
+		}
+	}
+	return record, nil
 }
 
 func Pause(s Store, id string) (Record, error) {

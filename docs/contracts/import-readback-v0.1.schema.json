@@ -7,6 +7,7 @@
     "schema": { "type": "string", "const": "ao.mission.import-readback.v0.1" },
     "mission_id": { "type": "string" },
     "correlation_id": { "type": "string" },
+    "correlation_chain_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "kind": { "type": "string" },
     "status": { "type": "string" },
     "artifact": { "type": "object" },

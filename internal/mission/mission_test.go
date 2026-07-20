@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -2973,6 +2974,47 @@ func TestMissionEvidenceImportRejectsAuthorityDrift(t *testing.T) {
 			}
 			if _, err := ImportArtifact(s, rec.MissionID, tc.kind, path); err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("expected %s rejection, got %v", tc.want, err)
+			}
+		})
+	}
+}
+
+func TestLegacyMissionEvidenceImportRejectsDuplicateJSONWithoutMutation(t *testing.T) {
+	tests := map[string]string{
+		"root contract":    `{"schema":"ao.mission.scheduler-readback.v0.1","schema":"ao.mission.scheduler-readback.v0.1","mission_id":"%[1]s","status":"ready","scheduler":"codex-cron","event_loop":true}`,
+		"nested identity":  `{"schema":"ao.mission.scheduler-readback.v0.1","mission_id":"%[1]s","status":"ready","scheduler":"codex-cron","event_loop":true,"provenance":{"request_id":"first","request_id":"second"}}`,
+		"mission identity": `{"schema":"ao.mission.scheduler-readback.v0.1","mission_id":"%[1]s","mission_id":"%[1]s","status":"ready","scheduler":"codex-cron","event_loop":true}`,
+		"authority":        `{"schema":"ao.mission.scheduler-readback.v0.1","mission_id":"%[1]s","status":"ready","scheduler":"codex-cron","event_loop":true,"executes_work":true,"executes_work":false}`,
+	}
+	for name, bodyTemplate := range tests {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			store := NewStore(dir)
+			record, err := store.Start("reject duplicate legacy import JSON")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := store.SaveCheckpointBundle(BuildCheckpointBundle(record)); err != nil {
+				t.Fatal(err)
+			}
+			paths := store.transactionPaths(record.MissionID)
+			beforeRecord := readFileForTransactionTest(t, paths.Record)
+			beforeCheckpoint := readFileForTransactionTest(t, paths.Checkpoint)
+			body := fmt.Sprintf(bodyTemplate, record.MissionID)
+			path := filepath.Join(dir, "duplicate.json")
+			if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			if _, err := ImportArtifact(store, record.MissionID, "scheduler-readback", path); err == nil ||
+				!strings.Contains(err.Error(), "duplicate") {
+				t.Fatalf("duplicate JSON import was accepted: %v", err)
+			}
+			if got := readFileForTransactionTest(t, paths.Record); !bytes.Equal(got, beforeRecord) {
+				t.Fatal("duplicate JSON import changed Mission bytes")
+			}
+			if got := readFileForTransactionTest(t, paths.Checkpoint); !bytes.Equal(got, beforeCheckpoint) {
+				t.Fatal("duplicate JSON import changed checkpoint bytes")
 			}
 		})
 	}
