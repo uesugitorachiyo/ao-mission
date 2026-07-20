@@ -965,9 +965,9 @@ jobs:
           version_source_blob="$package_dir/version-source.txt"
           git cat-file blob "${SOURCE_SHA}:${VERSION_SOURCE_PATH}" > "$version_source_blob"
           if command -v sha256sum >/dev/null 2>&1; then
-            actual_version_source_sha256=$(sha256sum "$version_source_blob" | awk '{print $1}')
+            actual_version_source_sha256=$(sha256sum < "$version_source_blob" | awk '{print $1}')
           else
-            actual_version_source_sha256=$(shasum -a 256 "$version_source_blob" | awk '{print $1}')
+            actual_version_source_sha256=$(shasum -a 256 < "$version_source_blob" | awk '{print $1}')
           fi
           [ "$actual_version_source_sha256" = "$VERSION_SOURCE_SHA256" ]
           head -n 1 "$version_source_blob" | grep -F "# AO Mission v0.1 SDD"
@@ -997,9 +997,9 @@ jobs:
           cp target/release-rehearsal/approved-manifest/approved-release-manifest.json "$package_dir/"
           go list -m -json > "$package_dir/sbom.json"
           if command -v sha256sum >/dev/null 2>&1; then
-            binary_sha256=$(sha256sum "$package_dir/$binary" | awk '{print $1}')
+            binary_sha256=$(sha256sum < "$package_dir/$binary" | awk '{print $1}')
           else
-            binary_sha256=$(shasum -a 256 "$package_dir/$binary" | awk '{print $1}')
+            binary_sha256=$(shasum -a 256 < "$package_dir/$binary" | awk '{print $1}')
           fi
           go_version=$(go version | sed 's/"/\\"/g')
           cat > "$package_dir/provenance.json" <<EOF
@@ -1018,9 +1018,9 @@ jobs:
           archive_sha256=$(awk '{print $1}' "$artifact_dir/SHA256SUMS")
           cp "$package_dir/provenance.json" "$artifact_dir/provenance.json"
           if command -v sha256sum >/dev/null 2>&1; then
-            provenance_sha256=$(sha256sum "$artifact_dir/provenance.json" | awk '{print $1}')
+            provenance_sha256=$(sha256sum < "$artifact_dir/provenance.json" | awk '{print $1}')
           else
-            provenance_sha256=$(shasum -a 256 "$artifact_dir/provenance.json" | awk '{print $1}')
+            provenance_sha256=$(shasum -a 256 < "$artifact_dir/provenance.json" | awk '{print $1}')
           fi
           cat > "$artifact_dir/candidate-summary.json" <<EOF
           {"approved_manifest_digest":"${APPROVED_MANIFEST_DIGEST}","archive":"${archive}","archive_sha256":"${archive_sha256}","binary_format":"${BINARY_FORMAT}","binary_sha256":"${binary_sha256}","checksum_file":"SHA256SUMS","functional_smoke":{"command":"validate contract --path examples/valid/mission-record.json","provider_calls":false,"status":"passed"},"goarch":"${EXPECTED_GOARCH}","goos":"${EXPECTED_GOOS}","help":{"command":"no-args-usage","expected_exit":"nonzero","status":"passed"},"machine":"${MACHINE}","provenance_sha256":"${provenance_sha256}","release_notes_sha256":"${RELEASE_NOTES_SHA256}","repository":"ao-mission","runner_arch":"${RUNNER_ARCH}","runner_label":"${RUNNER_LABEL}","runner_os":"${RUNNER_OS}","schema_version":"ao.release-rehearsal-candidate.v0.3","source_sha":"${SOURCE_SHA}","target_label":"${TARGET_LABEL}","version":"${RELEASE_VERSION}","version_evidence":{"command":"--version","output":"${version_output}","release_version":"${RELEASE_VERSION}","source_sha":"${SOURCE_SHA}","status":"passed","version_source":"${VERSION_SOURCE_PATH}","version_source_sha256":"${VERSION_SOURCE_SHA256}"}}
