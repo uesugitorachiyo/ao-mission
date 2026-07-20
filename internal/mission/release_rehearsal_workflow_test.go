@@ -421,6 +421,9 @@ func TestNativeCandidatesEmitSeparateHelpVersionAndFunctionalSmokeEvidence(t *te
 		`actual_version_source_sha256=$(shasum -a 256 < "$version_source_blob" | awk '{print $1}')`,
 		`binary_sha256=$(sha256sum < "$package_dir/$binary" | awk '{print $1}')`,
 		`binary_sha256=$(shasum -a 256 < "$package_dir/$binary" | awk '{print $1}')`,
+		`archive_sha256=$(sha256sum < "$artifact_dir/$archive" | awk '{print $1}')`,
+		`archive_sha256=$(shasum -a 256 < "$artifact_dir/$archive" | awk '{print $1}')`,
+		`printf '%s  %s\n' "$archive_sha256" "$archive" > "$artifact_dir/SHA256SUMS"`,
 		`provenance_sha256=$(sha256sum < "$artifact_dir/provenance.json" | awk '{print $1}')`,
 		`provenance_sha256=$(shasum -a 256 < "$artifact_dir/provenance.json" | awk '{print $1}')`,
 		"docs/sdd/AO-MISSION-V0.1.md",
@@ -451,6 +454,8 @@ func TestNativeCandidatesEmitSeparateHelpVersionAndFunctionalSmokeEvidence(t *te
 		`shasum -a 256 "$version_source_blob"`,
 		`sha256sum "$package_dir/$binary"`,
 		`shasum -a 256 "$package_dir/$binary"`,
+		`sha256sum "$archive" > SHA256SUMS`,
+		`shasum -a 256 "$archive" > SHA256SUMS`,
 		`sha256sum "$artifact_dir/provenance.json"`,
 		`shasum -a 256 "$artifact_dir/provenance.json"`,
 	} {

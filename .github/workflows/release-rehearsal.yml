@@ -1011,11 +1011,11 @@ jobs:
             (cd "$package_dir" && tar -czf "$artifact_dir_abs/$archive" "$binary" LICENSE NOTICE approved-release-manifest.json help.txt help-evidence.json version-output.txt version-evidence.json functional-smoke-output.json functional-smoke-evidence.json sbom.json provenance.json)
           fi
           if command -v sha256sum >/dev/null 2>&1; then
-            (cd "$artifact_dir" && sha256sum "$archive" > SHA256SUMS)
+            archive_sha256=$(sha256sum < "$artifact_dir/$archive" | awk '{print $1}')
           else
-            (cd "$artifact_dir" && shasum -a 256 "$archive" > SHA256SUMS)
+            archive_sha256=$(shasum -a 256 < "$artifact_dir/$archive" | awk '{print $1}')
           fi
-          archive_sha256=$(awk '{print $1}' "$artifact_dir/SHA256SUMS")
+          printf '%s  %s\n' "$archive_sha256" "$archive" > "$artifact_dir/SHA256SUMS"
           cp "$package_dir/provenance.json" "$artifact_dir/provenance.json"
           if command -v sha256sum >/dev/null 2>&1; then
             provenance_sha256=$(sha256sum < "$artifact_dir/provenance.json" | awk '{print $1}')
