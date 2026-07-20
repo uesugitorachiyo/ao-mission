@@ -971,6 +971,7 @@ jobs:
           head -n 1 "$VERSION_SOURCE_PATH" | grep -F "# AO Mission v0.1 SDD"
           expected_version_output="ao-mission version=${RELEASE_VERSION} source_sha=${SOURCE_SHA}"
           version_output=$("$package_dir/$binary" --version)
+          version_output=${version_output%$'\r'}
           [ "$version_output" = "$expected_version_output" ]
           printf '%s\n' "$version_output" > "$package_dir/version-output.txt"
           cat > "$package_dir/version-evidence.json" <<EOF

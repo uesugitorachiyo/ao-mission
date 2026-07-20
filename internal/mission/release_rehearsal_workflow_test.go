@@ -413,6 +413,7 @@ func TestNativeCandidatesEmitSeparateHelpVersionAndFunctionalSmokeEvidence(t *te
 		"-X github.com/uesugitorachiyo/ao-mission/internal/mission.BuildVersion=${RELEASE_VERSION}",
 		"-X github.com/uesugitorachiyo/ao-mission/internal/mission.BuildSourceSHA=${SOURCE_SHA}",
 		`version_output=$("$package_dir/$binary" --version)`,
+		`version_output=${version_output%$'\r'}`,
 		`[ "$version_output" = "$expected_version_output" ]`,
 		"docs/sdd/AO-MISSION-V0.1.md",
 		"DISPATCH_SHA: ${{ github.sha }}",
