@@ -179,6 +179,15 @@ func TestReleaseNotesAreCommittedAndBoundToExactHead(t *testing.T) {
 	}
 }
 
+func TestPublishedReleaseVerifierBindsRepositoryWithoutCheckout(t *testing.T) {
+	workflow := readReleaseWorkflow(t)
+	verifier := strings.Split(workflow, "  verify-published-release:")[1]
+	want := `gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir target/release-rehearsal/public-assets`
+	if !strings.Contains(verifier, want) {
+		t.Fatalf("published release verifier missing explicit repository binding %q", want)
+	}
+}
+
 func TestApprovedManifestDecoderRejectsMalformedAndOversizedInput(t *testing.T) {
 	decoder := extractPythonBlock(t, readReleaseWorkflow(t), "approved-manifest-decoder")
 	run := func(t *testing.T, encoded string) ([]byte, error) {
