@@ -1420,7 +1420,7 @@ jobs:
           RELEASE_TAG: ${{ needs.bind-release-inputs.outputs.tag }}
         run: |
           set -euo pipefail
-          gh release download "$RELEASE_TAG" --dir target/release-rehearsal/public-assets
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir target/release-rehearsal/public-assets
           python3 - <<'PY'
           import hashlib
           import json
