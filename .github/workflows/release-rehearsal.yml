@@ -23,10 +23,6 @@ on:
         description: Base64-encoded approved manifest JSON, at most 32 KiB decoded.
         required: true
         type: string
-      release_notes:
-        description: Approved release notes bound into the promotion plan.
-        required: true
-        type: string
       dry_run:
         description: Keep public mutation disabled and retain private rehearsal artifacts.
         required: true
@@ -52,6 +48,7 @@ jobs:
       tag: ${{ steps.validate-manifest.outputs.tag }}
       source_sha: ${{ steps.validate-manifest.outputs.source_sha }}
       approved_manifest_digest: ${{ steps.validate-manifest.outputs.approved_manifest_digest }}
+      release_notes_path: ${{ steps.release-notes.outputs.release_notes_path }}
       release_notes_sha256: ${{ steps.release-notes.outputs.release_notes_sha256 }}
       version_source_path: ${{ steps.validate-manifest.outputs.version_source_path }}
       version_source_sha256: ${{ steps.validate-manifest.outputs.version_source_sha256 }}
@@ -272,14 +269,20 @@ jobs:
           PY
 
       - id: release-notes
-        name: Bind approved release notes
+        name: Bind committed release notes
         shell: bash
         env:
-          RELEASE_NOTES: ${{ inputs.release_notes }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
         run: |
           set -euo pipefail
-          [ -n "$RELEASE_NOTES" ]
-          release_notes_sha256=$(printf '%s' "$RELEASE_NOTES" | sha256sum | awk '{print $1}')
+          release_notes_path=docs/release/V0.1.0-RELEASE-NOTES.md
+          release_notes_blob=target/release-rehearsal/binding/release-notes.md
+          git cat-file blob "${SOURCE_SHA}:${release_notes_path}" > "$release_notes_blob"
+          [ -s "$release_notes_blob" ]
+          [ "$(wc -c < "$release_notes_blob")" -le 32768 ]
+          head -n 1 "$release_notes_blob" | grep -Fx '# AO Mission v0.1.0 Release Notes'
+          release_notes_sha256=$(sha256sum < "$release_notes_blob" | awk '{print $1}')
+          echo "release_notes_path=$release_notes_path" >> "$GITHUB_OUTPUT"
           echo "release_notes_sha256=$release_notes_sha256" >> "$GITHUB_OUTPUT"
 
       - id: release-verifier
@@ -1378,16 +1381,21 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_NOTES: ${{ inputs.release_notes }}
+          RELEASE_NOTES_PATH: ${{ needs.bind-release-inputs.outputs.release_notes_path }}
+          RELEASE_NOTES_SHA256: ${{ needs.bind-release-inputs.outputs.release_notes_sha256 }}
           RELEASE_TAG: ${{ inputs.tag }}
           RELEASE_VERSION: ${{ inputs.version }}
           SOURCE_SHA: ${{ inputs.source_sha }}
         run: |
           set -euo pipefail
           [ "$(git rev-parse HEAD)" = "$SOURCE_SHA" ]
+          approved_release_notes="$RUNNER_TEMP/approved-release-notes.md"
+          git cat-file blob "${SOURCE_SHA}:${RELEASE_NOTES_PATH}" > "$approved_release_notes"
+          actual_release_notes_sha256=$(sha256sum < "$approved_release_notes" | awk '{print $1}')
+          [ "$actual_release_notes_sha256" = "$RELEASE_NOTES_SHA256" ]
           mapfile -t archives < <(find target/release-rehearsal/candidates -type f \( -name '*.tar.gz' -o -name '*.zip' \) | sort)
           [ "${#archives[@]}" -eq 3 ]
-          gh release create "$RELEASE_TAG" --target "$SOURCE_SHA" --title "AO Mission $RELEASE_VERSION" --notes "$RELEASE_NOTES" "${archives[@]}"
+          gh release create "$RELEASE_TAG" --target "$SOURCE_SHA" --title "AO Mission $RELEASE_VERSION" --notes-file "$approved_release_notes" "${archives[@]}"
 
   verify-published-release:
     name: Independently verify published assets

@@ -71,7 +71,6 @@ func TestReleaseRehearsalWorkflowStructure(t *testing.T) {
 		"source_sha",
 		"approved_manifest_digest",
 		"approved_manifest_base64",
-		"release_notes",
 		"dry_run",
 		"live_confirmation",
 	} {
@@ -81,6 +80,9 @@ func TestReleaseRehearsalWorkflowStructure(t *testing.T) {
 	}
 	if shape.inputs["dry_run"]["default"] != "true" || shape.inputs["dry_run"]["type"] != "boolean" {
 		t.Fatalf("dry_run input=%v, want boolean default true", shape.inputs["dry_run"])
+	}
+	if _, ok := shape.inputs["release_notes"]; ok {
+		t.Fatal("release notes must come from exact committed bytes, not dispatch input")
 	}
 	if shape.topPermissions["contents"] != "read" {
 		t.Fatalf("top-level permissions=%v, want contents read", shape.topPermissions)
@@ -135,6 +137,45 @@ func TestReleaseRehearsalWorkflowStructure(t *testing.T) {
 	}
 	if actionCount < 10 {
 		t.Fatalf("parsed only %d action uses, want all workflow actions", actionCount)
+	}
+}
+
+func TestReleaseNotesAreCommittedAndBoundToExactHead(t *testing.T) {
+	notesPath := filepath.Join("..", "..", "docs", "release", "V0.1.0-RELEASE-NOTES.md")
+	notes, err := os.ReadFile(notesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"# AO Mission v0.1.0 Release Notes",
+		"initial stable release",
+		"Linux x86_64",
+		"macOS aarch64",
+		"Windows x86_64",
+		"execute downstream repository mutations",
+		"RSI remains denied",
+	} {
+		if !bytes.Contains(notes, []byte(want)) {
+			t.Fatalf("release notes missing %q", want)
+		}
+	}
+
+	workflow := readReleaseWorkflow(t)
+	for _, want := range []string{
+		"release_notes_path: ${{ steps.release-notes.outputs.release_notes_path }}",
+		"release_notes_path=docs/release/V0.1.0-RELEASE-NOTES.md",
+		`git cat-file blob "${SOURCE_SHA}:${release_notes_path}" > "$release_notes_blob"`,
+		`release_notes_sha256=$(sha256sum < "$release_notes_blob" | awk '{print $1}')`,
+		`git cat-file blob "${SOURCE_SHA}:${RELEASE_NOTES_PATH}" > "$approved_release_notes"`,
+		`[ "$actual_release_notes_sha256" = "$RELEASE_NOTES_SHA256" ]`,
+		`--notes-file "$approved_release_notes"`,
+	} {
+		if !strings.Contains(workflow, want) {
+			t.Fatalf("release workflow missing committed-note binding %q", want)
+		}
+	}
+	if strings.Contains(workflow, "${{ inputs.release_notes }}") {
+		t.Fatal("release workflow still accepts uncommitted release-note text")
 	}
 }
 
