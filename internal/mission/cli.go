@@ -29,13 +29,6 @@ func (values *repeatedStringFlag) Set(value string) error {
 	return nil
 }
 
-func Run(args []string, stdout, stderr io.Writer) int {
-	if err := run(args, stdout); err != nil {
-		fmt.Fprintln(stderr, "error:", err)
-		return 1
-	}
-	return 0
-}
 func printJSON(w io.Writer, v any) error {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
@@ -45,22 +38,7 @@ func printJSON(w io.Writer, v any) error {
 	return err
 }
 
-func run(args []string, stdout io.Writer) error {
-	if len(args) == 1 && args[0] == "--version" {
-		fmt.Fprintf(stdout, "ao-mission version=%s source_sha=%s\n", BuildVersion, BuildSourceSHA)
-		return nil
-	}
-	if len(args) == 0 {
-		return errors.New("usage: ao-mission [--home <dir>] <init|start|objective|mission|continue|checkpoint|status|next|stop|pause|resume|doctor|schedule|daemon|telegram|a2a|gateway|governance|command|artifacts|correlation|validate|import|final>")
-	}
-	home, args, err := parseGlobalHome(args)
-	if err != nil {
-		return err
-	}
-	if len(args) == 0 {
-		return errors.New("command is required")
-	}
-	s := NewStore(home)
+func runCLICommand(s Store, args []string, stdout io.Writer) error {
 	switch args[0] {
 	case "init":
 		if err := s.Init(); err != nil {
