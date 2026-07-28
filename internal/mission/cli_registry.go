@@ -6,7 +6,7 @@ import (
 	"io"
 )
 
-const cliUsage = "usage: ao-mission [--home <dir>] <init|start|objective|mission|continue|checkpoint|status|next|stop|pause|resume|doctor|schedule|daemon|telegram|a2a|gateway|governance|command|artifacts|correlation|validate|import|final>"
+const cliUsage = "usage: ao-mission [--home <dir>] <init|start|objective|mission|issue-repair|continue|checkpoint|status|next|stop|pause|resume|doctor|schedule|daemon|telegram|a2a|gateway|governance|command|artifacts|correlation|validate|import|final>"
 
 type cliCommandHandler func(Store, []string, io.Writer) error
 
@@ -48,6 +48,7 @@ func newCLICommandRegistry() cliCommandRegistry {
 	registerMissionCLICommands(registry)
 	registerContinuationCLICommands(registry)
 	registerCorrelationCLICommands(registry)
+	registerIssueRepairCLICommands(registry)
 	return registry
 }
 

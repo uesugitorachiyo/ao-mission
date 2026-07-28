@@ -1293,6 +1293,13 @@ func strictJSONTypeMatches(value any, want string) bool {
 	case "array":
 		_, ok := value.([]any)
 		return ok
+	case "integer":
+		number, ok := value.(json.Number)
+		if !ok {
+			return false
+		}
+		_, err := number.Int64()
+		return err == nil
 	default:
 		return false
 	}
