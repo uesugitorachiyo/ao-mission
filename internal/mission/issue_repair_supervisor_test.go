@@ -406,7 +406,7 @@ func TestIssueRepairCanonicalDigestsMatchArchitectureVectors(t *testing.T) {
 func TestCLIIssueRepairSupervisorAcceptsStrictBoundedRequest(t *testing.T) {
 	store, record := issueRepairTestMission(t)
 	requestPath := filepath.Join(t.TempDir(), "request.json")
-	body, err := json.Marshal(issueRepairRequest("run_started"))
+	body, err := json.Marshal(issueRepairCLIRequest("run_started"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -495,4 +495,10 @@ func issueRepairRequest(eventType string) IssueRepairSupervisorRequest {
 		ReasonCode:        "SUPERVISOR_TEST_EVENT",
 		EventBudget:       8,
 	}
+}
+
+func issueRepairCLIRequest(eventType string) IssueRepairSupervisorRequest {
+	request := issueRepairRequest(eventType)
+	request.LeaseExpiresAt = time.Now().UTC().Add(time.Hour).Format(time.RFC3339)
+	return request
 }
