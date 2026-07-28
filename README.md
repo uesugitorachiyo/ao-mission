@@ -26,6 +26,7 @@ for the cross-repository flow.
 ao-mission init
 ao-mission start "<objective>"
 ao-mission objective start --objective "<objective>" [--correlation-id <id>]
+ao-mission issue-repair supervise --mission <id> --request <request.json> [--json]
 ao-mission mission list [--status <status>] [--route <route>] [--json]
 ao-mission mission inspect --mission <id> [--json]
 ao-mission mission history --mission <id> [--json]

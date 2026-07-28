@@ -152,13 +152,14 @@ func (contract *ObjectiveWorkflowContract) UnmarshalJSON(data []byte) error {
 }
 
 type EvidenceSummary struct {
-	AtlasWorkgraph      *NodeCounts                        `json:"atlas_workgraph,omitempty"`
-	AtlasRecommendation *AtlasRecommendationReadbackCounts `json:"atlas_recommendation,omitempty"`
-	AtlasFinalSynthesis *AtlasFinalSynthesisReadbackCounts `json:"atlas_final_synthesis,omitempty"`
-	FoundryRollup       *FoundryRollupCounts               `json:"foundry_rollup,omitempty"`
-	SchedulerReadback   *SchedulerEvidenceCounts           `json:"scheduler_readback,omitempty"`
-	SchedulerRecovery   *SchedulerRecoveryCounts           `json:"scheduler_recovery,omitempty"`
-	LedgerCompaction    *LedgerCompactionCounts            `json:"ledger_compaction,omitempty"`
+	AtlasWorkgraph        *NodeCounts                        `json:"atlas_workgraph,omitempty"`
+	AtlasRecommendation   *AtlasRecommendationReadbackCounts `json:"atlas_recommendation,omitempty"`
+	AtlasFinalSynthesis   *AtlasFinalSynthesisReadbackCounts `json:"atlas_final_synthesis,omitempty"`
+	FoundryRollup         *FoundryRollupCounts               `json:"foundry_rollup,omitempty"`
+	SchedulerReadback     *SchedulerEvidenceCounts           `json:"scheduler_readback,omitempty"`
+	SchedulerRecovery     *SchedulerRecoveryCounts           `json:"scheduler_recovery,omitempty"`
+	LedgerCompaction      *LedgerCompactionCounts            `json:"ledger_compaction,omitempty"`
+	IssueRepairSupervisor *IssueRepairSupervisorState        `json:"issue_repair_supervisor,omitempty"`
 }
 
 type NodeCounts struct {
