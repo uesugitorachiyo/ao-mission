@@ -127,13 +127,20 @@ func SuperviseIssueRepair(s Store, missionID string, request IssueRepairSupervis
 			if request.EventBudget != current.EventBudget {
 				return errors.New("issue repair event budget mismatch")
 			}
+			if issueRepairRequestMatchesLastEvent(request, *current) {
+				matches, err := issueRepairReplayCheckpointMatches(request, *current)
+				if err != nil {
+					return err
+				}
+				if !matches {
+					return errors.New("issue repair checkpoint digest mismatch")
+				}
+				state = *current
+				return nil
+			}
 			if request.ExpectedCheckpointDigest != "" &&
 				request.ExpectedCheckpointDigest != current.Checkpoint.CheckpointDigest {
 				return errors.New("issue repair checkpoint digest mismatch")
-			}
-			if issueRepairRequestMatchesLastEvent(request, *current) {
-				state = *current
-				return nil
 			}
 		}
 		if current == nil {
@@ -310,6 +317,28 @@ func issueRepairRequestMatchesLastEvent(request IssueRepairSupervisorRequest, st
 		last.ReasonCode == request.ReasonCode &&
 		stringSlicesEqual(last.InputDigests, request.InputDigests) &&
 		stringSlicesEqual(last.OutputDigests, request.OutputDigests)
+}
+
+func issueRepairReplayCheckpointMatches(
+	request IssueRepairSupervisorRequest,
+	state IssueRepairSupervisorState,
+) (bool, error) {
+	if len(state.Events) == 1 {
+		return request.ExpectedCheckpointDigest == "", nil
+	}
+	previousEvents := append([]IssueRepairEvent(nil), state.Events[:len(state.Events)-1]...)
+	previous := previousEvents[len(previousEvents)-1]
+	prior := state
+	prior.Status = "active"
+	prior.Events = previousEvents
+	prior.Lease.Status = "active"
+	prior.Lease.OwnershipVerifiedAt = previous.Timestamp
+	prior.GeneratedAtUTC = previous.Timestamp
+	checkpoint, err := buildIssueRepairCheckpoint(prior, previous.Timestamp)
+	if err != nil {
+		return false, err
+	}
+	return request.ExpectedCheckpointDigest == checkpoint.CheckpointDigest, nil
 }
 
 func stringSlicesEqual(left, right []string) bool {

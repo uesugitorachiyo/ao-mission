@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -93,6 +94,31 @@ func TestIssueRepairSupervisorRetryRejectsChangedLeaseCheckpointOrBudget(t *test
 				t.Fatalf("changed retry %s was accepted against checkpoint %s", name, first.Checkpoint.CheckpointDigest)
 			}
 		})
+	}
+}
+
+func TestIssueRepairSupervisorExactPostFirstEventReplayIsIdempotent(t *testing.T) {
+	store, record := issueRepairTestMission(t)
+	first, err := SuperviseIssueRepair(store, record.MissionID, issueRepairRequest("run_started"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := issueRepairRequest("discovery_completed")
+	request.ExpectedCheckpointDigest = first.Checkpoint.CheckpointDigest
+	persisted, err := SuperviseIssueRepair(store, record.MissionID, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	replayed, err := SuperviseIssueRepair(store, record.MissionID, request)
+	if err != nil {
+		t.Fatalf("exact replay failed: %v", err)
+	}
+	if !reflect.DeepEqual(replayed, persisted) {
+		t.Fatalf("exact replay changed persisted state")
+	}
+	if len(replayed.Events) != 2 {
+		t.Fatalf("exact replay event count = %d, want 2", len(replayed.Events))
 	}
 }
 
