@@ -1,0 +1,90 @@
+{
+  "contract_version": "ao.canonical-terminal-index.v1",
+  "schema_digest": "sha256:6b02c52563c756c14dc6075050580d6041d38993fd856115480595de237efb6d",
+  "mission_id": "ao-mission-doubled-wave-v01",
+  "evidence_root": ".",
+  "generated_at_utc": "2026-07-29T03:23:22Z",
+  "artifacts": [
+    {
+      "role": "root",
+      "sequence": 0,
+      "path": "workgraph.json",
+      "schema": "ao.atlas.workgraph.v0.1",
+      "sha256": "sha256:263953256cd1c5b1fce32273473a21087915ea126b433febde93bf909b56c866",
+      "state": "initial_snapshot"
+    },
+    {
+      "role": "duration",
+      "sequence": 1,
+      "path": "duration-ledger.json",
+      "schema": "ao.mission.wave-duration-ledger.v0.1",
+      "sha256": "sha256:027c255a0b3c28456228eeb0fb852e3f94e9e2a9198e22e05ff084da7062c098",
+      "state": "duration_snapshot"
+    },
+    {
+      "role": "session",
+      "sequence": 2,
+      "path": "codex-session-duration-readback.json",
+      "schema": "ao.mission.codex-session-duration-readback.v0.1",
+      "sha256": "sha256:8d4a9935717305b48d7d833cbfc451d1d9a3bd1708ef63b3200eddf4e8e28351",
+      "state": "supporting_snapshot"
+    }
+  ],
+  "lineage": [
+    {
+      "from_sequence": 0,
+      "to_sequence": 1,
+      "relation": "precedes"
+    },
+    {
+      "from_sequence": 1,
+      "to_sequence": 2,
+      "relation": "precedes"
+    }
+  ],
+  "terminal_reference": "",
+  "counts": {
+    "total": 60,
+    "minimum": 60,
+    "completed": 26,
+    "ready": 34,
+    "blocked": 0,
+    "failed": 0
+  },
+  "lease": {
+    "minimum_minutes": 120,
+    "target_minutes": 120,
+    "maximum_minutes": 180,
+    "elapsed_minutes": 0,
+    "status": "terminal_missing"
+  },
+  "completion_observed": false,
+  "canonical_evidence_agreement": false,
+  "readiness_passed": false,
+  "return_gate_status": "final_response_denied",
+  "final_response_allowed": false,
+  "conflict_codes": [
+    "canonical_terminal_missing",
+    "duration_state_stale",
+    "historical_snapshot_not_live",
+    "timing_unresolved"
+  ],
+  "conflict_summaries": [
+    "canonical terminal missing",
+    "duration state stale",
+    "historical snapshot not live",
+    "timing unresolved"
+  ],
+  "exact_next_action": "Treat these records as historical snapshots; create a new governed objective before scheduling work.",
+  "safety_boundaries": {
+    "executes_work": false,
+    "approves_work": false,
+    "mutates_repositories": false,
+    "calls_providers": false,
+    "publishes": false,
+    "releases": false,
+    "deploys": false,
+    "advances_authority": false
+  },
+  "digest": "sha256:b00c9e5e038badd1c3fd38cee3495acac319467a6f066f8f2df336dea66f5795"
+}
