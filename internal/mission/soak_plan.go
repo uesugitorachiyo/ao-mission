@@ -613,9 +613,13 @@ func planSoakPartitions(input SoakPlanInput, catalog map[string]SoakTestEntry, h
 		}
 		sort.Slice(scales, func(i, j int) bool { return scales[i].ID < scales[j].ID })
 		for _, entry := range scales {
+			decision := "scale_repeat_one_preserved"
+			if entry.RequestedRepeatCount != 1 {
+				decision = "scale_repeat_rejected_effective_one"
+			}
 			planned = append(planned, buildSoakPartition(
 				request.PartitionID+"-scale-"+entry.ID, request.NodeID+"-scale-"+entry.ID,
-				"scale", []SoakTestEntry{entry}, 1, "scale_repeat_one_preserved",
+				"scale", []SoakTestEntry{entry}, entry.RequestedRepeatCount, 1, decision,
 				nodeBudget, input, history, addConflict,
 			))
 		}
@@ -629,7 +633,7 @@ func planSoakPartitions(input SoakPlanInput, catalog map[string]SoakTestEntry, h
 			}
 			planned = append(planned, buildSoakPartition(
 				request.PartitionID+"-regular", request.NodeID+"-regular", "regular",
-				regular, repeat, "bounded_regular_repeat_preserved", nodeBudget,
+				regular, repeat, repeat, "bounded_regular_repeat_preserved", nodeBudget,
 				input, history, addConflict,
 			))
 		}
@@ -649,15 +653,15 @@ func planSoakPartitions(input SoakPlanInput, catalog map[string]SoakTestEntry, h
 	return planned
 }
 
-func buildSoakPartition(partitionID, nodeID, classification string, tests []SoakTestEntry, repeat int, decision string, nodeBudget int64, input SoakPlanInput, history map[string]int64, addConflict func(string)) SoakPlannedPartition {
+func buildSoakPartition(partitionID, nodeID, classification string, tests []SoakTestEntry, requestedRepeat, effectiveRepeat int, decision string, nodeBudget int64, input SoakPlanInput, history map[string]int64, addConflict func(string)) SoakPlannedPartition {
 	partition := SoakPlannedPartition{
 		PartitionID: partitionID, NodeID: nodeID, Classification: classification,
-		RequestedRepeatCount: repeat, EffectiveRepeatCount: repeat,
+		RequestedRepeatCount: requestedRepeat, EffectiveRepeatCount: effectiveRepeat,
 		AmplificationDecision: decision, NodeBudgetMS: nodeBudget,
 	}
 	for _, test := range tests {
 		partition.Tests = append(partition.Tests, test.ID)
-		duration := checkedSoakMultiply(history[test.ID], int64(repeat), addConflict)
+		duration := checkedSoakMultiply(history[test.ID], int64(effectiveRepeat), addConflict)
 		partition.EstimatedDurationMS = checkedSoakAdd(partition.EstimatedDurationMS, duration, addConflict)
 	}
 	partition.EstimatedDurationMS = checkedSoakAdd(partition.EstimatedDurationMS, input.Budgets.SetupOverheadMS, addConflict)

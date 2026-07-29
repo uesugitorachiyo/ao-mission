@@ -47,6 +47,28 @@ func TestBuildSoakPlanSeparatesScaleFromRepeatedRegularWork(t *testing.T) {
 	assertSoakSafety(t, readback.SafetyBoundaries)
 }
 
+func TestBuildSoakPlanScaleAmplificationReportsRequestedAndEffectiveRepeatCounts(t *testing.T) {
+	input := validSoakPlanInput()
+	input.TestCatalog[2].RequestedRepeatCount = 2
+	input.PolicyDigest = soakPolicyDigest(input)
+	input.Activation.BoundPolicyDigest = input.PolicyDigest
+
+	readback, err := BuildSoakPlan(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.ActivationAllowed ||
+		!reflect.DeepEqual(readback.ConflictCodes, []string{"scale_repeat_amplification"}) {
+		t.Fatalf("scale amplification did not fail closed: %+v", readback)
+	}
+	scale := readback.Partitions[0]
+	if scale.RequestedRepeatCount != 2 || scale.EffectiveRepeatCount != 1 ||
+		scale.AmplificationDecision != "scale_repeat_rejected_effective_one" ||
+		scale.EstimatedDurationMS != 1_500 || scale.RetryAllowanceMS != 3_000 {
+		t.Fatalf("scale request/effective readback is wrong: %+v", scale)
+	}
+}
+
 func TestBuildSoakPlanDurationEstimateIsIndependentOfSampleOrder(t *testing.T) {
 	first := validSoakPlanInput()
 	second := validSoakPlanInput()
