@@ -18,6 +18,8 @@ func TestTerminalIndexCLIExposesDurableReadbackSurfaces(t *testing.T) {
 	if code := Run([]string{"terminal-index", "import", "--root", root, "--index", indexPath, "--state", statePath}, &stdout, &stderr); code != 0 {
 		t.Fatalf("import code=%d stderr=%s", code, stderr.String())
 	}
+	var views []TerminalIndexImportReadback
+	stateDigests := map[string]bool{}
 	for _, surface := range []string{"inspect", "checkpoint", "event-index", "command-readback"} {
 		stdout.Reset()
 		stderr.Reset()
@@ -31,6 +33,31 @@ func TestTerminalIndexCLIExposesDurableReadbackSurfaces(t *testing.T) {
 		if readback.Surface != surface || readback.IndexDigest == "" || !readback.FinalResponseAllowed {
 			t.Fatalf("%s readback changed reconciliation: %+v", surface, readback)
 		}
+		unsigned := readback
+		unsigned.StateDigest = ""
+		body, err := json.Marshal(unsigned)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if readback.StateDigest != digestBytes(body) {
+			t.Fatalf("%s state digest is not surface-bound", surface)
+		}
+		stateDigests[readback.StateDigest] = true
+		views = append(views, readback)
+	}
+	if len(stateDigests) != 4 {
+		t.Fatalf("state digests must be distinct by surface: %v", stateDigests)
+	}
+	if err := ValidateTerminalSurfaceAgreement(views); err != nil {
+		t.Fatalf("canonical terminal views disagree: %v", err)
+	}
+
+	mismatched := append([]TerminalIndexImportReadback(nil), views...)
+	mismatched[3].Counts.Completed--
+	signTerminalIndexImport(&mismatched[3])
+	if err := ValidateTerminalSurfaceAgreement(mismatched); err == nil ||
+		!strings.Contains(err.Error(), "canonical payload mismatch") {
+		t.Fatalf("equal index digest excused canonical mismatch: %v", err)
 	}
 }
 

@@ -1,6 +1,7 @@
 package mission
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -207,6 +208,61 @@ func LoadTerminalIndexImport(path string) (TerminalIndexImportReadback, error) {
 		return readback, errors.New("terminal index import state return gate is contradictory")
 	}
 	return readback, nil
+}
+
+// ValidateTerminalSurfaceAgreement proves that Mission's four exported views
+// carry one canonical authority payload while retaining surface-specific state
+// digests. Equal index digests alone never excuse a payload mismatch.
+func ValidateTerminalSurfaceAgreement(readbacks []TerminalIndexImportReadback) error {
+	if len(readbacks) != 4 {
+		return errors.New("terminal surface agreement requires exactly four views")
+	}
+	expectedSurfaces := map[string]bool{
+		"inspect": false, "checkpoint": false, "event-index": false, "command-readback": false,
+	}
+	stateDigests := map[string]bool{}
+	var indexDigest string
+	var canonicalBody []byte
+	for _, readback := range readbacks {
+		if _, exists := expectedSurfaces[readback.Surface]; !exists || expectedSurfaces[readback.Surface] {
+			return fmt.Errorf("terminal surface %q is missing or duplicated", readback.Surface)
+		}
+		expectedSurfaces[readback.Surface] = true
+		unsigned := readback
+		unsigned.StateDigest = ""
+		body, err := json.Marshal(unsigned)
+		if err != nil {
+			return err
+		}
+		if readback.StateDigest == "" || readback.StateDigest != digestBytes(body) {
+			return fmt.Errorf("terminal surface %q state digest mismatch", readback.Surface)
+		}
+		if stateDigests[readback.StateDigest] {
+			return errors.New("terminal state digests must be distinct across surfaces")
+		}
+		stateDigests[readback.StateDigest] = true
+		if indexDigest == "" {
+			if readback.IndexDigest == "" {
+				return errors.New("terminal index digest is required across surfaces")
+			}
+			indexDigest = readback.IndexDigest
+		} else if readback.IndexDigest != indexDigest {
+			return errors.New("terminal index digest mismatch across surfaces")
+		}
+		canonical := readback
+		canonical.Surface = ""
+		canonical.StateDigest = ""
+		body, err = json.Marshal(canonical)
+		if err != nil {
+			return err
+		}
+		if canonicalBody == nil {
+			canonicalBody = body
+		} else if !bytes.Equal(canonicalBody, body) {
+			return errors.New("terminal canonical payload mismatch across surfaces")
+		}
+	}
+	return nil
 }
 
 func VerifyTerminalIndex(root string, index CanonicalTerminalIndex) error {
