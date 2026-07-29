@@ -108,6 +108,7 @@ func TestSoakCanaryBuildInfoProvenanceRequiresExactUnmodifiedRevision(t *testing
 func TestSoakCanaryOperationalBoundaryContainsNoGitSubprocess(t *testing.T) {
 	for _, name := range []string{
 		"cli_soak_canary.go",
+		"soak_canary_git.go",
 		"soak_canary_snapshot.go",
 		"soak_canary_executor.go",
 	} {

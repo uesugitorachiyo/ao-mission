@@ -2,25 +2,25 @@ package mission
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/binary"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
-
-	git "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
 func TestSoakCanaryActivationRejectsUncleanOrMismatchedGitRepository(t *testing.T) {
 	tests := []struct {
 		name   string
-		mutate func(*testing.T, *soakCanaryTestFixture, *git.Worktree)
+		mutate func(*testing.T, *soakCanaryTestFixture)
 	}{
 		{
 			name: "tracked modification",
-			mutate: func(t *testing.T, fixture *soakCanaryTestFixture, _ *git.Worktree) {
+			mutate: func(t *testing.T, fixture *soakCanaryTestFixture) {
 				mustWriteSoakCanaryTestFile(
 					t,
 					filepath.Join(fixture.request.RepositoryRoot, "tracked.txt"),
@@ -30,20 +30,18 @@ func TestSoakCanaryActivationRejectsUncleanOrMismatchedGitRepository(t *testing.
 		},
 		{
 			name: "staged modification",
-			mutate: func(t *testing.T, fixture *soakCanaryTestFixture, worktree *git.Worktree) {
+			mutate: func(t *testing.T, fixture *soakCanaryTestFixture) {
 				mustWriteSoakCanaryTestFile(
 					t,
 					filepath.Join(fixture.request.RepositoryRoot, "tracked.txt"),
 					[]byte("staged\n"),
 				)
-				if _, err := worktree.Add("tracked.txt"); err != nil {
-					t.Fatal(err)
-				}
+				runSoakCanaryTestGit(t, fixture.request.RepositoryRoot, "add", "tracked.txt")
 			},
 		},
 		{
 			name: "untracked file",
-			mutate: func(t *testing.T, fixture *soakCanaryTestFixture, _ *git.Worktree) {
+			mutate: func(t *testing.T, fixture *soakCanaryTestFixture) {
 				mustWriteSoakCanaryTestFile(
 					t,
 					filepath.Join(fixture.request.RepositoryRoot, "untracked.txt"),
@@ -53,7 +51,7 @@ func TestSoakCanaryActivationRejectsUncleanOrMismatchedGitRepository(t *testing.
 		},
 		{
 			name: "mismatched HEAD",
-			mutate: func(t *testing.T, fixture *soakCanaryTestFixture, _ *git.Worktree) {
+			mutate: func(t *testing.T, fixture *soakCanaryTestFixture) {
 				fixture.request.Activation.SourceHead = strings.Repeat("f", 40)
 				signSoakCanaryActivation(&fixture.request.Activation)
 			},
@@ -63,7 +61,7 @@ func TestSoakCanaryActivationRejectsUncleanOrMismatchedGitRepository(t *testing.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			fixture := validSoakCanaryFixture(t)
-			worktree, head := initializeSoakCanaryGitRepository(t, fixture.request.RepositoryRoot)
+			head := initializeSoakCanaryGitRepository(t, fixture.request.RepositoryRoot)
 			snapshot, err := BuildSoakCanaryRepositorySnapshot(fixture.request.RepositoryRoot)
 			if err != nil {
 				t.Fatal(err)
@@ -77,7 +75,7 @@ func TestSoakCanaryActivationRejectsUncleanOrMismatchedGitRepository(t *testing.
 				t.Fatalf("clean Git repository rejected: %+v", clean)
 			}
 
-			test.mutate(t, &fixture, worktree)
+			test.mutate(t, &fixture)
 			validation := ValidateSoakCanaryActivation(fixture.request)
 			if validation.ActivationAllowed ||
 				!containsSoakConflict(validation.ConflictCodes, "repository_git_state_mismatch") {
@@ -87,13 +85,90 @@ func TestSoakCanaryActivationRejectsUncleanOrMismatchedGitRepository(t *testing.
 	}
 }
 
+func TestSoakCanaryGitVerifierRejectsUnsupportedOrCorruptIndex(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*testing.T, []byte) []byte
+		match  string
+	}{
+		{
+			name: "unsupported version",
+			mutate: func(t *testing.T, body []byte) []byte {
+				t.Helper()
+				binary.BigEndian.PutUint32(body[4:8], 4)
+				return body
+			},
+			match: "version",
+		},
+		{
+			name: "corrupt checksum",
+			mutate: func(t *testing.T, body []byte) []byte {
+				t.Helper()
+				body[len(body)-1] ^= 0xff
+				return body
+			},
+			match: "checksum",
+		},
+		{
+			name: "unsupported extension",
+			mutate: func(t *testing.T, body []byte) []byte {
+				t.Helper()
+				checksumStart := len(body) - sha1.Size
+				extended := append([]byte(nil), body[:checksumStart]...)
+				extended = append(extended, []byte("ZZZZ")...)
+				extended = binary.BigEndian.AppendUint32(extended, 0)
+				checksum := sha1.Sum(extended)
+				return append(extended, checksum[:]...)
+			},
+			match: "extension",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			head := initializeSoakCanaryGitRepository(t, root)
+			indexPath := filepath.Join(root, ".git", "index")
+			body, err := os.ReadFile(indexPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(indexPath, test.mutate(t, body), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			err = (InProcessSoakCanaryGitVerifier{}).Verify(root, head)
+			if err == nil || !strings.Contains(strings.ToLower(err.Error()), test.match) {
+				t.Fatalf("unsafe index accepted or wrong error: %v", err)
+			}
+		})
+	}
+}
+
+func TestSoakCanaryGitVerifierAcceptsVersionThreeIndex(t *testing.T) {
+	root := t.TempDir()
+	head := initializeSoakCanaryGitRepository(t, root)
+	indexPath := filepath.Join(root, ".git", "index")
+	body, err := os.ReadFile(indexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	binary.BigEndian.PutUint32(body[4:8], 3)
+	checksum := sha1.Sum(body[:len(body)-sha1.Size])
+	copy(body[len(body)-sha1.Size:], checksum[:])
+	if err := os.WriteFile(indexPath, body, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := (InProcessSoakCanaryGitVerifier{}).Verify(root, head); err != nil {
+		t.Fatalf("valid Git index v3 rejected: %v", err)
+	}
+}
+
 func TestSoakCanaryGitVerifierSupportsGitFile(t *testing.T) {
 	parent := t.TempDir()
 	root := filepath.Join(parent, "worktree")
 	if err := os.Mkdir(root, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	_, head := initializeSoakCanaryGitRepository(t, root)
+	head := initializeSoakCanaryGitRepository(t, root)
 	gitDirectory := filepath.Join(parent, "metadata")
 	if err := os.Rename(filepath.Join(root, ".git"), gitDirectory); err != nil {
 		t.Fatal(err)
@@ -106,6 +181,32 @@ func TestSoakCanaryGitVerifierSupportsGitFile(t *testing.T) {
 
 	if err := (InProcessSoakCanaryGitVerifier{}).Verify(root, head); err != nil {
 		t.Fatalf("valid Git file repository rejected: %v", err)
+	}
+}
+
+func TestSoakCanaryGitVerifierSupportsLinkedWorktree(t *testing.T) {
+	parent := t.TempDir()
+	root := filepath.Join(parent, "primary")
+	linked := filepath.Join(parent, "linked")
+	if err := os.Mkdir(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	head := initializeSoakCanaryGitRepository(t, root)
+	runSoakCanaryTestGit(t, root, "worktree", "add", "--detach", linked, "HEAD")
+
+	if err := (InProcessSoakCanaryGitVerifier{}).Verify(linked, head); err != nil {
+		t.Fatalf("valid linked Git worktree rejected: %v", err)
+	}
+}
+
+func TestSoakCanaryGitVerifierSupportsPackedRefsAndObjects(t *testing.T) {
+	root := t.TempDir()
+	head := initializeSoakCanaryGitRepository(t, root)
+	runSoakCanaryTestGit(t, root, "pack-refs", "--all", "--prune")
+	runSoakCanaryTestGit(t, root, "gc", "--prune=now")
+
+	if err := (InProcessSoakCanaryGitVerifier{}).Verify(root, head); err != nil {
+		t.Fatalf("valid packed Git repository rejected: %v", err)
 	}
 }
 
@@ -177,30 +278,38 @@ func TestSoakCanaryRunningCheckpointFailureReapsChildAndRestartFailsClosed(t *te
 	}
 }
 
-func initializeSoakCanaryGitRepository(t *testing.T, root string) (*git.Worktree, string) {
+func initializeSoakCanaryGitRepository(t *testing.T, root string) string {
 	t.Helper()
-	repository, err := git.PlainInit(root, false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	runSoakCanaryTestGit(t, root, "init")
 	mustWriteSoakCanaryTestFile(t, filepath.Join(root, "tracked.txt"), []byte("tracked\n"))
-	worktree, err := repository.Worktree()
+	runSoakCanaryTestGit(t, root, "add", ".")
+	runSoakCanaryTestGit(
+		t,
+		root,
+		"-c", "user.name=AO Mission Test",
+		"-c", "user.email=ao-mission@example.invalid",
+		"commit", "-m", "fixture",
+	)
+	return strings.TrimSpace(runSoakCanaryTestGit(t, root, "rev-parse", "HEAD"))
+}
+
+func runSoakCanaryTestGit(t *testing.T, root string, args ...string) string {
+	t.Helper()
+	commandArgs := append([]string{"-C", root}, args...)
+	command := exec.Command("git", commandArgs...)
+	command.Env = []string{
+		"HOME=" + t.TempDir(),
+		"PATH=" + os.Getenv("PATH"),
+		"LC_ALL=C",
+		"GIT_CONFIG_NOSYSTEM=1",
+		"GIT_AUTHOR_DATE=2023-11-14T22:13:20Z",
+		"GIT_COMMITTER_DATE=2023-11-14T22:13:20Z",
+	}
+	output, err := command.CombinedOutput()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("git %v: %v\n%s", args, err, output)
 	}
-	if _, err := worktree.Add("."); err != nil {
-		t.Fatal(err)
-	}
-	hash, err := worktree.Commit("fixture", &git.CommitOptions{
-		Author: &object.Signature{
-			Name: "AO Mission Test", Email: "ao-mission@example.invalid",
-			When: time.Unix(1_700_000_000, 0).UTC(),
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return worktree, hash.String()
+	return string(output)
 }
 
 type soakCanaryCheckpointFailureExecutor struct {

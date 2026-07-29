@@ -11,8 +11,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-
-	git "github.com/go-git/go-git/v5"
 )
 
 const (
@@ -100,46 +98,6 @@ func soakCanarySourceProvenanceFromBuildSettings(
 
 func (PureGoSoakCanaryRepositorySnapshotter) Snapshot(repositoryRoot string) (SoakCanaryRepositorySnapshot, error) {
 	return BuildSoakCanaryRepositorySnapshot(repositoryRoot)
-}
-
-func (InProcessSoakCanaryGitVerifier) Verify(repositoryRoot, expectedRevision string) error {
-	root, err := filepath.Abs(repositoryRoot)
-	if err != nil {
-		return err
-	}
-	info, err := os.Lstat(root)
-	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-		return errors.New("soak canary Git root is not a regular directory")
-	}
-	repository, err := git.PlainOpenWithOptions(root, &git.PlainOpenOptions{
-		EnableDotGitCommonDir: true,
-	})
-	if err != nil {
-		return fmt.Errorf("open soak canary Git repository: %w", err)
-	}
-	head, err := repository.Head()
-	if err != nil {
-		return fmt.Errorf("read soak canary Git HEAD: %w", err)
-	}
-	if head.Hash().String() != expectedRevision {
-		return fmt.Errorf(
-			"soak canary Git HEAD=%s want=%s",
-			head.Hash().String(),
-			expectedRevision,
-		)
-	}
-	worktree, err := repository.Worktree()
-	if err != nil {
-		return fmt.Errorf("open soak canary Git worktree: %w", err)
-	}
-	status, err := worktree.StatusWithOptions(git.StatusOptions{Strategy: git.Preload})
-	if err != nil {
-		return fmt.Errorf("inspect soak canary Git status: %w", err)
-	}
-	if !status.IsClean() {
-		return fmt.Errorf("soak canary Git repository is not clean: %s", status.String())
-	}
-	return nil
 }
 
 func BuildSoakCanaryRepositorySnapshot(repositoryRoot string) (SoakCanaryRepositorySnapshot, error) {

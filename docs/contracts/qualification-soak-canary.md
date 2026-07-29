@@ -33,7 +33,9 @@ activation manifest. No Git process or other repository-verifier child is
 launched. An in-process Git reader supports normal `.git` directories and
 gitfiles, requires current `HEAD` to equal the approved revision, and rejects
 staged, tracked-worktree, or untracked changes during validation and
-immediately before and after each approved Go launch.
+immediately before and after each approved Go launch. The verifier uses only
+the Go standard library. `scripts/soak-canary-offline-stdlib-test.sh` compiles
+and exercises it with an empty module cache and all module lookup disabled.
 
 Preactivation also creates a deterministic typed repository snapshot. The
 pure-Go walker includes regular files, directories, and untracked content,
