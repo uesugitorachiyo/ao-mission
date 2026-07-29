@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -93,6 +94,15 @@ func TestSoakCanaryResignedSemanticAttemptTamperingFailsClosed(t *testing.T) {
 		{name: "source head", mutate: func(attempt *SoakCanaryAttempt) {
 			attempt.SourceHead = strings.Repeat("b", 40)
 		}},
+		{name: "source provenance", mutate: func(attempt *SoakCanaryAttempt) {
+			attempt.SourceProvenanceDigest = "sha256:" + strings.Repeat("0", 64)
+		}},
+		{name: "repository snapshot before", mutate: func(attempt *SoakCanaryAttempt) {
+			attempt.RepositorySnapshotBeforeDigest = "sha256:" + strings.Repeat("0", 64)
+		}},
+		{name: "repository snapshot after", mutate: func(attempt *SoakCanaryAttempt) {
+			attempt.RepositorySnapshotAfterDigest = "sha256:" + strings.Repeat("0", 64)
+		}},
 		{name: "argv digest", mutate: func(attempt *SoakCanaryAttempt) {
 			attempt.CommandArgvDigest = "sha256:" + strings.Repeat("0", 64)
 		}},
@@ -133,8 +143,7 @@ func TestSoakCanaryResignedSemanticAttemptTamperingFailsClosed(t *testing.T) {
 				t.Fatal(err)
 			}
 			test.mutate(&checkpoint.Attempts[0])
-			signSoakCanaryAttempt(&checkpoint.Attempts[0])
-			signSoakCanaryCheckpoint(&checkpoint)
+			resignSoakCanaryCheckpointEvents(&checkpoint)
 			if err := writeSoakCanaryCheckpoint(fixture.request.CheckpointPath, checkpoint); err != nil {
 				t.Fatal(err)
 			}
@@ -150,6 +159,30 @@ func TestSoakCanaryResignedSemanticAttemptTamperingFailsClosed(t *testing.T) {
 			}
 		})
 	}
+}
+
+func resignSoakCanaryCheckpointEvents(checkpoint *SoakCanaryCheckpoint) {
+	for index := range checkpoint.Attempts {
+		signSoakCanaryAttempt(&checkpoint.Attempts[index])
+	}
+	attempts := map[string]SoakCanaryAttempt{}
+	for _, attempt := range checkpoint.Attempts {
+		attempts[attempt.NodeID+"#"+strconv.Itoa(attempt.AttemptNumber)] = attempt
+	}
+	prior := ""
+	for index := range checkpoint.Events {
+		event := &checkpoint.Events[index]
+		attempt := attempts[event.NodeID+"#"+strconv.Itoa(event.AttemptNumber)]
+		event.AttemptSnapshotDigest = soakCanaryAttemptSnapshotDigest(
+			attempt,
+			event.Event,
+			event.Sequence,
+		)
+		event.PriorEventDigest = prior
+		signSoakCanaryCheckpointEvent(event)
+		prior = event.EventDigest
+	}
+	signSoakCanaryCheckpoint(checkpoint)
 }
 
 func TestSoakCanaryResignedCheckpointLinkTamperingFailsClosed(t *testing.T) {
@@ -248,7 +281,6 @@ func TestSoakCanaryLongChildCannotPassHardWall(t *testing.T) {
 	}
 	fixture.request.Clock = clock
 	fixture.request.Executor = executor
-	fixture.request.RepositoryVerifier = &soakCanaryRecordingRepositoryVerifier{}
 
 	summary, err := RunSoakCanary(context.Background(), fixture.request)
 	if err == nil || !containsSoakConflict(summary.ConflictCodes, "hard_wall_reached") {
@@ -311,16 +343,16 @@ func TestSoakCanaryRuntimeEnvironmentIsCampaignOwnedAndHostIndependent(t *testin
 	t.Setenv("PATH", "/hostile/path")
 	clock := &soakCanaryFakeClock{now: time.Date(2026, 7, 29, 21, 0, 0, 0, time.UTC)}
 	executor := &soakCanaryFakeExecutor{clock: clock}
-	verifier := &soakCanaryRecordingRepositoryVerifier{}
+	snapshotter := &soakCanaryRecordingRepositorySnapshotter{}
 	fixture.request.Clock = clock
 	fixture.request.Executor = executor
-	fixture.request.RepositoryVerifier = verifier
+	fixture.request.Snapshotter = snapshotter
 
 	if _, err := RunSoakCanary(context.Background(), fixture.request); err != nil {
 		t.Fatal(err)
 	}
-	if verifier.calls != 20 {
-		t.Fatalf("repository verifier calls=%d want=20", verifier.calls)
+	if snapshotter.calls != 21 {
+		t.Fatalf("repository snapshot calls=%d want=21", snapshotter.calls)
 	}
 	for _, request := range executor.requests {
 		values := map[string]string{}
@@ -349,8 +381,8 @@ func TestSoakCanaryRepositoryVerificationFailurePreservesExecutionTruth(t *testi
 		failAtCall int
 		wantStarts int
 	}{
-		{name: "before first spawn", failAtCall: 1, wantStarts: 0},
-		{name: "after first execution", failAtCall: 2, wantStarts: 1},
+		{name: "before first spawn", failAtCall: 2, wantStarts: 0},
+		{name: "after first execution", failAtCall: 3, wantStarts: 1},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -359,11 +391,11 @@ func TestSoakCanaryRepositoryVerificationFailurePreservesExecutionTruth(t *testi
 			executor := &soakCanaryFakeExecutor{clock: clock}
 			fixture.request.Clock = clock
 			fixture.request.Executor = executor
-			fixture.request.RepositoryVerifier = &soakCanaryRecordingRepositoryVerifier{
+			fixture.request.Snapshotter = &soakCanaryRecordingRepositorySnapshotter{
 				failAtCall: test.failAtCall,
 			}
 			summary, err := RunSoakCanary(context.Background(), fixture.request)
-			if err == nil || !containsSoakConflict(summary.ConflictCodes, "repository_state_mismatch") {
+			if err == nil || !containsSoakConflict(summary.ConflictCodes, "repository_snapshot_mismatch") {
 				t.Fatalf("verification failure accepted: error=%v summary=%+v", err, summary)
 			}
 			if executor.starts != test.wantStarts ||
@@ -372,27 +404,6 @@ func TestSoakCanaryRepositoryVerificationFailurePreservesExecutionTruth(t *testi
 				t.Fatalf("execution truth drifted: starts=%d summary=%+v", executor.starts, summary)
 			}
 		})
-	}
-}
-
-func TestSoakCanaryPinnedGitVerifierIgnoresHostilePATHAndBindsProvenance(t *testing.T) {
-	repositoryRoot, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", t.TempDir())
-	verifier, err := newPinnedGitSoakCanaryRepositoryVerifier()
-	if err != nil {
-		t.Fatal(err)
-	}
-	head, err := verifier.Head(repositoryRoot)
-	if err != nil || !validSoakHexDigest(head, 40, "") {
-		t.Fatalf("pinned head=%q error=%v", head, err)
-	}
-	verifier.executableSHA256 = "sha256:" + strings.Repeat("0", 64)
-	if _, err := verifier.Head(repositoryRoot); err == nil ||
-		!strings.Contains(err.Error(), "provenance changed") {
-		t.Fatalf("altered Git provenance accepted: %v", err)
 	}
 }
 
@@ -466,7 +477,6 @@ func TestSoakCanaryUnsafeRootsFailBeforeLaunch(t *testing.T) {
 			test.mutate(&fixture)
 			executor := &soakCanaryFakeExecutor{}
 			fixture.request.Executor = executor
-			fixture.request.RepositoryVerifier = &soakCanaryRecordingRepositoryVerifier{}
 			summary, err := RunSoakCanary(context.Background(), fixture.request)
 			if err == nil || !containsSoakConflict(summary.ConflictCodes, "unsafe_runtime_path") {
 				t.Fatalf("unsafe root accepted: error=%v summary=%+v", err, summary)
@@ -516,6 +526,8 @@ func TestSoakCanaryTerminalBindsOperationalTruthAndExactClosure(t *testing.T) {
 		if truth.AuthorityRecordDigest != summary.AuthorityRecordDigest ||
 			truth.ActivationManifestDigest != summary.ActivationManifestDigest ||
 			truth.CommandCatalogDigest != summary.CommandCatalogDigest ||
+			truth.SourceProvenanceDigest != summary.SourceProvenanceDigest ||
+			truth.RepositorySnapshotDigest != summary.RepositorySnapshotDigest ||
 			truth.CheckpointDigest != summary.CheckpointDigest ||
 			truth.TotalAttempts != 11 || truth.ChildProcessLaunches != 10 ||
 			truth.ScaleLaunches != 1 || truth.ControlledRetryCount != 1 ||
@@ -574,6 +586,8 @@ func rebuildSoakCanaryPlanBinding(t *testing.T, fixture *soakCanaryTestFixture) 
 		fixture.request.PlanFixtureSHA256,
 		fixture.request.Authority,
 		fixture.request.Catalog,
+		fixture.request.SourceProvenance,
+		fixture.request.RepositorySnapshot,
 		fixture.request.Activation.PhaseStartUTC,
 		fixture.request.Activation.ControlledRetryNodeID,
 	)
@@ -618,17 +632,19 @@ func (executor *soakCanaryResultExecutor) Start(_ context.Context, _ SoakCanaryE
 	}, nil
 }
 
-type soakCanaryRecordingRepositoryVerifier struct {
+type soakCanaryRecordingRepositorySnapshotter struct {
 	calls      int
 	failAtCall int
 }
 
-func (verifier *soakCanaryRecordingRepositoryVerifier) Verify(_ string, _ string) error {
-	verifier.calls++
-	if verifier.failAtCall > 0 && verifier.calls == verifier.failAtCall {
-		return errors.New("injected repository verification failure")
+func (snapshotter *soakCanaryRecordingRepositorySnapshotter) Snapshot(
+	root string,
+) (SoakCanaryRepositorySnapshot, error) {
+	snapshotter.calls++
+	if snapshotter.failAtCall > 0 && snapshotter.calls == snapshotter.failAtCall {
+		return SoakCanaryRepositorySnapshot{}, errors.New("injected repository snapshot failure")
 	}
-	return nil
+	return BuildSoakCanaryRepositorySnapshot(root)
 }
 
 func (executor *soakCanaryStaticExecutor) Start(_ context.Context, request SoakCanaryExecRequest) (SoakCanaryProcess, error) {

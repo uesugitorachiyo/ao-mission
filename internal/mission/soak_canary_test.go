@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -65,8 +64,9 @@ func TestSoakCanaryActivationMutationsFailBeforeLaunch(t *testing.T) {
 			f.request.Activation.PolicyDigest = "sha256:" + strings.Repeat("0", 64)
 			signSoakCanaryActivation(&f.request.Activation)
 		}},
-		{name: "source head", code: "source_head_mismatch", mutate: func(f *soakCanaryTestFixture) {
-			f.request.VerifiedSourceHead = strings.Repeat("b", 40)
+		{name: "source provenance", code: "source_provenance_mismatch", mutate: func(f *soakCanaryTestFixture) {
+			f.request.SourceProvenance.Revision = strings.Repeat("b", 40)
+			signSoakCanarySourceProvenance(&f.request.SourceProvenance)
 		}},
 		{name: "execution profile", code: "execution_profile_digest_mismatch", mutate: func(f *soakCanaryTestFixture) {
 			f.request.Activation.ExecutionProfileDigest = "sha256:" + strings.Repeat("2", 64)
@@ -237,7 +237,7 @@ func TestSoakCanaryControlledRetryCheckpointRestartAndIdempotency(t *testing.T) 
 	}
 }
 
-func TestSoakCanaryCheckpointRestartDoesNotRepeatCompletedScaleNodeOrGrantSecondRetry(t *testing.T) {
+func TestSoakCanaryCheckpointRestartDoesNotRepeatCompletedScaleNodeOrRetryFailedAttempt(t *testing.T) {
 	fixture := validSoakCanaryFixture(t)
 	clock := &soakCanaryFakeClock{now: time.Date(2026, 7, 29, 21, 0, 0, 0, time.UTC)}
 	firstExecutor := &soakCanaryFakeExecutor{clock: clock, failAtStart: 2}
@@ -258,7 +258,7 @@ func TestSoakCanaryCheckpointRestartDoesNotRepeatCompletedScaleNodeOrGrantSecond
 	secondExecutor := &soakCanaryFakeExecutor{clock: clock}
 	fixture.request.Executor = secondExecutor
 	summary, err := RunSoakCanary(context.Background(), fixture.request)
-	if err == nil || !containsSoakConflict(summary.ConflictCodes, "second_retry_requested") {
+	if err == nil || !containsSoakConflict(summary.ConflictCodes, "failed_attempt_terminal") {
 		t.Fatalf("restart summary=%+v starts=%d", summary, secondExecutor.starts)
 	}
 	if summary.TotalAttempts != 3 || summary.ChildProcessLaunches != 1 ||
@@ -480,16 +480,7 @@ func TestSoakCanaryStrictInputTransportRejectsUnknownDuplicateTrailingAndSpecial
 
 func TestSoakCanaryCLIValidateOnlyUsesStrictInputsAndReportsZeroLaunches(t *testing.T) {
 	fixture := validSoakCanaryFixture(t)
-	repositoryRoot, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatal(err)
-	}
-	headBody, err := exec.Command("git", "-C", repositoryRoot, "rev-parse", "HEAD").Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	rebindSoakCanarySource(t, &fixture, strings.TrimSpace(string(headBody)))
-	fixture.request.RepositoryRoot = repositoryRoot
+	repositoryRoot := fixture.request.RepositoryRoot
 	dir := t.TempDir()
 	planPath := writeSoakCanaryJSON(t, dir, "plan.json", fixture.request.PlanInput)
 	planBody, err := os.ReadFile(planPath)
@@ -503,9 +494,14 @@ func TestSoakCanaryCLIValidateOnlyUsesStrictInputsAndReportsZeroLaunches(t *test
 	catalogPath := writeSoakCanaryJSON(t, dir, "catalog.json", fixture.request.Catalog)
 	activationPath := writeSoakCanaryJSON(t, dir, "activation.json", fixture.request.Activation)
 
-	var stdout, stderr strings.Builder
-	code := Run([]string{
-		"qualification", "soak-canary",
+	dependencies := soakCanaryCLIDependencies{
+		provenanceProvider: soakCanaryStaticProvenanceProvider{fixture.request.SourceProvenance},
+		snapshotter:        fixture.request.Snapshotter,
+		executor:           &soakCanaryFakeExecutor{},
+		persistCompletion:  PersistSoakCanaryCompletion,
+	}
+	var stdout strings.Builder
+	err = runSoakCanaryCLIWithDependencies([]string{
 		"--plan", planPath,
 		"--authority", authorityPath,
 		"--catalog", catalogPath,
@@ -514,9 +510,9 @@ func TestSoakCanaryCLIValidateOnlyUsesStrictInputsAndReportsZeroLaunches(t *test
 		"--evidence-root", fixture.request.EvidenceRoot,
 		"--repository-root", repositoryRoot,
 		"--validate-only", "--json",
-	}, &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("code=%d stderr=%s stdout=%s", code, stderr.String(), stdout.String())
+	}, &stdout, dependencies)
+	if err != nil {
+		t.Fatalf("error=%v stdout=%s", err, stdout.String())
 	}
 	var readback SoakCanaryActivationReadback
 	if err := json.Unmarshal([]byte(stdout.String()), &readback); err != nil {
@@ -532,9 +528,7 @@ func TestSoakCanaryCLIValidateOnlyUsesStrictInputsAndReportsZeroLaunches(t *test
 	fixture.request.Activation.ActivationManifestDigest = "sha256:" + strings.Repeat("0", 64)
 	writeSoakCanaryJSON(t, dir, "activation.json", fixture.request.Activation)
 	stdout.Reset()
-	stderr.Reset()
-	code = Run([]string{
-		"qualification", "soak-canary",
+	err = runSoakCanaryCLIWithDependencies([]string{
 		"--plan", planPath,
 		"--authority", authorityPath,
 		"--catalog", catalogPath,
@@ -543,13 +537,24 @@ func TestSoakCanaryCLIValidateOnlyUsesStrictInputsAndReportsZeroLaunches(t *test
 		"--evidence-root", fixture.request.EvidenceRoot,
 		"--repository-root", repositoryRoot,
 		"--validate-only", "--json",
-	}, &stdout, &stderr)
-	if code == 0 || !strings.Contains(stderr.String(), "activation_manifest_digest_mismatch") {
-		t.Fatalf("invalid code=%d stderr=%s stdout=%s", code, stderr.String(), stdout.String())
+	}, &stdout, dependencies)
+	if err == nil || !strings.Contains(err.Error(), "activation_manifest_digest_mismatch") {
+		t.Fatalf("invalid error=%v stdout=%s", err, stdout.String())
 	}
 	if _, err := os.Stat(fixture.request.CheckpointPath); !os.IsNotExist(err) {
 		t.Fatalf("invalid validation created checkpoint: %v", err)
 	}
+}
+
+type soakCanaryStaticProvenanceProvider struct {
+	value SoakCanarySourceProvenance
+}
+
+func (provider soakCanaryStaticProvenanceProvider) SourceProvenance() (
+	SoakCanarySourceProvenance,
+	error,
+) {
+	return provider.value, nil
 }
 
 func TestSoakCanaryRepositoryActivationFixturesExposeExactDigestDecision(t *testing.T) {
@@ -604,6 +609,8 @@ func TestSoakCanaryRepositoryActivationFixturesExposeExactDigestDecision(t *test
 		"altered-plan-digest":           "plan_input_digest_mismatch",
 		"altered-policy-digest":         "policy_digest_mismatch",
 		"wrong-source-head":             "source_head_mismatch",
+		"modified-build-provenance":     "source_provenance_mismatch",
+		"changed-repository-snapshot":   "repository_snapshot_digest_mismatch",
 		"altered-command-catalog":       "command_catalog_digest_mismatch",
 		"altered-partition-binding":     "activation_partition_mismatch",
 		"altered-activation-digest":     "activation_manifest_digest_mismatch",
@@ -612,10 +619,14 @@ func TestSoakCanaryRepositoryActivationFixturesExposeExactDigestDecision(t *test
 		"scale-repeat-amplification":    "scale_repeat_above_one",
 		"changed-scale-dimension":       "command_scale_dimension_mismatch",
 		"second-retry":                  "second_retry_requested",
+		"failed-attempt-restart":        "failed_attempt_terminal",
 		"changed-retry-binding":         "controlled_retry_binding_invalid",
 		"free-form-shell-command":       "free_form_shell_command",
 		"changed-executable-provenance": "executable_provenance_mismatch",
 		"symlinked-runtime-root":        "unsafe_runtime_path",
+	}
+	requiredErrors := map[string]string{
+		"resigned-false-go-event-counts": "Go test event counts mismatch",
 	}
 	seen := map[string]bool{}
 	for _, test := range matrix.Cases {
@@ -627,10 +638,18 @@ func TestSoakCanaryRepositoryActivationFixturesExposeExactDigestDecision(t *test
 		if want, exists := required[test.ID]; exists && test.ExpectedConflictCode != want {
 			t.Fatalf("matrix case=%s conflict=%s want=%s", test.ID, test.ExpectedConflictCode, want)
 		}
+		if want, exists := requiredErrors[test.ID]; exists && test.ExpectedError != want {
+			t.Fatalf("matrix case=%s error=%s want=%s", test.ID, test.ExpectedError, want)
+		}
 	}
 	for id := range required {
 		if !seen[id] {
 			t.Fatalf("public invalid matrix omitted %s", id)
+		}
+		for id := range requiredErrors {
+			if !seen[id] {
+				t.Fatalf("public invalid matrix omitted %s", id)
+			}
 		}
 	}
 }
@@ -785,8 +804,18 @@ func validSoakCanaryFixture(t *testing.T) soakCanaryTestFixture {
 		catalog.Commands = append(catalog.Commands, command)
 	}
 	signSoakCanaryCommandCatalog(&catalog)
+	provenance := SoakCanarySourceProvenance{
+		Schema: SoakCanarySourceProvenanceSchema, Revision: input.SourceHead,
+		Modified: false, Provider: "injected_test",
+	}
+	signSoakCanarySourceProvenance(&provenance)
+	repositorySnapshot, err := BuildSoakCanaryRepositorySnapshot(root)
+	if err != nil {
+		t.Fatal(err)
+	}
 	activation, err := BuildSoakCanaryActivation(
 		input, readback, "sha256:"+strings.Repeat("5", 64), authority, catalog,
+		provenance, repositorySnapshot,
 		"2026-07-29T21:00:00Z", readback.Partitions[1].NodeID,
 	)
 	if err != nil {
@@ -796,11 +825,11 @@ func validSoakCanaryFixture(t *testing.T) soakCanaryTestFixture {
 		PlanInput: input, PlanReadback: readback,
 		PlanFixtureSHA256: activation.PlanFixtureSHA256,
 		Authority:         authority, Catalog: catalog, Activation: activation,
-		VerifiedSourceHead: input.SourceHead, RepositoryRoot: root,
-		EvidenceRoot:       evidenceRoot,
-		CheckpointPath:     filepath.Join(evidenceRoot, "checkpoints", "checkpoint.json"),
-		OutputLimitBytes:   64 * 1024,
-		RepositoryVerifier: &soakCanaryRecordingRepositoryVerifier{},
+		SourceProvenance: provenance, RepositorySnapshot: repositorySnapshot,
+		Snapshotter:    PureGoSoakCanaryRepositorySnapshotter{},
+		RepositoryRoot: root, EvidenceRoot: evidenceRoot,
+		CheckpointPath:   filepath.Join(evidenceRoot, "checkpoints", "checkpoint.json"),
+		OutputLimitBytes: 64 * 1024,
 	}
 	return soakCanaryTestFixture{request: request, goPath: goPath}
 }
@@ -818,12 +847,16 @@ func rebindSoakCanarySource(t *testing.T, fixture *soakCanaryTestFixture, source
 	signSoakCanaryAuthority(&fixture.request.Authority)
 	fixture.request.Catalog.SourceHead = sourceHead
 	signSoakCanaryCommandCatalog(&fixture.request.Catalog)
+	fixture.request.SourceProvenance.Revision = sourceHead
+	signSoakCanarySourceProvenance(&fixture.request.SourceProvenance)
 	activation, err := BuildSoakCanaryActivation(
 		fixture.request.PlanInput,
 		fixture.request.PlanReadback,
 		fixture.request.PlanFixtureSHA256,
 		fixture.request.Authority,
 		fixture.request.Catalog,
+		fixture.request.SourceProvenance,
+		fixture.request.RepositorySnapshot,
 		fixture.request.Activation.PhaseStartUTC,
 		fixture.request.Activation.ControlledRetryNodeID,
 	)
@@ -831,7 +864,6 @@ func rebindSoakCanarySource(t *testing.T, fixture *soakCanaryTestFixture, source
 		t.Fatal(err)
 	}
 	fixture.request.Activation = activation
-	fixture.request.VerifiedSourceHead = sourceHead
 }
 
 func writeSoakCanaryJSON(t *testing.T, dir, name string, value any) string {

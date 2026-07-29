@@ -26,6 +26,7 @@ const (
 	SoakCanaryValidationSchema     = "ao.mission.soak-canary-validation.v1"
 	soakCanaryMaxInputBytes        = 1 << 20
 	soakCanaryDefaultOutputBytes   = 1 << 20
+	soakCanaryDefaultHeartbeat     = 5 * time.Minute
 )
 
 type SoakCanarySafety struct {
@@ -119,6 +120,8 @@ type SoakCanaryActivation struct {
 	PlanInputDigest                       string                       `json:"plan_input_digest"`
 	PolicyDigest                          string                       `json:"policy_digest"`
 	SourceHead                            string                       `json:"source_head"`
+	SourceProvenanceDigest                string                       `json:"source_provenance_digest"`
+	RepositorySnapshotDigest              string                       `json:"repository_snapshot_digest"`
 	ExecutionProfileID                    string                       `json:"execution_profile_id"`
 	ExecutionProfileDigest                string                       `json:"execution_profile_digest"`
 	CommandCatalogDigest                  string                       `json:"command_catalog_digest"`
@@ -149,49 +152,52 @@ type SoakCanaryGoTestCounts struct {
 }
 
 type SoakCanaryAttempt struct {
-	Schema                   string                   `json:"schema"`
-	CanaryID                 string                   `json:"canary_id"`
-	MissionID                string                   `json:"mission_id"`
-	PlanID                   string                   `json:"plan_id"`
-	PartitionID              string                   `json:"partition_id"`
-	NodeID                   string                   `json:"node_id"`
-	TestID                   string                   `json:"test_id"`
-	AttemptNumber            int                      `json:"attempt_number"`
-	PhaseStartUTC            string                   `json:"phase_start_utc"`
-	SourceHead               string                   `json:"source_head"`
-	PlanInputDigest          string                   `json:"plan_input_digest"`
-	PolicyDigest             string                   `json:"policy_digest"`
-	ExecutionProfileDigest   string                   `json:"execution_profile_digest"`
-	CommandCatalogDigest     string                   `json:"command_catalog_digest"`
-	AuthorityRecordDigest    string                   `json:"authority_record_digest"`
-	ActivationManifestDigest string                   `json:"activation_manifest_digest"`
-	CommandArgvDigest        string                   `json:"command_argv_digest"`
-	RequestedRepeatCount     int                      `json:"requested_repeat_count"`
-	EffectiveRepeatCount     int                      `json:"effective_repeat_count"`
-	Classification           string                   `json:"classification"`
-	ScaleDimension           *SoakScaleDimension      `json:"scale_dimension,omitempty"`
-	ExecutionState           string                   `json:"execution_state"`
-	OutcomeClass             string                   `json:"outcome_class"`
-	ChildProcessLaunched     bool                     `json:"child_process_launched"`
-	ChildPID                 int                      `json:"child_pid,omitempty"`
-	StartedAtUTC             string                   `json:"started_at_utc"`
-	ChildStartedAtUTC        string                   `json:"child_started_at_utc,omitempty"`
-	CompletedAtUTC           string                   `json:"completed_at_utc"`
-	ElapsedMS                int64                    `json:"elapsed_ms"`
-	ChildElapsedMS           int64                    `json:"child_elapsed_ms"`
-	TotalAttemptElapsedMS    int64                    `json:"total_attempt_elapsed_ms"`
-	ExitCode                 int                      `json:"exit_code"`
-	Signal                   string                   `json:"signal,omitempty"`
-	Stdout                   SoakCanaryOutputArtifact `json:"stdout"`
-	Stderr                   SoakCanaryOutputArtifact `json:"stderr"`
-	GoTestEvents             SoakCanaryGoTestCounts   `json:"go_test_events"`
-	CheckpointBeforeDigest   string                   `json:"checkpoint_before_digest"`
-	CheckpointAfterSequence  int                      `json:"checkpoint_after_sequence"`
-	ReservationSequence      int                      `json:"reservation_sequence,omitempty"`
-	RunningSequence          int                      `json:"running_sequence,omitempty"`
-	CompletionSequence       int                      `json:"completion_sequence,omitempty"`
-	Safety                   SoakCanarySafety         `json:"safety"`
-	AttemptDigest            string                   `json:"attempt_digest"`
+	Schema                         string                   `json:"schema"`
+	CanaryID                       string                   `json:"canary_id"`
+	MissionID                      string                   `json:"mission_id"`
+	PlanID                         string                   `json:"plan_id"`
+	PartitionID                    string                   `json:"partition_id"`
+	NodeID                         string                   `json:"node_id"`
+	TestID                         string                   `json:"test_id"`
+	AttemptNumber                  int                      `json:"attempt_number"`
+	PhaseStartUTC                  string                   `json:"phase_start_utc"`
+	SourceHead                     string                   `json:"source_head"`
+	SourceProvenanceDigest         string                   `json:"source_provenance_digest"`
+	RepositorySnapshotBeforeDigest string                   `json:"repository_snapshot_before_digest"`
+	RepositorySnapshotAfterDigest  string                   `json:"repository_snapshot_after_digest,omitempty"`
+	PlanInputDigest                string                   `json:"plan_input_digest"`
+	PolicyDigest                   string                   `json:"policy_digest"`
+	ExecutionProfileDigest         string                   `json:"execution_profile_digest"`
+	CommandCatalogDigest           string                   `json:"command_catalog_digest"`
+	AuthorityRecordDigest          string                   `json:"authority_record_digest"`
+	ActivationManifestDigest       string                   `json:"activation_manifest_digest"`
+	CommandArgvDigest              string                   `json:"command_argv_digest"`
+	RequestedRepeatCount           int                      `json:"requested_repeat_count"`
+	EffectiveRepeatCount           int                      `json:"effective_repeat_count"`
+	Classification                 string                   `json:"classification"`
+	ScaleDimension                 *SoakScaleDimension      `json:"scale_dimension,omitempty"`
+	ExecutionState                 string                   `json:"execution_state"`
+	OutcomeClass                   string                   `json:"outcome_class"`
+	ChildProcessLaunched           bool                     `json:"child_process_launched"`
+	ChildPID                       int                      `json:"child_pid,omitempty"`
+	StartedAtUTC                   string                   `json:"started_at_utc"`
+	ChildStartedAtUTC              string                   `json:"child_started_at_utc,omitempty"`
+	CompletedAtUTC                 string                   `json:"completed_at_utc"`
+	ElapsedMS                      int64                    `json:"elapsed_ms"`
+	ChildElapsedMS                 int64                    `json:"child_elapsed_ms"`
+	TotalAttemptElapsedMS          int64                    `json:"total_attempt_elapsed_ms"`
+	ExitCode                       int                      `json:"exit_code"`
+	Signal                         string                   `json:"signal,omitempty"`
+	Stdout                         SoakCanaryOutputArtifact `json:"stdout"`
+	Stderr                         SoakCanaryOutputArtifact `json:"stderr"`
+	GoTestEvents                   SoakCanaryGoTestCounts   `json:"go_test_events"`
+	CheckpointBeforeDigest         string                   `json:"checkpoint_before_digest"`
+	CheckpointAfterSequence        int                      `json:"checkpoint_after_sequence"`
+	ReservationSequence            int                      `json:"reservation_sequence,omitempty"`
+	RunningSequence                int                      `json:"running_sequence,omitempty"`
+	CompletionSequence             int                      `json:"completion_sequence,omitempty"`
+	Safety                         SoakCanarySafety         `json:"safety"`
+	AttemptDigest                  string                   `json:"attempt_digest"`
 }
 
 type SoakCanaryCheckpointEvent struct {
@@ -213,6 +219,8 @@ type SoakCanaryCheckpoint struct {
 	PhaseStartUTC            string                      `json:"phase_start_utc"`
 	CompletedAtUTC           string                      `json:"completed_at_utc,omitempty"`
 	SourceHead               string                      `json:"source_head"`
+	SourceProvenanceDigest   string                      `json:"source_provenance_digest"`
+	RepositorySnapshotDigest string                      `json:"repository_snapshot_digest"`
 	PlanInputDigest          string                      `json:"plan_input_digest"`
 	PolicyDigest             string                      `json:"policy_digest"`
 	CommandCatalogDigest     string                      `json:"command_catalog_digest"`
@@ -235,6 +243,8 @@ type SoakCanarySummary struct {
 	MissionID                   string              `json:"mission_id"`
 	PlanID                      string              `json:"plan_id"`
 	SourceHead                  string              `json:"source_head"`
+	SourceProvenanceDigest      string              `json:"source_provenance_digest"`
+	RepositorySnapshotDigest    string              `json:"repository_snapshot_digest"`
 	PlanInputDigest             string              `json:"plan_input_digest"`
 	PolicyDigest                string              `json:"policy_digest"`
 	CommandCatalogDigest        string              `json:"command_catalog_digest"`
@@ -298,14 +308,16 @@ type SoakCanaryRunRequest struct {
 	Authority              SoakCanaryAuthority
 	Catalog                SoakCanaryCommandCatalog
 	Activation             SoakCanaryActivation
-	VerifiedSourceHead     string
+	SourceProvenance       SoakCanarySourceProvenance
+	RepositorySnapshot     SoakCanaryRepositorySnapshot
+	Snapshotter            SoakCanaryRepositorySnapshotter
 	RepositoryRoot         string
 	EvidenceRoot           string
 	CheckpointPath         string
 	OutputLimitBytes       int
 	Executor               SoakCanaryExecutor
-	RepositoryVerifier     SoakCanaryRepositoryVerifier
 	Clock                  SoakCanaryClock
+	HeartbeatInterval      time.Duration
 	AfterLaunchReservation func(SoakCanaryAttempt) error
 }
 
@@ -417,6 +429,8 @@ func BuildSoakCanaryActivation(
 	planFixtureSHA256 string,
 	authority SoakCanaryAuthority,
 	catalog SoakCanaryCommandCatalog,
+	provenance SoakCanarySourceProvenance,
+	repositorySnapshot SoakCanaryRepositorySnapshot,
 	phaseStartUTC, controlledRetryNodeID string,
 ) (SoakCanaryActivation, error) {
 	if _, err := time.Parse(time.RFC3339, phaseStartUTC); err != nil {
@@ -427,6 +441,8 @@ func BuildSoakCanaryActivation(
 		CanaryID: authority.CanaryID, MissionID: input.MissionID, PlanID: input.PlanID,
 		PlanFixtureSHA256: planFixtureSHA256, PlanInputDigest: plan.InputDigest,
 		PolicyDigest: plan.PolicyDigest, SourceHead: input.SourceHead,
+		SourceProvenanceDigest:                provenance.ProvenanceDigest,
+		RepositorySnapshotDigest:              repositorySnapshot.SnapshotDigest,
 		ExecutionProfileID:                    input.ExecutionProfile.ID,
 		ExecutionProfileDigest:                input.ExecutionProfile.Digest,
 		CommandCatalogDigest:                  catalog.CommandCatalogDigest,
@@ -493,6 +509,7 @@ func ValidateSoakCanaryActivation(request SoakCanaryRunRequest) SoakCanaryActiva
 	}
 	validateSoakCanaryAuthority(request, add)
 	validateSoakCanaryCatalog(request, add)
+	validateSoakCanarySourceAndSnapshot(request, add)
 	validateSoakCanaryActivationRecord(request, add)
 	validateSoakCanaryPaths(request, add)
 
@@ -515,6 +532,35 @@ func ValidateSoakCanaryActivation(request SoakCanaryRunRequest) SoakCanaryActiva
 		readback.ExactNextAction = "Correct the listed conflicts; no child process is authorized."
 	}
 	return readback
+}
+
+func validateSoakCanarySourceAndSnapshot(request SoakCanaryRunRequest, add func(string)) {
+	provenance := request.SourceProvenance
+	unsignedProvenance := provenance
+	signSoakCanarySourceProvenance(&unsignedProvenance)
+	if provenance.Schema != SoakCanarySourceProvenanceSchema ||
+		provenance.ProvenanceDigest != unsignedProvenance.ProvenanceDigest ||
+		provenance.Revision != request.PlanInput.SourceHead ||
+		provenance.Modified ||
+		request.Activation.SourceProvenanceDigest != provenance.ProvenanceDigest {
+		add("source_provenance_mismatch")
+	}
+	snapshot := request.RepositorySnapshot
+	unsignedSnapshot := snapshot
+	signSoakCanaryRepositorySnapshot(&unsignedSnapshot)
+	if snapshot.Schema != SoakCanaryRepositorySnapshotSchema ||
+		snapshot.SnapshotDigest != unsignedSnapshot.SnapshotDigest ||
+		request.Activation.RepositorySnapshotDigest != snapshot.SnapshotDigest {
+		add("repository_snapshot_digest_mismatch")
+	}
+	if request.Snapshotter == nil {
+		add("repository_snapshotter_missing")
+		return
+	}
+	current, err := request.Snapshotter.Snapshot(request.RepositoryRoot)
+	if err != nil || !reflect.DeepEqual(current, snapshot) {
+		add("repository_snapshot_digest_mismatch")
+	}
 }
 
 func validateSoakCanaryAuthority(request SoakCanaryRunRequest, add func(string)) {
@@ -643,9 +689,12 @@ func validateSoakCanaryActivationRecord(request SoakCanaryRunRequest, add func(s
 		activation.ActivationState != "activated" {
 		add("activation_identity_mismatch")
 	}
-	if activation.SourceHead != request.PlanInput.SourceHead ||
-		request.VerifiedSourceHead != request.PlanInput.SourceHead {
+	if activation.SourceHead != request.PlanInput.SourceHead {
 		add("source_head_mismatch")
+	}
+	if activation.SourceProvenanceDigest != request.SourceProvenance.ProvenanceDigest ||
+		activation.RepositorySnapshotDigest != request.RepositorySnapshot.SnapshotDigest {
+		add("activation_repository_binding_mismatch")
 	}
 	if activation.ExecutionProfileID != request.PlanInput.ExecutionProfile.ID ||
 		activation.ExecutionProfileDigest != request.PlanInput.ExecutionProfile.Digest {
@@ -906,6 +955,8 @@ func validateSoakCanaryCheckpoint(request SoakCanaryRunRequest, checkpoint SoakC
 		checkpoint.PlanID != request.Activation.PlanID ||
 		checkpoint.PhaseStartUTC != request.Activation.PhaseStartUTC ||
 		checkpoint.SourceHead != request.Activation.SourceHead ||
+		checkpoint.SourceProvenanceDigest != request.Activation.SourceProvenanceDigest ||
+		checkpoint.RepositorySnapshotDigest != request.Activation.RepositorySnapshotDigest ||
 		checkpoint.PlanInputDigest != request.Activation.PlanInputDigest ||
 		checkpoint.PolicyDigest != request.Activation.PolicyDigest ||
 		checkpoint.CommandCatalogDigest != request.Activation.CommandCatalogDigest ||
@@ -942,6 +993,8 @@ func validateSoakCanaryCheckpoint(request SoakCanaryRunRequest, checkpoint SoakC
 			attempt.TestID != partition.TestID ||
 			attempt.PhaseStartUTC != request.Activation.PhaseStartUTC ||
 			attempt.SourceHead != request.Activation.SourceHead ||
+			attempt.SourceProvenanceDigest != request.Activation.SourceProvenanceDigest ||
+			attempt.RepositorySnapshotBeforeDigest != request.Activation.RepositorySnapshotDigest ||
 			attempt.PlanInputDigest != request.Activation.PlanInputDigest ||
 			attempt.PolicyDigest != request.Activation.PolicyDigest ||
 			attempt.ExecutionProfileDigest != request.Activation.ExecutionProfileDigest ||
@@ -974,7 +1027,8 @@ func validateSoakCanaryCheckpoint(request SoakCanaryRunRequest, checkpoint SoakC
 			if attempt.OutcomeClass != "launch_reserved" ||
 				attempt.ChildProcessLaunched || attempt.ChildPID != 0 ||
 				attempt.ReservationSequence <= 0 || attempt.RunningSequence != 0 ||
-				attempt.CompletionSequence != 0 || attempt.CompletedAtUTC != "" {
+				attempt.CompletionSequence != 0 || attempt.CompletedAtUTC != "" ||
+				attempt.CheckpointAfterSequence != attempt.ReservationSequence {
 				return errors.New("soak canary checkpoint semantic mismatch")
 			}
 		case "running":
@@ -986,7 +1040,8 @@ func validateSoakCanaryCheckpoint(request SoakCanaryRunRequest, checkpoint SoakC
 				return errors.New("soak canary checkpoint semantic mismatch")
 			}
 		case "completed":
-			if attempt.CompletionSequence <= 0 || attempt.CompletedAtUTC == "" {
+			if attempt.CompletionSequence <= 0 || attempt.CompletedAtUTC == "" ||
+				attempt.CheckpointAfterSequence != attempt.CompletionSequence {
 				return errors.New("soak canary checkpoint semantic mismatch")
 			}
 			switch attempt.OutcomeClass {
@@ -997,7 +1052,7 @@ func validateSoakCanaryCheckpoint(request SoakCanaryRunRequest, checkpoint SoakC
 					return errors.New("soak canary checkpoint semantic mismatch")
 				}
 				controlledRetryConsumed = true
-			case "child_process_start_failed", "repository_state_mismatch_before_launch",
+			case "child_process_start_failed", "repository_snapshot_mismatch_before_launch",
 				"executable_provenance_mismatch_before_launch", "execution_budget_exhausted":
 				if attempt.ChildProcessLaunched || attempt.ReservationSequence <= 0 ||
 					attempt.RunningSequence != 0 {
@@ -1007,6 +1062,7 @@ func validateSoakCanaryCheckpoint(request SoakCanaryRunRequest, checkpoint SoakC
 				if !attempt.ChildProcessLaunched || attempt.ChildPID <= 0 ||
 					attempt.ReservationSequence <= 0 || attempt.RunningSequence <= attempt.ReservationSequence ||
 					attempt.CompletionSequence <= attempt.RunningSequence ||
+					!validSoakHexDigest(attempt.RepositorySnapshotAfterDigest, 71, "sha256:") ||
 					attempt.TotalAttemptElapsedMS != attempt.ElapsedMS ||
 					attempt.TotalAttemptElapsedMS < attempt.ChildElapsedMS {
 					return errors.New("soak canary checkpoint semantic mismatch")
@@ -1026,6 +1082,14 @@ func validateSoakCanaryCheckpoint(request SoakCanaryRunRequest, checkpoint SoakC
 		default:
 			return errors.New("soak canary checkpoint semantic mismatch")
 		}
+		if !attempt.ChildProcessLaunched && attempt.RepositorySnapshotAfterDigest != "" {
+			return errors.New("soak canary checkpoint semantic mismatch")
+		}
+		if attempt.ChildProcessLaunched &&
+			attempt.OutcomeClass != "repository_snapshot_mismatch" &&
+			attempt.RepositorySnapshotAfterDigest != request.Activation.RepositorySnapshotDigest {
+			return errors.New("soak canary checkpoint semantic mismatch")
+		}
 		if attempt.Classification == "scale" && attempt.ReservationSequence > 0 {
 			scaleLaunchConsumed = true
 		}
@@ -1038,7 +1102,11 @@ func validateSoakCanaryCheckpoint(request SoakCanaryRunRequest, checkpoint SoakC
 		if !exists || event.Sequence != index+1 ||
 			event.PriorEventDigest != priorEventDigest ||
 			!validSoakHexDigest(event.CheckpointBeforeDigest, 71, "sha256:") ||
-			event.AttemptSnapshotDigest != soakCanaryAttemptSnapshotDigest(attempt, event.Event) {
+			event.AttemptSnapshotDigest != soakCanaryAttemptSnapshotDigest(
+				attempt,
+				event.Event,
+				event.Sequence,
+			) {
 			return errors.New("soak canary checkpoint semantic mismatch")
 		}
 		if !firstAttemptEvent[key] {
@@ -1054,6 +1122,11 @@ func validateSoakCanaryCheckpoint(request SoakCanaryRunRequest, checkpoint SoakC
 			}
 		case "running":
 			if attempt.RunningSequence != event.Sequence {
+				return errors.New("soak canary checkpoint semantic mismatch")
+			}
+		case "heartbeat":
+			if event.Sequence <= attempt.RunningSequence ||
+				(attempt.CompletionSequence > 0 && event.Sequence >= attempt.CompletionSequence) {
 				return errors.New("soak canary checkpoint semantic mismatch")
 			}
 		case "completed":
@@ -1084,7 +1157,7 @@ func validateSoakCanaryCheckpoint(request SoakCanaryRunRequest, checkpoint SoakC
 	return nil
 }
 
-func soakCanaryAttemptSnapshotDigest(attempt SoakCanaryAttempt, event string) string {
+func soakCanaryAttemptSnapshotDigest(attempt SoakCanaryAttempt, event string, sequence int) string {
 	snapshot := attempt
 	switch event {
 	case "reserved":
@@ -1102,10 +1175,11 @@ func soakCanaryAttemptSnapshotDigest(attempt SoakCanaryAttempt, event string) st
 		snapshot.Stdout = SoakCanaryOutputArtifact{}
 		snapshot.Stderr = SoakCanaryOutputArtifact{}
 		snapshot.GoTestEvents = SoakCanaryGoTestCounts{}
+		snapshot.RepositorySnapshotAfterDigest = ""
 		snapshot.RunningSequence = 0
 		snapshot.CompletionSequence = 0
 		snapshot.CheckpointAfterSequence = snapshot.ReservationSequence
-	case "running":
+	case "running", "heartbeat":
 		snapshot.ExecutionState = "running"
 		snapshot.OutcomeClass = "running"
 		snapshot.CompletedAtUTC = ""
@@ -1117,8 +1191,13 @@ func soakCanaryAttemptSnapshotDigest(attempt SoakCanaryAttempt, event string) st
 		snapshot.Stdout = SoakCanaryOutputArtifact{}
 		snapshot.Stderr = SoakCanaryOutputArtifact{}
 		snapshot.GoTestEvents = SoakCanaryGoTestCounts{}
+		snapshot.RepositorySnapshotAfterDigest = ""
 		snapshot.CompletionSequence = 0
-		snapshot.CheckpointAfterSequence = snapshot.RunningSequence
+		if event == "heartbeat" {
+			snapshot.CheckpointAfterSequence = sequence
+		} else {
+			snapshot.CheckpointAfterSequence = snapshot.RunningSequence
+		}
 	case "completed":
 	default:
 		return ""
@@ -1143,6 +1222,8 @@ func ReconcileSoakCanary(request SoakCanaryRunRequest, checkpoint SoakCanaryChec
 		Schema: SoakCanarySummarySchema, Status: "completed",
 		CanaryID: request.Activation.CanaryID, MissionID: request.Activation.MissionID,
 		PlanID: request.Activation.PlanID, SourceHead: request.Activation.SourceHead,
+		SourceProvenanceDigest:   request.Activation.SourceProvenanceDigest,
+		RepositorySnapshotDigest: request.Activation.RepositorySnapshotDigest,
 		PlanInputDigest:          request.Activation.PlanInputDigest,
 		PolicyDigest:             request.Activation.PolicyDigest,
 		CommandCatalogDigest:     request.Activation.CommandCatalogDigest,
@@ -1257,7 +1338,12 @@ func ReconcileSoakCanary(request SoakCanaryRunRequest, checkpoint SoakCanaryChec
 
 func VerifySoakCanaryEvidence(request SoakCanaryRunRequest, checkpoint SoakCanaryCheckpoint) error {
 	seenPaths := map[string]bool{}
+	commands := map[string]SoakCanaryCommand{}
+	for _, command := range request.Catalog.Commands {
+		commands[command.TestID] = command
+	}
 	for _, attempt := range checkpoint.Attempts {
+		var stdoutBody []byte
 		for _, output := range []struct {
 			name     string
 			artifact SoakCanaryOutputArtifact
@@ -1289,6 +1375,31 @@ func VerifySoakCanaryEvidence(request SoakCanaryRunRequest, checkpoint SoakCanar
 			if len(body) != output.artifact.Bytes || digestBytes(body) != output.artifact.SHA256 {
 				return fmt.Errorf("%s digest mismatch", output.name)
 			}
+			if output.name == "stdout" {
+				stdoutBody = body
+			}
+		}
+		if !attempt.ChildProcessLaunched {
+			if attempt.GoTestEvents != (SoakCanaryGoTestCounts{}) {
+				return errors.New("Go test event counts exist for an unlaunched attempt")
+			}
+			continue
+		}
+		command, exists := commands[attempt.TestID]
+		if !exists {
+			return errors.New("Go test event counts have no approved command")
+		}
+		recomputed := parseSoakCanaryGoTestEvents(stdoutBody, command.TestName)
+		if recomputed != attempt.GoTestEvents ||
+			recomputed.MatchingPasses != command.EffectiveRepeatCount ||
+			recomputed.MatchingPasses != attempt.EffectiveRepeatCount {
+			return fmt.Errorf(
+				"Go test event counts mismatch for %s: recomputed=%+v recorded=%+v repeat=%d",
+				attempt.TestID,
+				recomputed,
+				attempt.GoTestEvents,
+				command.EffectiveRepeatCount,
+			)
 		}
 	}
 	return nil
@@ -1310,6 +1421,8 @@ type soakCanaryTerminalTruth struct {
 	AuthorityRecordDigest       string `json:"authority_record_digest"`
 	ActivationManifestDigest    string `json:"activation_manifest_digest"`
 	CommandCatalogDigest        string `json:"command_catalog_digest"`
+	SourceProvenanceDigest      string `json:"source_provenance_digest"`
+	RepositorySnapshotDigest    string `json:"repository_snapshot_digest"`
 	CheckpointDigest            string `json:"checkpoint_digest"`
 	TotalAttempts               int    `json:"total_attempts"`
 	ChildProcessLaunches        int    `json:"child_process_launches"`
@@ -1508,6 +1621,8 @@ func buildSoakCanaryTerminalIndex(summary SoakCanarySummary) (CanonicalTerminalI
 		AuthorityRecordDigest:       summary.AuthorityRecordDigest,
 		ActivationManifestDigest:    summary.ActivationManifestDigest,
 		CommandCatalogDigest:        summary.CommandCatalogDigest,
+		SourceProvenanceDigest:      summary.SourceProvenanceDigest,
+		RepositorySnapshotDigest:    summary.RepositorySnapshotDigest,
 		CheckpointDigest:            summary.CheckpointDigest,
 		TotalAttempts:               summary.TotalAttempts,
 		ChildProcessLaunches:        summary.ChildProcessLaunches,

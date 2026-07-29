@@ -14,6 +14,14 @@
       "expected_conflict_code": "source_head_mismatch"
     },
     {
+      "id": "modified-build-provenance",
+      "expected_conflict_code": "source_provenance_mismatch"
+    },
+    {
+      "id": "changed-repository-snapshot",
+      "expected_conflict_code": "repository_snapshot_digest_mismatch"
+    },
+    {
       "id": "altered-command-catalog",
       "expected_conflict_code": "command_catalog_digest_mismatch"
     },
@@ -46,6 +54,10 @@
       "expected_conflict_code": "second_retry_requested"
     },
     {
+      "id": "failed-attempt-restart",
+      "expected_conflict_code": "failed_attempt_terminal"
+    },
+    {
       "id": "changed-retry-binding",
       "expected_conflict_code": "controlled_retry_binding_invalid"
     },
@@ -72,6 +84,10 @@
     {
       "id": "fifo-or-device-input",
       "expected_error": "regular"
+    },
+    {
+      "id": "resigned-false-go-event-counts",
+      "expected_error": "Go test event counts mismatch"
     }
   ]
 }

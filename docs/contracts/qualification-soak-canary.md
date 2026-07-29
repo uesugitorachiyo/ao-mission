@@ -27,11 +27,19 @@ ao-mission qualification soak-canary \
 ```
 
 Remove `--validate-only` only for an explicitly authorized canary. Execution
-requires a clean repository whose exact `HEAD` matches the plan, catalog,
-authority, and activation manifest. Repository verification uses a fixed
-absolute Git executable whose bytes are pinned at preflight; it does not
-resolve `git` through the caller's `PATH`. Head and cleanliness are rechecked
-immediately before and after every child process.
+requires an unmodified running binary whose embedded Go build information
+contains the exact `vcs.revision` bound by the plan, catalog, authority, and
+activation manifest. No Git process or other repository-verifier child is
+launched.
+
+Preactivation also creates a deterministic typed repository snapshot. The
+pure-Go walker includes regular files, directories, and untracked content,
+binds symlinks by link text without following them, rejects special files and
+bounded-limit violations, and excludes `.git`. The activation binds both the
+source-provenance digest and the complete snapshot digest. Mission recomputes
+the snapshot during validation and immediately before and after every approved
+Go launch. A changed, missing, malformed, or mismatched snapshot stops the run
+and is recorded in the attempt checkpoint.
 
 ## Fixed execution boundary
 
@@ -60,15 +68,20 @@ process launches for ten completed nodes.
 ## Checkpoint and evidence
 
 Before `Start`, Mission persists a signed launch reservation. A successful
-start adds a signed running checkpoint, and completion adds a signed terminal
-attempt checkpoint. Restart never relaunches a reserved or running attempt
-whose launch truth is indeterminate; an indeterminate scale reservation is a
-terminal conflict for that campaign.
+start adds a signed running checkpoint. While `Wait` blocks, Mission adds a
+signed heartbeat checkpoint every five minutes without changing the original
+phase start; tests may inject a shorter interval. Completion adds a signed
+terminal attempt checkpoint. Restart never relaunches a reserved or running
+attempt whose launch truth is indeterminate. The only restart progression is
+from the designated retry node's exact pre-spawn
+`transient_infrastructure` attempt one to attempt two. Every other failed or
+incomplete regular attempt is terminal, and scale remains nonretryable.
 
-Every attempt binds the original phase start, source head, plan and policy
-digests, execution profile, command catalog, authority, activation manifest,
-argv, node, partition, test, repeat count, and safety boundaries. Atomic
-checkpoints preserve a signed reservation/running/completion event chain,
+Every attempt binds the original phase start, source head, source provenance,
+repository snapshots before and after execution, plan and policy digests,
+execution profile, command catalog, authority, activation manifest, argv,
+node, partition, test, repeat count, and safety boundaries. Atomic checkpoints
+preserve a signed reservation/running/heartbeat/completion event chain,
 completed-node set, controlled retry consumption, and scale reservation
 consumption. Semantic validation reconstructs every attempt from the
 activation and catalog, including retry identity and scale dimension, rather
@@ -76,13 +89,17 @@ than trusting re-signed checkpoint fields.
 
 Stdout and stderr are bounded before persistence and recorded with relative
 paths, byte counts, truncation state, and SHA-256. Reconciliation reopens each
-artifact through the bounded regular-file reader and rejects digest or path
-changes. Exact Go JSON pass events must equal one for the scale test and three
-for each regular test. Actual duration must remain within the planned estimate,
-attempt timeout, total-node timeout, node budget, aggregate allowance, lease,
-and 45-minute authority wall. The child context is bounded by the smallest
-remaining attempt, node, retry, lease, and hard-wall allowance. Child elapsed
-time and total attempt elapsed time are recorded separately.
+artifact through the bounded regular-file reader, reparses the digest-matching
+Go JSON stdout, and requires its exact event counts to equal both the attempt
+record and approved repeat. Exact matching pass events must equal one for the
+scale test and three for each regular test. Actual duration must remain within
+the planned estimate, attempt timeout, total-node timeout, node budget,
+aggregate allowance, lease, and 45-minute authority wall. The child context is
+bounded by the smallest remaining attempt, node, retry, lease, and hard-wall
+allowance. Child elapsed time and total attempt elapsed time are recorded
+separately; total attempt time is finalized only after output persistence,
+post-run snapshot verification, and executable revalidation. A post-child
+failure is checkpointed as a completed truthful attempt.
 
 ## Terminal truth
 
@@ -94,13 +111,16 @@ surfaces share one canonical payload and `index_digest`; each surface has its
 own valid `state_digest`. Distinct surface digests are expected and do not
 indicate disagreement.
 
-Terminal artifacts bind the authority, activation, catalog, final checkpoint,
-attempt, launch, retry, pass, duration, and local-execution truth. They preserve
-the exact lease minimum, target, and maximum. The final next action is
+Terminal artifacts bind the authority, activation, catalog, source provenance,
+repository snapshot, final checkpoint, attempt, launch, retry, pass, duration,
+and local-execution truth. They preserve the exact lease minimum, target, and
+maximum. The final next action is
 `Bounded canary complete; no further execution is authorized.` Mission writes
 a nonterminal provisional summary first and promotes it to `run-summary.json`
 only after the canonical terminal bundle imports successfully and all four
-surface readbacks agree.
+surface readbacks agree. The public CLI emits a completed JSON or text summary
+only after that promotion; persistence failure emits only signed nonterminal
+truth.
 
 The checked-in activation examples demonstrate a valid self-digest and a
 digest-mismatch rejection. The invalid validation matrix records the bounded

@@ -49,10 +49,6 @@ type SoakCanaryExecutor interface {
 	Start(context.Context, SoakCanaryExecRequest) (SoakCanaryProcess, error)
 }
 
-type SoakCanaryRepositoryVerifier interface {
-	Verify(repositoryRoot, expectedHead string) error
-}
-
 type SoakCanaryProcess interface {
 	PID() int
 	Wait() SoakCanaryProcessResult
@@ -155,15 +151,18 @@ func RunSoakCanary(ctx context.Context, request SoakCanaryRunRequest) (SoakCanar
 		summary := rejectedSoakCanarySummary(request, []string{"executor_missing"})
 		return summary, errors.New("soak canary executor is required")
 	}
-	if request.RepositoryVerifier == nil {
-		summary := rejectedSoakCanarySummary(request, []string{"repository_verifier_missing"})
-		return summary, errors.New("soak canary repository verifier is required")
+	if request.Snapshotter == nil {
+		summary := rejectedSoakCanarySummary(request, []string{"repository_snapshotter_missing"})
+		return summary, errors.New("soak canary repository snapshotter is required")
 	}
 	if request.Clock == nil {
 		request.Clock = realSoakCanaryClock{}
 	}
 	if request.OutputLimitBytes <= 0 {
 		request.OutputLimitBytes = soakCanaryDefaultOutputBytes
+	}
+	if request.HeartbeatInterval <= 0 {
+		request.HeartbeatInterval = soakCanaryDefaultHeartbeat
 	}
 	runtimeEnvironment, err := prepareSoakCanaryRuntimeEnvironment(request)
 	if err != nil {
@@ -187,15 +186,24 @@ func RunSoakCanary(ctx context.Context, request SoakCanaryRunRequest) (SoakCanar
 		return summary, err
 	}
 	for _, attempt := range checkpoint.Attempts {
-		if attempt.ExecutionState != "reserved" && attempt.ExecutionState != "running" {
-			continue
+		if attempt.ExecutionState == "reserved" || attempt.ExecutionState == "running" {
+			code := "indeterminate_child_launch"
+			if attempt.Classification == "scale" {
+				code = "indeterminate_scale_launch"
+			}
+			summary := runtimeSoakCanarySummary(request, checkpoint, []string{code}, request.Clock.Now().UTC())
+			return summary, fmt.Errorf("soak canary restart blocked by %s", code)
 		}
-		code := "indeterminate_child_launch"
-		if attempt.Classification == "scale" {
-			code = "indeterminate_scale_launch"
+		if attempt.ExecutionState == "completed" && attempt.OutcomeClass != "passed" &&
+			!soakCanaryDesignatedRetryPrecondition(request, attempt) {
+			code := "failed_attempt_terminal"
+			summary := runtimeSoakCanarySummary(request, checkpoint, []string{code}, request.Clock.Now().UTC())
+			return summary, fmt.Errorf(
+				"soak canary restart blocked by terminal attempt %s#%d",
+				attempt.NodeID,
+				attempt.AttemptNumber,
+			)
 		}
-		summary := runtimeSoakCanarySummary(request, checkpoint, []string{code}, request.Clock.Now().UTC())
-		return summary, fmt.Errorf("soak canary restart blocked by %s", code)
 	}
 	if len(checkpoint.CompletedNodeIDs) == len(request.Activation.Partitions) {
 		completedAt, err := time.Parse(time.RFC3339Nano, checkpoint.CompletedAtUTC)
@@ -323,24 +331,26 @@ func RunSoakCanary(ctx context.Context, request SoakCanaryRunRequest) (SoakCanar
 				request, checkpoint, []string{"executable_provenance_mismatch"}, request.Clock.Now().UTC(),
 			), errors.New("soak canary executable provenance changed before launch")
 		}
-		if err := request.RepositoryVerifier.Verify(
-			request.RepositoryRoot, request.Activation.SourceHead,
-		); err != nil {
+		beforeSnapshot, snapshotErr := verifySoakCanaryRepositorySnapshot(request)
+		if snapshotErr != nil {
 			attempt.ExecutionState = "completed"
-			attempt.OutcomeClass = "repository_state_mismatch_before_launch"
+			attempt.OutcomeClass = "repository_snapshot_mismatch_before_launch"
 			attempt.CompletedAtUTC = request.Clock.Now().UTC().Format(time.RFC3339Nano)
+			attempt.TotalAttemptElapsedMS = soakCanaryElapsedMS(attempt.StartedAtUTC, attempt.CompletedAtUTC)
+			attempt.ElapsedMS = attempt.TotalAttemptElapsedMS
 			attempt.ExitCode = -1
 			if _, persistErr := persistSoakCanaryAttemptTransition(
 				request, &checkpoint, attemptIndex, attempt, "completed",
 			); persistErr != nil {
 				return runtimeSoakCanarySummary(
 					request, checkpoint, []string{"checkpoint_write_failed"}, request.Clock.Now().UTC(),
-				), errors.Join(err, persistErr)
+				), errors.Join(snapshotErr, persistErr)
 			}
 			return runtimeSoakCanarySummary(
-				request, checkpoint, []string{"repository_state_mismatch"}, request.Clock.Now().UTC(),
-			), err
+				request, checkpoint, []string{"repository_snapshot_mismatch"}, request.Clock.Now().UTC(),
+			), snapshotErr
 		}
+		attempt.RepositorySnapshotBeforeDigest = beforeSnapshot.SnapshotDigest
 		attemptContext, cancel := context.WithTimeout(
 			ctx, time.Duration(execRequest.TimeoutMS)*time.Millisecond,
 		)
@@ -378,16 +388,16 @@ func RunSoakCanary(ctx context.Context, request SoakCanaryRunRequest) (SoakCanar
 			), err
 		}
 		attempt = checkpoint.Attempts[attemptIndex]
-		result := process.Wait()
+		result, heartbeatErr := waitForSoakCanaryProcess(
+			request,
+			&checkpoint,
+			attemptIndex,
+			process,
+		)
 		cancel()
-		attempt.CompletedAtUTC = request.Clock.Now().UTC().Format(time.RFC3339Nano)
+		attempt = checkpoint.Attempts[attemptIndex]
 		attempt.ExecutionState = "completed"
 		attempt.ChildElapsedMS = result.ElapsedMS
-		attempt.TotalAttemptElapsedMS = soakCanaryElapsedMS(attempt.StartedAtUTC, attempt.CompletedAtUTC)
-		if attempt.TotalAttemptElapsedMS < attempt.ChildElapsedMS {
-			attempt.TotalAttemptElapsedMS = attempt.ChildElapsedMS
-		}
-		attempt.ElapsedMS = attempt.TotalAttemptElapsedMS
 		attempt.ExitCode = result.ExitCode
 		attempt.Signal = result.Signal
 		stdout, stdoutTruncated := boundSoakCanaryOutput(result.Stdout, request.OutputLimitBytes)
@@ -395,33 +405,57 @@ func RunSoakCanary(ctx context.Context, request SoakCanaryRunRequest) (SoakCanar
 		stdoutTruncated = stdoutTruncated || result.StdoutTruncated
 		stderrTruncated = stderrTruncated || result.StderrTruncated
 		attempt.GoTestEvents = parseSoakCanaryGoTestEvents(stdout, command.TestName)
+		var completionErr error
+		attempt.OutcomeClass = "passed"
+		if heartbeatErr != nil {
+			attempt.OutcomeClass = "heartbeat_checkpoint_write_failed"
+			completionErr = errors.Join(completionErr, heartbeatErr)
+		}
 		attempt.Stdout, err = persistSoakCanaryOutput(
 			request, partition.NodeID, attemptNumber, "stdout.jsonl", stdout, stdoutTruncated,
 		)
 		if err != nil {
-			return runtimeSoakCanarySummary(
-				request, checkpoint, []string{"stdout_evidence_write_failed"}, request.Clock.Now().UTC(),
-			), err
+			attempt.Stdout = emptySoakCanaryOutput()
+			attempt.OutcomeClass = "stdout_evidence_write_failed"
+			completionErr = errors.Join(completionErr, err)
 		}
 		attempt.Stderr, err = persistSoakCanaryOutput(
 			request, partition.NodeID, attemptNumber, "stderr.txt", stderr, stderrTruncated,
 		)
 		if err != nil {
-			return runtimeSoakCanarySummary(
-				request, checkpoint, []string{"stderr_evidence_write_failed"}, request.Clock.Now().UTC(),
-			), err
+			attempt.Stderr = emptySoakCanaryOutput()
+			if attempt.OutcomeClass == "passed" {
+				attempt.OutcomeClass = "stderr_evidence_write_failed"
+			}
+			completionErr = errors.Join(completionErr, err)
 		}
-		repositoryErr := request.RepositoryVerifier.Verify(
-			request.RepositoryRoot, request.Activation.SourceHead,
-		)
+		afterSnapshot, repositoryErr := verifySoakCanaryRepositorySnapshot(request)
+		attempt.RepositorySnapshotAfterDigest = afterSnapshot.SnapshotDigest
 		executableProvenanceValid := validSoakCanaryExecutable(command)
-		attempt.OutcomeClass = "passed"
-		if result.ExitCode != 0 {
+		if attempt.OutcomeClass == "passed" && result.ExitCode != 0 {
 			attempt.OutcomeClass = "test_failure"
 		}
-		if attempt.GoTestEvents.MatchingPasses != partition.EffectiveRepeatCount {
+		if attempt.OutcomeClass == "passed" &&
+			attempt.GoTestEvents.MatchingPasses != partition.EffectiveRepeatCount {
 			attempt.OutcomeClass = "go_event_count_mismatch"
 		}
+		if repositoryErr != nil {
+			attempt.OutcomeClass = "repository_snapshot_mismatch"
+			completionErr = errors.Join(completionErr, repositoryErr)
+		}
+		if !executableProvenanceValid {
+			attempt.OutcomeClass = "executable_provenance_mismatch"
+			completionErr = errors.Join(
+				completionErr,
+				errors.New("soak canary executable provenance changed after launch"),
+			)
+		}
+		attempt.CompletedAtUTC = request.Clock.Now().UTC().Format(time.RFC3339Nano)
+		attempt.TotalAttemptElapsedMS = soakCanaryElapsedMS(attempt.StartedAtUTC, attempt.CompletedAtUTC)
+		if attempt.TotalAttemptElapsedMS < attempt.ChildElapsedMS {
+			attempt.TotalAttemptElapsedMS = attempt.ChildElapsedMS
+		}
+		attempt.ElapsedMS = attempt.TotalAttemptElapsedMS
 		if attempt.ElapsedMS > partition.EstimatedDurationMS {
 			attempt.OutcomeClass = "actual_duration_above_estimate"
 		}
@@ -434,12 +468,6 @@ func RunSoakCanary(ctx context.Context, request SoakCanaryRunRequest) (SoakCanar
 		if len(limitConflicts) > 0 {
 			attempt.OutcomeClass = soakCanaryPrimaryLimitConflict(limitConflicts)
 		}
-		if repositoryErr != nil {
-			attempt.OutcomeClass = "repository_state_mismatch"
-		}
-		if !executableProvenanceValid {
-			attempt.OutcomeClass = "executable_provenance_mismatch"
-		}
 		if _, err := persistSoakCanaryAttemptTransition(
 			request, &checkpoint, attemptIndex, attempt, "completed",
 		); err != nil {
@@ -449,12 +477,7 @@ func RunSoakCanary(ctx context.Context, request SoakCanaryRunRequest) (SoakCanar
 		}
 		if attempt.OutcomeClass != "passed" {
 			runErr := fmt.Errorf("soak canary node %s failed: %s", partition.NodeID, attempt.OutcomeClass)
-			if repositoryErr != nil {
-				runErr = errors.Join(runErr, repositoryErr)
-			}
-			if !executableProvenanceValid {
-				runErr = errors.Join(runErr, errors.New("soak canary executable provenance changed after launch"))
-			}
+			runErr = errors.Join(runErr, completionErr)
 			return runtimeSoakCanarySummary(
 				request, checkpoint, []string{attempt.OutcomeClass}, request.Clock.Now().UTC(),
 			), runErr
@@ -483,6 +506,54 @@ func RunSoakCanary(ctx context.Context, request SoakCanaryRunRequest) (SoakCanar
 	return ReconcileSoakCanary(request, checkpoint, completedAt)
 }
 
+func soakCanaryDesignatedRetryPrecondition(
+	request SoakCanaryRunRequest,
+	attempt SoakCanaryAttempt,
+) bool {
+	return attempt.NodeID == request.Activation.ControlledRetryNodeID &&
+		attempt.AttemptNumber == 1 &&
+		attempt.ExecutionState == "completed" &&
+		attempt.OutcomeClass == request.Activation.ControlledRetryReason &&
+		!attempt.ChildProcessLaunched &&
+		attempt.ReservationSequence == 0 &&
+		attempt.RunningSequence == 0
+}
+
+func waitForSoakCanaryProcess(
+	request SoakCanaryRunRequest,
+	checkpoint *SoakCanaryCheckpoint,
+	attemptIndex int,
+	process SoakCanaryProcess,
+) (SoakCanaryProcessResult, error) {
+	results := make(chan SoakCanaryProcessResult, 1)
+	go func() {
+		results <- process.Wait()
+	}()
+	ticker := time.NewTicker(request.HeartbeatInterval)
+	defer ticker.Stop()
+	var heartbeatErr error
+	for {
+		select {
+		case result := <-results:
+			return result, heartbeatErr
+		case <-ticker.C:
+			if heartbeatErr != nil {
+				continue
+			}
+			attempt := checkpoint.Attempts[attemptIndex]
+			if _, err := persistSoakCanaryAttemptTransition(
+				request,
+				checkpoint,
+				attemptIndex,
+				attempt,
+				"heartbeat",
+			); err != nil {
+				heartbeatErr = err
+			}
+		}
+	}
+}
+
 func loadOrCreateSoakCanaryCheckpoint(request SoakCanaryRunRequest) (SoakCanaryCheckpoint, error) {
 	checkpoint, err := LoadSoakCanaryCheckpoint(request.CheckpointPath)
 	if err == nil {
@@ -499,6 +570,8 @@ func loadOrCreateSoakCanaryCheckpoint(request SoakCanaryRunRequest) (SoakCanaryC
 		CanaryID: request.Activation.CanaryID, MissionID: request.Activation.MissionID,
 		PlanID: request.Activation.PlanID, PhaseStartUTC: request.Activation.PhaseStartUTC,
 		SourceHead:               request.Activation.SourceHead,
+		SourceProvenanceDigest:   request.Activation.SourceProvenanceDigest,
+		RepositorySnapshotDigest: request.Activation.RepositorySnapshotDigest,
 		PlanInputDigest:          request.Activation.PlanInputDigest,
 		PolicyDigest:             request.Activation.PolicyDigest,
 		CommandCatalogDigest:     request.Activation.CommandCatalogDigest,
@@ -526,18 +599,20 @@ func newSoakCanaryAttempt(
 		CanaryID: request.Activation.CanaryID, MissionID: request.Activation.MissionID,
 		PlanID: request.Activation.PlanID, PartitionID: partition.PartitionID,
 		NodeID: partition.NodeID, TestID: partition.TestID,
-		PhaseStartUTC:            request.Activation.PhaseStartUTC,
-		SourceHead:               request.Activation.SourceHead,
-		PlanInputDigest:          request.Activation.PlanInputDigest,
-		PolicyDigest:             request.Activation.PolicyDigest,
-		ExecutionProfileDigest:   request.Activation.ExecutionProfileDigest,
-		CommandCatalogDigest:     request.Activation.CommandCatalogDigest,
-		AuthorityRecordDigest:    request.Activation.AuthorityRecordDigest,
-		ActivationManifestDigest: request.Activation.ActivationManifestDigest,
-		CommandArgvDigest:        digestBytes(argvBody),
-		RequestedRepeatCount:     partition.RequestedRepeatCount,
-		EffectiveRepeatCount:     partition.EffectiveRepeatCount,
-		Classification:           partition.Classification, ScaleDimension: partition.ScaleDimension,
+		PhaseStartUTC:                  request.Activation.PhaseStartUTC,
+		SourceHead:                     request.Activation.SourceHead,
+		SourceProvenanceDigest:         request.Activation.SourceProvenanceDigest,
+		RepositorySnapshotBeforeDigest: request.Activation.RepositorySnapshotDigest,
+		PlanInputDigest:                request.Activation.PlanInputDigest,
+		PolicyDigest:                   request.Activation.PolicyDigest,
+		ExecutionProfileDigest:         request.Activation.ExecutionProfileDigest,
+		CommandCatalogDigest:           request.Activation.CommandCatalogDigest,
+		AuthorityRecordDigest:          request.Activation.AuthorityRecordDigest,
+		ActivationManifestDigest:       request.Activation.ActivationManifestDigest,
+		CommandArgvDigest:              digestBytes(argvBody),
+		RequestedRepeatCount:           partition.RequestedRepeatCount,
+		EffectiveRepeatCount:           partition.EffectiveRepeatCount,
+		Classification:                 partition.Classification, ScaleDimension: partition.ScaleDimension,
 		CheckpointBeforeDigest: checkpoint.CheckpointDigest,
 		Safety:                 request.Activation.Safety,
 	}
@@ -565,6 +640,10 @@ func persistSoakCanaryAttemptTransition(
 		attempt.ReservationSequence = checkpoint.Sequence
 	case "running":
 		attempt.RunningSequence = checkpoint.Sequence
+	case "heartbeat":
+		if attempt.ExecutionState != "running" || attempt.RunningSequence <= 0 {
+			return -1, errors.New("soak canary heartbeat requires a running attempt")
+		}
 	case "completed":
 		attempt.CompletionSequence = checkpoint.Sequence
 	default:
@@ -580,7 +659,7 @@ func persistSoakCanaryAttemptTransition(
 	event := SoakCanaryCheckpointEvent{
 		Sequence: checkpoint.Sequence, Event: eventName,
 		NodeID: attempt.NodeID, AttemptNumber: attempt.AttemptNumber,
-		AttemptSnapshotDigest:  soakCanaryAttemptSnapshotDigest(attempt, eventName),
+		AttemptSnapshotDigest:  soakCanaryAttemptSnapshotDigest(attempt, eventName, checkpoint.Sequence),
 		CheckpointBeforeDigest: prior,
 	}
 	if len(checkpoint.Events) > 0 {
@@ -689,6 +768,8 @@ func rejectedSoakCanarySummary(request SoakCanaryRunRequest, conflicts []string)
 		Schema: SoakCanarySummarySchema, Status: "rejected",
 		CanaryID: request.Activation.CanaryID, MissionID: request.Activation.MissionID,
 		PlanID: request.Activation.PlanID, SourceHead: request.Activation.SourceHead,
+		SourceProvenanceDigest:   request.Activation.SourceProvenanceDigest,
+		RepositorySnapshotDigest: request.Activation.RepositorySnapshotDigest,
 		PlanInputDigest:          request.Activation.PlanInputDigest,
 		PolicyDigest:             request.Activation.PolicyDigest,
 		CommandCatalogDigest:     request.Activation.CommandCatalogDigest,
