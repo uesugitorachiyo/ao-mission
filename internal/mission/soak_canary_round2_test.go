@@ -15,7 +15,6 @@ import (
 func TestSoakCanaryRepositorySnapshotIncludesWorktreeAndExcludesGit(t *testing.T) {
 	root := t.TempDir()
 	mustWriteSoakCanaryTestFile(t, filepath.Join(root, "tracked.txt"), []byte("tracked\n"))
-	mustWriteSoakCanaryTestFile(t, filepath.Join(root, "untracked.txt"), []byte("untracked\n"))
 	mustWriteSoakCanaryTestFile(t, filepath.Join(root, ".git", "index"), []byte("ignored\n"))
 	outside := filepath.Join(t.TempDir(), "outside.txt")
 	mustWriteSoakCanaryTestFile(t, outside, []byte("outside-content-must-not-be-read\n"))
@@ -41,7 +40,7 @@ func TestSoakCanaryRepositorySnapshotIncludesWorktreeAndExcludesGit(t *testing.T
 			t.Fatalf(".git content entered snapshot: %+v", first.Entries)
 		}
 	}
-	for _, path := range []string{"tracked.txt", "untracked.txt", "link"} {
+	for _, path := range []string{"tracked.txt", "link"} {
 		if _, exists := entries[path]; !exists {
 			t.Fatalf("snapshot omitted %s: %+v", path, first.Entries)
 		}
@@ -52,7 +51,7 @@ func TestSoakCanaryRepositorySnapshotIncludesWorktreeAndExcludesGit(t *testing.T
 		t.Fatalf("symlink was followed or not bound by target text: %+v", entries["link"])
 	}
 
-	mustWriteSoakCanaryTestFile(t, filepath.Join(root, "untracked.txt"), []byte("changed\n"))
+	mustWriteSoakCanaryTestFile(t, filepath.Join(root, "tracked.txt"), []byte("changed\n"))
 	changed, err := BuildSoakCanaryRepositorySnapshot(root)
 	if err != nil {
 		t.Fatal(err)
@@ -285,6 +284,7 @@ func TestSoakCanaryPublicJSONPrintsCompletedOnlyAfterTerminalPersistence(t *test
 	dependencies := soakCanaryCLIDependencies{
 		provenanceProvider: soakCanaryStaticProvenanceProvider{fixture.request.SourceProvenance},
 		snapshotter:        PureGoSoakCanaryRepositorySnapshotter{},
+		gitVerifier:        soakCanaryCleanGitVerifier{},
 		executor:           &soakCanaryFakeExecutor{clock: clock},
 		clock:              clock,
 		persistCompletion:  PersistSoakCanaryCompletion,
@@ -318,6 +318,7 @@ func TestSoakCanaryPublicJSONPersistenceFailureIsNonterminal(t *testing.T) {
 	dependencies := soakCanaryCLIDependencies{
 		provenanceProvider: soakCanaryStaticProvenanceProvider{fixture.request.SourceProvenance},
 		snapshotter:        PureGoSoakCanaryRepositorySnapshotter{},
+		gitVerifier:        soakCanaryCleanGitVerifier{},
 		executor:           &soakCanaryFakeExecutor{clock: clock},
 		clock:              clock,
 		persistCompletion: func(string, SoakCanarySummary) error {

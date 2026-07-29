@@ -311,6 +311,7 @@ type SoakCanaryRunRequest struct {
 	SourceProvenance       SoakCanarySourceProvenance
 	RepositorySnapshot     SoakCanaryRepositorySnapshot
 	Snapshotter            SoakCanaryRepositorySnapshotter
+	GitVerifier            SoakCanaryGitVerifier
 	RepositoryRoot         string
 	EvidenceRoot           string
 	CheckpointPath         string
@@ -555,11 +556,16 @@ func validateSoakCanarySourceAndSnapshot(request SoakCanaryRunRequest, add func(
 	}
 	if request.Snapshotter == nil {
 		add("repository_snapshotter_missing")
-		return
+	} else {
+		current, err := request.Snapshotter.Snapshot(request.RepositoryRoot)
+		if err != nil || !reflect.DeepEqual(current, snapshot) {
+			add("repository_snapshot_digest_mismatch")
+		}
 	}
-	current, err := request.Snapshotter.Snapshot(request.RepositoryRoot)
-	if err != nil || !reflect.DeepEqual(current, snapshot) {
-		add("repository_snapshot_digest_mismatch")
+	if request.GitVerifier == nil {
+		add("repository_git_verifier_missing")
+	} else if err := verifySoakCanaryGitRepository(request); err != nil {
+		add("repository_git_state_mismatch")
 	}
 }
 

@@ -497,6 +497,7 @@ func TestSoakCanaryCLIValidateOnlyUsesStrictInputsAndReportsZeroLaunches(t *test
 	dependencies := soakCanaryCLIDependencies{
 		provenanceProvider: soakCanaryStaticProvenanceProvider{fixture.request.SourceProvenance},
 		snapshotter:        fixture.request.Snapshotter,
+		gitVerifier:        fixture.request.GitVerifier,
 		executor:           &soakCanaryFakeExecutor{},
 		persistCompletion:  PersistSoakCanaryCompletion,
 	}
@@ -827,6 +828,7 @@ func validSoakCanaryFixture(t *testing.T) soakCanaryTestFixture {
 		Authority:         authority, Catalog: catalog, Activation: activation,
 		SourceProvenance: provenance, RepositorySnapshot: repositorySnapshot,
 		Snapshotter:    PureGoSoakCanaryRepositorySnapshotter{},
+		GitVerifier:    soakCanaryCleanGitVerifier{},
 		RepositoryRoot: root, EvidenceRoot: evidenceRoot,
 		CheckpointPath:   filepath.Join(evidenceRoot, "checkpoints", "checkpoint.json"),
 		OutputLimitBytes: 64 * 1024,
@@ -887,6 +889,12 @@ func resignSoakCanaryCatalogAndActivation(fixture *soakCanaryTestFixture) {
 
 type soakCanaryFakeClock struct {
 	now time.Time
+}
+
+type soakCanaryCleanGitVerifier struct{}
+
+func (soakCanaryCleanGitVerifier) Verify(string, string) error {
+	return nil
 }
 
 func (clock *soakCanaryFakeClock) Now() time.Time {

@@ -30,7 +30,10 @@ Remove `--validate-only` only for an explicitly authorized canary. Execution
 requires an unmodified running binary whose embedded Go build information
 contains the exact `vcs.revision` bound by the plan, catalog, authority, and
 activation manifest. No Git process or other repository-verifier child is
-launched.
+launched. An in-process Git reader supports normal `.git` directories and
+gitfiles, requires current `HEAD` to equal the approved revision, and rejects
+staged, tracked-worktree, or untracked changes during validation and
+immediately before and after each approved Go launch.
 
 Preactivation also creates a deterministic typed repository snapshot. The
 pure-Go walker includes regular files, directories, and untracked content,
@@ -76,6 +79,10 @@ attempt whose launch truth is indeterminate. The only restart progression is
 from the designated retry node's exact pre-spawn
 `transient_infrastructure` attempt one to attempt two. Every other failed or
 incomplete regular attempt is terminal, and scale remains nonretryable.
+If `Start` succeeds but the running checkpoint cannot be persisted, Mission
+cancels and synchronously reaps the child, records the observed result in its
+failed summary, attempts a completed checkpoint, and leaves the last durable
+reservation fail-closed when persistence remains unavailable.
 
 Every attempt binds the original phase start, source head, source provenance,
 repository snapshots before and after execution, plan and policy digests,

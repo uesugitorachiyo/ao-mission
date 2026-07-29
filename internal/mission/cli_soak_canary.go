@@ -13,6 +13,7 @@ import (
 type soakCanaryCLIDependencies struct {
 	provenanceProvider SoakCanarySourceProvenanceProvider
 	snapshotter        SoakCanaryRepositorySnapshotter
+	gitVerifier        SoakCanaryGitVerifier
 	executor           SoakCanaryExecutor
 	clock              SoakCanaryClock
 	persistCompletion  func(string, SoakCanarySummary) error
@@ -22,6 +23,7 @@ func defaultSoakCanaryCLIDependencies() soakCanaryCLIDependencies {
 	return soakCanaryCLIDependencies{
 		provenanceProvider: BuildInfoSoakCanarySourceProvenanceProvider{},
 		snapshotter:        PureGoSoakCanaryRepositorySnapshotter{},
+		gitVerifier:        InProcessSoakCanaryGitVerifier{},
 		executor:           OSExecSoakCanaryExecutor{},
 		persistCompletion:  PersistSoakCanaryCompletion,
 	}
@@ -59,7 +61,9 @@ func runSoakCanaryCLIWithDependencies(
 	if err != nil {
 		return err
 	}
-	if dependencies.provenanceProvider == nil || dependencies.snapshotter == nil {
+	if dependencies.provenanceProvider == nil ||
+		dependencies.snapshotter == nil ||
+		dependencies.gitVerifier == nil {
 		return errors.New("qualification soak-canary source provenance dependencies are required")
 	}
 	provenance, err := dependencies.provenanceProvider.SourceProvenance()
@@ -98,8 +102,9 @@ func runSoakCanaryCLIWithDependencies(
 		PlanInput: input, PlanReadback: plan, PlanFixtureSHA256: digestBytes(planBody),
 		Authority: authority, Catalog: catalog, Activation: activation,
 		SourceProvenance: provenance, RepositorySnapshot: repositorySnapshot,
-		Snapshotter: dependencies.snapshotter, RepositoryRoot: rootAbs,
-		EvidenceRoot: *evidenceRoot, CheckpointPath: *checkpointPath,
+		Snapshotter: dependencies.snapshotter, GitVerifier: dependencies.gitVerifier,
+		RepositoryRoot: rootAbs,
+		EvidenceRoot:   *evidenceRoot, CheckpointPath: *checkpointPath,
 		OutputLimitBytes: soakCanaryDefaultOutputBytes,
 	}
 	validation := ValidateSoakCanaryActivation(request)

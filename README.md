@@ -165,8 +165,8 @@ catalog, uses shell-free argv, records atomic digest-chained checkpoints, and
 supports validation-only mode with zero child-process launches. Launch intent
 is durable before process creation, indeterminate restart state fails closed,
 runtime caches stay beneath the evidence root, embedded unmodified Go build
-provenance and a pure-Go repository snapshot replace repository-verifier
-subprocesses, and the final summary is promoted only after all terminal
-surfaces agree. See
+provenance, in-process Git cleanliness verification, and a pure-Go repository
+snapshot replace repository-verifier subprocesses, and the final summary is
+promoted only after all terminal surfaces agree. See
 [Qualification soak canary contract](docs/contracts/qualification-soak-canary.md).
 `ao-mission mission events index` builds a durable local `ao.mission.event-index.v0.2` over mission records, route decisions, event-loop decisions, and artifacts, with `index_digest` and `source_digest` fields so loaded indexes fail closed if tampered. `ao-mission mission events search` emits `ao.mission.event-search-readback.v0.1` without granting execution authority. `ao-mission mission readiness-bundle` binds local readiness summaries from sibling AO repos into one digest-backed readback, `ao-mission gateway replay-bundle` binds Scheduler, Telegram, and A2A replay fixtures into one local no-authority matrix, `ao-mission mission dashboard` emits a compact operator readback over mission status and recent indexed events, `ao-mission mission verification-bundle` emits a top-level digest manifest over the event index, dashboard, artifact manifest, readiness bundle, and replay bundle, and `ao-mission doctor` emits `ao.mission.doctor-readback.v0.1` with local store, event, and artifact health only.

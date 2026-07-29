@@ -155,6 +155,10 @@ func RunSoakCanary(ctx context.Context, request SoakCanaryRunRequest) (SoakCanar
 		summary := rejectedSoakCanarySummary(request, []string{"repository_snapshotter_missing"})
 		return summary, errors.New("soak canary repository snapshotter is required")
 	}
+	if request.GitVerifier == nil {
+		summary := rejectedSoakCanarySummary(request, []string{"repository_git_verifier_missing"})
+		return summary, errors.New("soak canary Git verifier is required")
+	}
 	if request.Clock == nil {
 		request.Clock = realSoakCanaryClock{}
 	}
@@ -331,6 +335,24 @@ func RunSoakCanary(ctx context.Context, request SoakCanaryRunRequest) (SoakCanar
 				request, checkpoint, []string{"executable_provenance_mismatch"}, request.Clock.Now().UTC(),
 			), errors.New("soak canary executable provenance changed before launch")
 		}
+		if gitErr := verifySoakCanaryGitRepository(request); gitErr != nil {
+			attempt.ExecutionState = "completed"
+			attempt.OutcomeClass = "repository_git_state_mismatch_before_launch"
+			attempt.CompletedAtUTC = request.Clock.Now().UTC().Format(time.RFC3339Nano)
+			attempt.TotalAttemptElapsedMS = soakCanaryElapsedMS(attempt.StartedAtUTC, attempt.CompletedAtUTC)
+			attempt.ElapsedMS = attempt.TotalAttemptElapsedMS
+			attempt.ExitCode = -1
+			if _, persistErr := persistSoakCanaryAttemptTransition(
+				request, &checkpoint, attemptIndex, attempt, "completed",
+			); persistErr != nil {
+				return runtimeSoakCanarySummary(
+					request, checkpoint, []string{"checkpoint_write_failed"}, request.Clock.Now().UTC(),
+				), errors.Join(gitErr, persistErr)
+			}
+			return runtimeSoakCanarySummary(
+				request, checkpoint, []string{"repository_git_state_mismatch"}, request.Clock.Now().UTC(),
+			), gitErr
+		}
 		beforeSnapshot, snapshotErr := verifySoakCanaryRepositorySnapshot(request)
 		if snapshotErr != nil {
 			attempt.ExecutionState = "completed"
@@ -383,9 +405,18 @@ func RunSoakCanary(ctx context.Context, request SoakCanaryRunRequest) (SoakCanar
 			request, &checkpoint, attemptIndex, attempt, "running",
 		); err != nil {
 			cancel()
+			reapErr := completeSoakCanaryRunningCheckpointFailure(
+				request,
+				&checkpoint,
+				attemptIndex,
+				partition,
+				command,
+				attemptNumber,
+				process,
+			)
 			return runtimeSoakCanarySummary(
 				request, checkpoint, []string{"checkpoint_write_failed"}, request.Clock.Now().UTC(),
-			), err
+			), errors.Join(err, reapErr)
 		}
 		attempt = checkpoint.Attempts[attemptIndex]
 		result, heartbeatErr := waitForSoakCanaryProcess(
@@ -431,6 +462,7 @@ func RunSoakCanary(ctx context.Context, request SoakCanaryRunRequest) (SoakCanar
 		}
 		afterSnapshot, repositoryErr := verifySoakCanaryRepositorySnapshot(request)
 		attempt.RepositorySnapshotAfterDigest = afterSnapshot.SnapshotDigest
+		gitErr := verifySoakCanaryGitRepository(request)
 		executableProvenanceValid := validSoakCanaryExecutable(command)
 		if attempt.OutcomeClass == "passed" && result.ExitCode != 0 {
 			attempt.OutcomeClass = "test_failure"
@@ -442,6 +474,10 @@ func RunSoakCanary(ctx context.Context, request SoakCanaryRunRequest) (SoakCanar
 		if repositoryErr != nil {
 			attempt.OutcomeClass = "repository_snapshot_mismatch"
 			completionErr = errors.Join(completionErr, repositoryErr)
+		}
+		if gitErr != nil {
+			attempt.OutcomeClass = "repository_git_state_mismatch"
+			completionErr = errors.Join(completionErr, gitErr)
 		}
 		if !executableProvenanceValid {
 			attempt.OutcomeClass = "executable_provenance_mismatch"
@@ -504,6 +540,73 @@ func RunSoakCanary(ctx context.Context, request SoakCanaryRunRequest) (SoakCanar
 		), err
 	}
 	return ReconcileSoakCanary(request, checkpoint, completedAt)
+}
+
+func completeSoakCanaryRunningCheckpointFailure(
+	request SoakCanaryRunRequest,
+	checkpoint *SoakCanaryCheckpoint,
+	attemptIndex int,
+	partition SoakCanaryPartitionBinding,
+	command SoakCanaryCommand,
+	attemptNumber int,
+	process SoakCanaryProcess,
+) error {
+	result := process.Wait()
+	attempt := checkpoint.Attempts[attemptIndex]
+	attempt.ExecutionState = "completed"
+	attempt.OutcomeClass = "running_checkpoint_write_failed_reaped"
+	attempt.ChildElapsedMS = result.ElapsedMS
+	attempt.ExitCode = result.ExitCode
+	attempt.Signal = result.Signal
+
+	stdout, stdoutTruncated := boundSoakCanaryOutput(result.Stdout, request.OutputLimitBytes)
+	stderr, stderrTruncated := boundSoakCanaryOutput(result.Stderr, request.OutputLimitBytes)
+	stdoutTruncated = stdoutTruncated || result.StdoutTruncated
+	stderrTruncated = stderrTruncated || result.StderrTruncated
+	attempt.GoTestEvents = parseSoakCanaryGoTestEvents(stdout, command.TestName)
+
+	var observedErr error
+	var err error
+	attempt.Stdout, err = persistSoakCanaryOutput(
+		request, partition.NodeID, attemptNumber, "stdout.jsonl", stdout, stdoutTruncated,
+	)
+	if err != nil {
+		attempt.Stdout = emptySoakCanaryOutput()
+		observedErr = errors.Join(observedErr, err)
+	}
+	attempt.Stderr, err = persistSoakCanaryOutput(
+		request, partition.NodeID, attemptNumber, "stderr.txt", stderr, stderrTruncated,
+	)
+	if err != nil {
+		attempt.Stderr = emptySoakCanaryOutput()
+		observedErr = errors.Join(observedErr, err)
+	}
+	afterSnapshot, snapshotErr := verifySoakCanaryRepositorySnapshot(request)
+	attempt.RepositorySnapshotAfterDigest = afterSnapshot.SnapshotDigest
+	observedErr = errors.Join(observedErr, snapshotErr)
+	observedErr = errors.Join(observedErr, verifySoakCanaryGitRepository(request))
+	if !validSoakCanaryExecutable(command) {
+		observedErr = errors.Join(
+			observedErr,
+			errors.New("soak canary executable provenance changed after launch"),
+		)
+	}
+	attempt.CompletedAtUTC = request.Clock.Now().UTC().Format(time.RFC3339Nano)
+	attempt.TotalAttemptElapsedMS = soakCanaryElapsedMS(attempt.StartedAtUTC, attempt.CompletedAtUTC)
+	if attempt.TotalAttemptElapsedMS < attempt.ChildElapsedMS {
+		attempt.TotalAttemptElapsedMS = attempt.ChildElapsedMS
+	}
+	attempt.ElapsedMS = attempt.TotalAttemptElapsedMS
+	if _, err := persistSoakCanaryAttemptTransition(
+		request,
+		checkpoint,
+		attemptIndex,
+		attempt,
+		"completed",
+	); err != nil {
+		observedErr = errors.Join(observedErr, err)
+	}
+	return observedErr
 }
 
 func soakCanaryDesignatedRetryPrecondition(
