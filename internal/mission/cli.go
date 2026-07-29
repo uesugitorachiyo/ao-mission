@@ -822,7 +822,7 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 		return printJSON(stdout, ScheduleReadback(*id, *every, *eventLoop))
 	case "qualification":
 		if len(args) < 2 {
-			return errors.New("qualification requires orchestrate")
+			return errors.New("qualification requires orchestrate or soak-plan")
 		}
 		switch args[1] {
 		case "orchestrate":
@@ -853,8 +853,40 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 				readback.RestartFromZeroAllowed,
 				readback.ExactNextAction)
 			return nil
+		case "soak-plan":
+			fs := flag.NewFlagSet("qualification soak-plan", flag.ContinueOnError)
+			fixturePath := fs.String("fixture", "", "")
+			jsonOut := fs.Bool("json", false, "json output")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if fs.NArg() != 0 || strings.TrimSpace(*fixturePath) == "" {
+				return errors.New("qualification soak-plan requires --fixture")
+			}
+			if filepath.Clean(*fixturePath) != *fixturePath {
+				return errors.New("qualification soak-plan rejects fixture traversal")
+			}
+			input, err := LoadSoakPlanInput(filepath.Dir(*fixturePath), *fixturePath)
+			if err != nil {
+				return err
+			}
+			readback, err := BuildSoakPlan(input)
+			if err != nil {
+				return err
+			}
+			if *jsonOut {
+				return printJSON(stdout, readback)
+			}
+			fmt.Fprintf(stdout, "plan=%s\nmission=%s\npartitions=%d\nactivation_allowed=%t\nconflicts=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\nmutates_repositories=false\ncalls_providers=false\npublishes=false\nreleases=false\ndeploys=false\nadvances_authority=false\nrsi_remains_denied=true\nnext=%s\n",
+				readback.PlanID,
+				readback.MissionID,
+				len(readback.Partitions),
+				readback.ActivationAllowed,
+				strings.Join(readback.ConflictCodes, ","),
+				readback.ExactNextAction)
+			return nil
 		default:
-			return errors.New("qualification requires orchestrate")
+			return errors.New("qualification requires orchestrate or soak-plan")
 		}
 	case "daemon":
 		if len(args) < 2 {

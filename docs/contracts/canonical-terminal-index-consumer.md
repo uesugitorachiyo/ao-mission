@@ -17,6 +17,20 @@ rejected before the state file changes. Inspect, checkpoint, event-index, and
 Command-compatible views all read the same persisted reconciliation record.
 The import never schedules work or changes an AO Mission record.
 
+`index_digest` binds the canonical Atlas terminal-index payload. It must be
+identical across Mission's `inspect`, `checkpoint`, `event-index`, and
+`command-readback` views. The authority-relevant canonical payload must also
+agree field-for-field across those views: identities, counts, lease,
+completion, timing, conflict codes, readiness, return gate, safety boundaries,
+and exact next action. Equal `index_digest` values never excuse a canonical
+payload mismatch.
+
+`state_digest` binds the normalized persisted state plus the selected readback
+surface. The four valid values are therefore expected to be distinct. Distinct
+surface-specific state digests are not a conflict, and consumers must not assert
+that all four are equal. Each view must verify its own state digest, then verify
+canonical payload agreement and the shared index digest.
+
 ```sh
 ao-mission terminal-index import \
   --root /path/to/evidence \
