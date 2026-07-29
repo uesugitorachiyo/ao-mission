@@ -77,6 +77,7 @@ type SoakCanaryCommand struct {
 	Package              string                  `json:"package"`
 	TestRegex            string                  `json:"test_regex"`
 	Classification       string                  `json:"classification"`
+	ScaleDimension       *SoakScaleDimension     `json:"scale_dimension,omitempty"`
 	RequestedRepeatCount int                     `json:"requested_repeat_count"`
 	EffectiveRepeatCount int                     `json:"effective_repeat_count"`
 	TimeoutMS            int64                   `json:"timeout_ms"`
@@ -169,12 +170,16 @@ type SoakCanaryAttempt struct {
 	EffectiveRepeatCount     int                      `json:"effective_repeat_count"`
 	Classification           string                   `json:"classification"`
 	ScaleDimension           *SoakScaleDimension      `json:"scale_dimension,omitempty"`
+	ExecutionState           string                   `json:"execution_state"`
 	OutcomeClass             string                   `json:"outcome_class"`
 	ChildProcessLaunched     bool                     `json:"child_process_launched"`
 	ChildPID                 int                      `json:"child_pid,omitempty"`
 	StartedAtUTC             string                   `json:"started_at_utc"`
+	ChildStartedAtUTC        string                   `json:"child_started_at_utc,omitempty"`
 	CompletedAtUTC           string                   `json:"completed_at_utc"`
 	ElapsedMS                int64                    `json:"elapsed_ms"`
+	ChildElapsedMS           int64                    `json:"child_elapsed_ms"`
+	TotalAttemptElapsedMS    int64                    `json:"total_attempt_elapsed_ms"`
 	ExitCode                 int                      `json:"exit_code"`
 	Signal                   string                   `json:"signal,omitempty"`
 	Stdout                   SoakCanaryOutputArtifact `json:"stdout"`
@@ -182,30 +187,45 @@ type SoakCanaryAttempt struct {
 	GoTestEvents             SoakCanaryGoTestCounts   `json:"go_test_events"`
 	CheckpointBeforeDigest   string                   `json:"checkpoint_before_digest"`
 	CheckpointAfterSequence  int                      `json:"checkpoint_after_sequence"`
+	ReservationSequence      int                      `json:"reservation_sequence,omitempty"`
+	RunningSequence          int                      `json:"running_sequence,omitempty"`
+	CompletionSequence       int                      `json:"completion_sequence,omitempty"`
 	Safety                   SoakCanarySafety         `json:"safety"`
 	AttemptDigest            string                   `json:"attempt_digest"`
 }
 
+type SoakCanaryCheckpointEvent struct {
+	Sequence               int    `json:"sequence"`
+	Event                  string `json:"event"`
+	NodeID                 string `json:"node_id"`
+	AttemptNumber          int    `json:"attempt_number"`
+	AttemptSnapshotDigest  string `json:"attempt_snapshot_digest"`
+	CheckpointBeforeDigest string `json:"checkpoint_before_digest"`
+	PriorEventDigest       string `json:"prior_event_digest"`
+	EventDigest            string `json:"event_digest"`
+}
+
 type SoakCanaryCheckpoint struct {
-	Schema                   string              `json:"schema"`
-	CanaryID                 string              `json:"canary_id"`
-	MissionID                string              `json:"mission_id"`
-	PlanID                   string              `json:"plan_id"`
-	PhaseStartUTC            string              `json:"phase_start_utc"`
-	CompletedAtUTC           string              `json:"completed_at_utc,omitempty"`
-	SourceHead               string              `json:"source_head"`
-	PlanInputDigest          string              `json:"plan_input_digest"`
-	PolicyDigest             string              `json:"policy_digest"`
-	CommandCatalogDigest     string              `json:"command_catalog_digest"`
-	AuthorityRecordDigest    string              `json:"authority_record_digest"`
-	ActivationManifestDigest string              `json:"activation_manifest_digest"`
-	Sequence                 int                 `json:"sequence"`
-	PriorCheckpointDigest    string              `json:"prior_checkpoint_digest"`
-	Attempts                 []SoakCanaryAttempt `json:"attempts"`
-	CompletedNodeIDs         []string            `json:"completed_node_ids"`
-	ControlledRetryConsumed  bool                `json:"controlled_retry_consumed"`
-	ScaleLaunchConsumed      bool                `json:"scale_launch_consumed"`
-	CheckpointDigest         string              `json:"checkpoint_digest"`
+	Schema                   string                      `json:"schema"`
+	CanaryID                 string                      `json:"canary_id"`
+	MissionID                string                      `json:"mission_id"`
+	PlanID                   string                      `json:"plan_id"`
+	PhaseStartUTC            string                      `json:"phase_start_utc"`
+	CompletedAtUTC           string                      `json:"completed_at_utc,omitempty"`
+	SourceHead               string                      `json:"source_head"`
+	PlanInputDigest          string                      `json:"plan_input_digest"`
+	PolicyDigest             string                      `json:"policy_digest"`
+	CommandCatalogDigest     string                      `json:"command_catalog_digest"`
+	AuthorityRecordDigest    string                      `json:"authority_record_digest"`
+	ActivationManifestDigest string                      `json:"activation_manifest_digest"`
+	Sequence                 int                         `json:"sequence"`
+	PriorCheckpointDigest    string                      `json:"prior_checkpoint_digest"`
+	Attempts                 []SoakCanaryAttempt         `json:"attempts"`
+	Events                   []SoakCanaryCheckpointEvent `json:"events"`
+	CompletedNodeIDs         []string                    `json:"completed_node_ids"`
+	ControlledRetryConsumed  bool                        `json:"controlled_retry_consumed"`
+	ScaleLaunchConsumed      bool                        `json:"scale_launch_consumed"`
+	CheckpointDigest         string                      `json:"checkpoint_digest"`
 }
 
 type SoakCanarySummary struct {
@@ -231,12 +251,34 @@ type SoakCanarySummary struct {
 	PhaseStartUTC               string              `json:"phase_start_utc"`
 	CompletedAtUTC              string              `json:"completed_at_utc"`
 	PhaseElapsedMS              int64               `json:"phase_elapsed_ms"`
+	LeaseMinimumMS              int64               `json:"lease_minimum_ms"`
+	LeaseTargetMS               int64               `json:"lease_target_ms"`
 	LeaseMaximumMS              int64               `json:"lease_maximum_ms"`
+	CheckpointDigest            string              `json:"checkpoint_digest"`
+	PassedAttemptCount          int                 `json:"passed_attempt_count"`
+	TotalChildElapsedMS         int64               `json:"total_child_elapsed_ms"`
+	TotalAttemptElapsedMS       int64               `json:"total_attempt_elapsed_ms"`
 	TerminalIndexDigest         string              `json:"terminal_index_digest"`
 	ConflictCodes               []string            `json:"conflict_codes"`
 	Attempts                    []SoakCanaryAttempt `json:"attempts"`
 	Safety                      SoakCanarySafety    `json:"safety"`
 	SummaryDigest               string              `json:"summary_digest"`
+}
+
+type SoakCanaryLimitInput struct {
+	ChildElapsedMS        int64
+	TotalAttemptElapsedMS int64
+	NodeElapsedMS         int64
+	AggregateElapsedMS    int64
+	AggregateLimitMS      int64
+	PhaseElapsedMS        int64
+	PerAttemptTimeoutMS   int64
+	TotalNodeTimeoutMS    int64
+	NodeBudgetMS          int64
+	RetryAllowanceMS      int64
+	LeaseMaximumMS        int64
+	HardWallMS            int64
+	IsRetry               bool
 }
 
 type SoakCanaryActivationReadback struct {
@@ -250,19 +292,21 @@ type SoakCanaryActivationReadback struct {
 }
 
 type SoakCanaryRunRequest struct {
-	PlanInput          SoakPlanInput
-	PlanReadback       SoakPlanReadback
-	PlanFixtureSHA256  string
-	Authority          SoakCanaryAuthority
-	Catalog            SoakCanaryCommandCatalog
-	Activation         SoakCanaryActivation
-	VerifiedSourceHead string
-	RepositoryRoot     string
-	EvidenceRoot       string
-	CheckpointPath     string
-	OutputLimitBytes   int
-	Executor           SoakCanaryExecutor
-	Clock              SoakCanaryClock
+	PlanInput              SoakPlanInput
+	PlanReadback           SoakPlanReadback
+	PlanFixtureSHA256      string
+	Authority              SoakCanaryAuthority
+	Catalog                SoakCanaryCommandCatalog
+	Activation             SoakCanaryActivation
+	VerifiedSourceHead     string
+	RepositoryRoot         string
+	EvidenceRoot           string
+	CheckpointPath         string
+	OutputLimitBytes       int
+	Executor               SoakCanaryExecutor
+	RepositoryVerifier     SoakCanaryRepositoryVerifier
+	Clock                  SoakCanaryClock
+	AfterLaunchReservation func(SoakCanaryAttempt) error
 }
 
 type soakCanaryApprovedTest struct {
@@ -534,6 +578,14 @@ func validateSoakCanaryCatalog(request SoakCanaryRunRequest, add func(string)) {
 		if command.TestName != approved.name || command.Classification != approved.classification {
 			add("command_test_identity_mismatch")
 		}
+		if command.Classification == "scale" {
+			if command.ScaleDimension == nil || command.ScaleDimension.Unit != "records" ||
+				command.ScaleDimension.Value != 10_000 {
+				add("command_scale_dimension_mismatch")
+			}
+		} else if command.ScaleDimension != nil {
+			add("command_scale_dimension_mismatch")
+		}
 		if command.Package != "./internal/mission" || len(command.Argv) < 2 || command.Argv[1] != "./internal/mission" {
 			add("unapproved_package")
 		}
@@ -642,6 +694,57 @@ func validateSoakCanaryActivationRecord(request SoakCanaryRunRequest, add func(s
 			}
 		}
 	}
+	planTests := map[string]SoakTestEntry{}
+	for _, test := range request.PlanInput.TestCatalog {
+		if _, duplicate := planTests[test.ID]; duplicate {
+			add("activation_catalog_bijection_mismatch")
+		}
+		planTests[test.ID] = test
+	}
+	commands := map[string]SoakCanaryCommand{}
+	for _, command := range request.Catalog.Commands {
+		if _, duplicate := commands[command.TestID]; duplicate {
+			add("activation_catalog_bijection_mismatch")
+		}
+		commands[command.TestID] = command
+	}
+	seenPartitions := map[string]bool{}
+	seenNodes := map[string]bool{}
+	seenTests := map[string]bool{}
+	scaleCount := 0
+	for index, partition := range activation.Partitions {
+		planTest, planFound := planTests[partition.TestID]
+		command, commandFound := commands[partition.TestID]
+		if !planFound || !commandFound || seenTests[partition.TestID] ||
+			seenPartitions[partition.PartitionID] || seenNodes[partition.NodeID] {
+			add("activation_catalog_bijection_mismatch")
+		}
+		seenTests[partition.TestID] = true
+		seenPartitions[partition.PartitionID] = true
+		seenNodes[partition.NodeID] = true
+		if planFound && commandFound &&
+			(planTest.Classification != partition.Classification ||
+				command.Classification != partition.Classification ||
+				command.RequestedRepeatCount != partition.RequestedRepeatCount ||
+				command.EffectiveRepeatCount != partition.EffectiveRepeatCount ||
+				!reflect.DeepEqual(command.ScaleDimension, partition.ScaleDimension) ||
+				!reflect.DeepEqual(planTest.ScaleDimension, partition.ScaleDimension)) {
+			add("activation_catalog_bijection_mismatch")
+		}
+		if partition.Classification == "scale" {
+			scaleCount++
+			if index != 0 {
+				add("scale_partition_not_first")
+			}
+		}
+	}
+	if len(seenTests) != len(commands) || len(seenTests) != len(planTests) {
+		add("activation_catalog_bijection_mismatch")
+	}
+	if scaleCount != 1 || len(activation.Partitions) == 0 ||
+		activation.Partitions[0].Classification != "scale" {
+		add("scale_partition_not_first")
+	}
 	retryFound := false
 	for _, partition := range activation.Partitions {
 		if partition.NodeID == activation.ControlledRetryNodeID {
@@ -662,6 +765,11 @@ func validateSoakCanaryPaths(request SoakCanaryRunRequest, add func(string)) {
 	}
 	if !pathWithin(request.EvidenceRoot, request.CheckpointPath) {
 		add("checkpoint_path_outside_evidence")
+	}
+	if err := validateSoakCanaryRuntimePaths(
+		request.RepositoryRoot, request.EvidenceRoot, request.CheckpointPath,
+	); err != nil {
+		add("unsafe_runtime_path")
 	}
 }
 
@@ -725,6 +833,12 @@ func signSoakCanaryAttempt(attempt *SoakCanaryAttempt) {
 	attempt.AttemptDigest = digestBytes(body)
 }
 
+func signSoakCanaryCheckpointEvent(event *SoakCanaryCheckpointEvent) {
+	event.EventDigest = ""
+	body, _ := json.Marshal(*event)
+	event.EventDigest = digestBytes(body)
+}
+
 func signSoakCanaryCheckpoint(checkpoint *SoakCanaryCheckpoint) {
 	checkpoint.CheckpointDigest = ""
 	body, _ := json.Marshal(*checkpoint)
@@ -765,11 +879,252 @@ func LoadSoakCanaryCheckpoint(path string) (SoakCanaryCheckpoint, error) {
 			completed[attempt.NodeID] = true
 		}
 	}
+	priorEventDigest := ""
+	for index, event := range checkpoint.Events {
+		unsignedEvent := event
+		signSoakCanaryCheckpointEvent(&unsignedEvent)
+		if event.Sequence != index+1 || event.PriorEventDigest != priorEventDigest ||
+			event.EventDigest != unsignedEvent.EventDigest ||
+			!validSoakHexDigest(event.CheckpointBeforeDigest, 71, "sha256:") {
+			return checkpoint, errors.New("soak canary checkpoint event chain is invalid")
+		}
+		priorEventDigest = event.EventDigest
+	}
+	if checkpoint.Sequence != len(checkpoint.Events) {
+		return checkpoint, errors.New("soak canary checkpoint sequence is contradictory")
+	}
 	expectedCompleted := sortedSoakCanaryKeys(completed)
 	if !reflect.DeepEqual(checkpoint.CompletedNodeIDs, expectedCompleted) {
 		return checkpoint, errors.New("soak canary checkpoint completion state is contradictory")
 	}
 	return checkpoint, nil
+}
+
+func validateSoakCanaryCheckpoint(request SoakCanaryRunRequest, checkpoint SoakCanaryCheckpoint) error {
+	if checkpoint.CanaryID != request.Activation.CanaryID ||
+		checkpoint.MissionID != request.Activation.MissionID ||
+		checkpoint.PlanID != request.Activation.PlanID ||
+		checkpoint.PhaseStartUTC != request.Activation.PhaseStartUTC ||
+		checkpoint.SourceHead != request.Activation.SourceHead ||
+		checkpoint.PlanInputDigest != request.Activation.PlanInputDigest ||
+		checkpoint.PolicyDigest != request.Activation.PolicyDigest ||
+		checkpoint.CommandCatalogDigest != request.Activation.CommandCatalogDigest ||
+		checkpoint.AuthorityRecordDigest != request.Activation.AuthorityRecordDigest ||
+		checkpoint.ActivationManifestDigest != request.Activation.ActivationManifestDigest {
+		return errors.New("soak canary checkpoint binding mismatch")
+	}
+	partitions := map[string]SoakCanaryPartitionBinding{}
+	for _, partition := range request.Activation.Partitions {
+		partitions[partition.NodeID] = partition
+	}
+	commands := map[string]SoakCanaryCommand{}
+	for _, command := range request.Catalog.Commands {
+		commands[command.TestID] = command
+	}
+	attempts := map[string]SoakCanaryAttempt{}
+	completed := map[string]bool{}
+	controlledRetryConsumed := false
+	scaleLaunchConsumed := false
+	for _, attempt := range checkpoint.Attempts {
+		key := attempt.NodeID + "#" + strconv.Itoa(attempt.AttemptNumber)
+		if _, duplicate := attempts[key]; duplicate {
+			return errors.New("soak canary checkpoint semantic mismatch")
+		}
+		attempts[key] = attempt
+		partition, partitionFound := partitions[attempt.NodeID]
+		command, commandFound := commands[attempt.TestID]
+		argvBody, _ := json.Marshal(command.Argv)
+		if !partitionFound || !commandFound ||
+			attempt.CanaryID != request.Activation.CanaryID ||
+			attempt.MissionID != request.Activation.MissionID ||
+			attempt.PlanID != request.Activation.PlanID ||
+			attempt.PartitionID != partition.PartitionID ||
+			attempt.TestID != partition.TestID ||
+			attempt.PhaseStartUTC != request.Activation.PhaseStartUTC ||
+			attempt.SourceHead != request.Activation.SourceHead ||
+			attempt.PlanInputDigest != request.Activation.PlanInputDigest ||
+			attempt.PolicyDigest != request.Activation.PolicyDigest ||
+			attempt.ExecutionProfileDigest != request.Activation.ExecutionProfileDigest ||
+			attempt.CommandCatalogDigest != request.Activation.CommandCatalogDigest ||
+			attempt.AuthorityRecordDigest != request.Activation.AuthorityRecordDigest ||
+			attempt.ActivationManifestDigest != request.Activation.ActivationManifestDigest ||
+			attempt.CommandArgvDigest != digestBytes(argvBody) ||
+			attempt.RequestedRepeatCount != partition.RequestedRepeatCount ||
+			attempt.EffectiveRepeatCount != partition.EffectiveRepeatCount ||
+			attempt.Classification != partition.Classification ||
+			!reflect.DeepEqual(attempt.ScaleDimension, partition.ScaleDimension) ||
+			!reflect.DeepEqual(attempt.Safety, request.Activation.Safety) ||
+			attempt.CheckpointAfterSequence <= 0 ||
+			attempt.CheckpointAfterSequence > checkpoint.Sequence ||
+			!validSoakHexDigest(attempt.CheckpointBeforeDigest, 71, "sha256:") {
+			return errors.New("soak canary checkpoint semantic mismatch")
+		}
+		if partition.Classification == "scale" && attempt.AttemptNumber != 1 {
+			return errors.New("soak canary checkpoint semantic mismatch")
+		}
+		if partition.NodeID == request.Activation.ControlledRetryNodeID {
+			if attempt.AttemptNumber < 1 || attempt.AttemptNumber > 2 {
+				return errors.New("soak canary checkpoint semantic mismatch")
+			}
+		} else if attempt.AttemptNumber != 1 {
+			return errors.New("soak canary checkpoint semantic mismatch")
+		}
+		switch attempt.ExecutionState {
+		case "reserved":
+			if attempt.OutcomeClass != "launch_reserved" ||
+				attempt.ChildProcessLaunched || attempt.ChildPID != 0 ||
+				attempt.ReservationSequence <= 0 || attempt.RunningSequence != 0 ||
+				attempt.CompletionSequence != 0 || attempt.CompletedAtUTC != "" {
+				return errors.New("soak canary checkpoint semantic mismatch")
+			}
+		case "running":
+			if attempt.OutcomeClass != "running" ||
+				!attempt.ChildProcessLaunched || attempt.ChildPID <= 0 ||
+				attempt.ReservationSequence <= 0 ||
+				attempt.RunningSequence <= attempt.ReservationSequence ||
+				attempt.CompletionSequence != 0 || attempt.CompletedAtUTC != "" {
+				return errors.New("soak canary checkpoint semantic mismatch")
+			}
+		case "completed":
+			if attempt.CompletionSequence <= 0 || attempt.CompletedAtUTC == "" {
+				return errors.New("soak canary checkpoint semantic mismatch")
+			}
+			switch attempt.OutcomeClass {
+			case "transient_infrastructure":
+				if attempt.NodeID != request.Activation.ControlledRetryNodeID ||
+					attempt.AttemptNumber != 1 || attempt.ChildProcessLaunched ||
+					attempt.ReservationSequence != 0 || attempt.RunningSequence != 0 {
+					return errors.New("soak canary checkpoint semantic mismatch")
+				}
+				controlledRetryConsumed = true
+			case "child_process_start_failed", "repository_state_mismatch_before_launch",
+				"executable_provenance_mismatch_before_launch", "execution_budget_exhausted":
+				if attempt.ChildProcessLaunched || attempt.ReservationSequence <= 0 ||
+					attempt.RunningSequence != 0 {
+					return errors.New("soak canary checkpoint semantic mismatch")
+				}
+			default:
+				if !attempt.ChildProcessLaunched || attempt.ChildPID <= 0 ||
+					attempt.ReservationSequence <= 0 || attempt.RunningSequence <= attempt.ReservationSequence ||
+					attempt.CompletionSequence <= attempt.RunningSequence ||
+					attempt.TotalAttemptElapsedMS != attempt.ElapsedMS ||
+					attempt.TotalAttemptElapsedMS < attempt.ChildElapsedMS {
+					return errors.New("soak canary checkpoint semantic mismatch")
+				}
+				if attempt.OutcomeClass == "passed" &&
+					(attempt.ExitCode != 0 ||
+						attempt.GoTestEvents.MatchingPasses != attempt.EffectiveRepeatCount) {
+					return errors.New("soak canary checkpoint semantic mismatch")
+				}
+			}
+			if attempt.OutcomeClass == "passed" {
+				if completed[attempt.NodeID] {
+					return errors.New("soak canary checkpoint semantic mismatch")
+				}
+				completed[attempt.NodeID] = true
+			}
+		default:
+			return errors.New("soak canary checkpoint semantic mismatch")
+		}
+		if attempt.Classification == "scale" && attempt.ReservationSequence > 0 {
+			scaleLaunchConsumed = true
+		}
+	}
+	priorEventDigest := ""
+	firstAttemptEvent := map[string]bool{}
+	for index, event := range checkpoint.Events {
+		key := event.NodeID + "#" + strconv.Itoa(event.AttemptNumber)
+		attempt, exists := attempts[key]
+		if !exists || event.Sequence != index+1 ||
+			event.PriorEventDigest != priorEventDigest ||
+			!validSoakHexDigest(event.CheckpointBeforeDigest, 71, "sha256:") ||
+			event.AttemptSnapshotDigest != soakCanaryAttemptSnapshotDigest(attempt, event.Event) {
+			return errors.New("soak canary checkpoint semantic mismatch")
+		}
+		if !firstAttemptEvent[key] {
+			if event.CheckpointBeforeDigest != attempt.CheckpointBeforeDigest {
+				return errors.New("soak canary checkpoint semantic mismatch")
+			}
+			firstAttemptEvent[key] = true
+		}
+		switch event.Event {
+		case "reserved":
+			if attempt.ReservationSequence != event.Sequence {
+				return errors.New("soak canary checkpoint semantic mismatch")
+			}
+		case "running":
+			if attempt.RunningSequence != event.Sequence {
+				return errors.New("soak canary checkpoint semantic mismatch")
+			}
+		case "completed":
+			if attempt.CompletionSequence != event.Sequence {
+				return errors.New("soak canary checkpoint semantic mismatch")
+			}
+		default:
+			return errors.New("soak canary checkpoint semantic mismatch")
+		}
+		priorEventDigest = event.EventDigest
+	}
+	if len(checkpoint.Events) > 0 &&
+		checkpoint.PriorCheckpointDigest != checkpoint.Events[len(checkpoint.Events)-1].CheckpointBeforeDigest {
+		return errors.New("soak canary checkpoint semantic mismatch")
+	}
+	if !reflect.DeepEqual(checkpoint.CompletedNodeIDs, sortedSoakCanaryKeys(completed)) ||
+		checkpoint.ControlledRetryConsumed != controlledRetryConsumed ||
+		checkpoint.ScaleLaunchConsumed != scaleLaunchConsumed {
+		return errors.New("soak canary checkpoint semantic mismatch")
+	}
+	if len(completed) == len(request.Activation.Partitions) {
+		if _, err := time.Parse(time.RFC3339Nano, checkpoint.CompletedAtUTC); err != nil {
+			return errors.New("soak canary checkpoint semantic mismatch")
+		}
+	} else if checkpoint.CompletedAtUTC != "" {
+		return errors.New("soak canary checkpoint semantic mismatch")
+	}
+	return nil
+}
+
+func soakCanaryAttemptSnapshotDigest(attempt SoakCanaryAttempt, event string) string {
+	snapshot := attempt
+	switch event {
+	case "reserved":
+		snapshot.ExecutionState = "reserved"
+		snapshot.OutcomeClass = "launch_reserved"
+		snapshot.ChildProcessLaunched = false
+		snapshot.ChildPID = 0
+		snapshot.ChildStartedAtUTC = ""
+		snapshot.CompletedAtUTC = ""
+		snapshot.ElapsedMS = 0
+		snapshot.ChildElapsedMS = 0
+		snapshot.TotalAttemptElapsedMS = 0
+		snapshot.ExitCode = 0
+		snapshot.Signal = ""
+		snapshot.Stdout = SoakCanaryOutputArtifact{}
+		snapshot.Stderr = SoakCanaryOutputArtifact{}
+		snapshot.GoTestEvents = SoakCanaryGoTestCounts{}
+		snapshot.RunningSequence = 0
+		snapshot.CompletionSequence = 0
+		snapshot.CheckpointAfterSequence = snapshot.ReservationSequence
+	case "running":
+		snapshot.ExecutionState = "running"
+		snapshot.OutcomeClass = "running"
+		snapshot.CompletedAtUTC = ""
+		snapshot.ElapsedMS = 0
+		snapshot.ChildElapsedMS = 0
+		snapshot.TotalAttemptElapsedMS = 0
+		snapshot.ExitCode = 0
+		snapshot.Signal = ""
+		snapshot.Stdout = SoakCanaryOutputArtifact{}
+		snapshot.Stderr = SoakCanaryOutputArtifact{}
+		snapshot.GoTestEvents = SoakCanaryGoTestCounts{}
+		snapshot.CompletionSequence = 0
+		snapshot.CheckpointAfterSequence = snapshot.RunningSequence
+	case "completed":
+	default:
+		return ""
+	}
+	signSoakCanaryAttempt(&snapshot)
+	return snapshot.AttemptDigest
 }
 
 func writeSoakCanaryCheckpoint(path string, checkpoint SoakCanaryCheckpoint) error {
@@ -799,7 +1154,10 @@ func ReconcileSoakCanary(request SoakCanaryRunRequest, checkpoint SoakCanaryChec
 		TotalAttempts:            len(checkpoint.Attempts),
 		PhaseStartUTC:            request.Activation.PhaseStartUTC,
 		CompletedAtUTC:           completedAt.UTC().Format(time.RFC3339Nano),
+		LeaseMinimumMS:           request.PlanInput.Lease.MinimumMS,
+		LeaseTargetMS:            request.PlanInput.Lease.TargetMS,
 		LeaseMaximumMS:           request.PlanInput.Lease.MaximumMS,
+		CheckpointDigest:         checkpoint.CheckpointDigest,
 		Attempts:                 append([]SoakCanaryAttempt(nil), checkpoint.Attempts...),
 		ConflictCodes:            []string{},
 		Safety:                   request.Activation.Safety,
@@ -818,22 +1176,35 @@ func ReconcileSoakCanary(request SoakCanaryRunRequest, checkpoint SoakCanaryChec
 	conflicts := map[string]bool{}
 	completions := map[string]int{}
 	nodeElapsed := map[string]int64{}
+	retryElapsed := map[string]int64{}
 	var aggregateElapsed int64
 	for _, attempt := range checkpoint.Attempts {
+		summary.TotalAttemptElapsedMS = checkedSoakCanaryAdd(
+			summary.TotalAttemptElapsedMS, attempt.TotalAttemptElapsedMS, conflicts,
+		)
 		if attempt.ChildProcessLaunched {
 			summary.ChildProcessLaunches++
 			if attempt.Classification == "scale" {
 				summary.ScaleLaunches++
 			}
+			summary.TotalChildElapsedMS = checkedSoakCanaryAdd(
+				summary.TotalChildElapsedMS, attempt.ChildElapsedMS, conflicts,
+			)
 			aggregateElapsed = checkedSoakCanaryAdd(aggregateElapsed, attempt.ElapsedMS, conflicts)
 		}
 		if attempt.OutcomeClass == "transient_infrastructure" {
 			summary.ControlledRetryCount++
 		}
 		if attempt.OutcomeClass == "passed" {
+			summary.PassedAttemptCount++
 			completions[attempt.NodeID]++
 		}
 		nodeElapsed[attempt.NodeID] = checkedSoakCanaryAdd(nodeElapsed[attempt.NodeID], attempt.ElapsedMS, conflicts)
+		if attempt.AttemptNumber > 1 {
+			retryElapsed[attempt.NodeID] = checkedSoakCanaryAdd(
+				retryElapsed[attempt.NodeID], attempt.TotalAttemptElapsedMS, conflicts,
+			)
+		}
 	}
 	for _, partition := range request.Activation.Partitions {
 		if completions[partition.NodeID] != 1 {
@@ -845,6 +1216,9 @@ func ReconcileSoakCanary(request SoakCanaryRunRequest, checkpoint SoakCanaryChec
 		if nodeElapsed[partition.NodeID] > partition.NodeBudgetMS {
 			conflicts["node_budget_exceeded"] = true
 		}
+		if retryElapsed[partition.NodeID] > partition.RetryAllowanceMS {
+			conflicts["retry_allowance_exceeded"] = true
+		}
 	}
 	if summary.PlannedNodes != 10 || summary.CompletedNodes != 10 ||
 		summary.TotalAttempts != 11 || summary.ChildProcessLaunches != 10 ||
@@ -853,6 +1227,9 @@ func ReconcileSoakCanary(request SoakCanaryRunRequest, checkpoint SoakCanaryChec
 	}
 	if aggregateElapsed > request.PlanReadback.LeaseBudget.TotalPlannedWithRetryMS {
 		conflicts["aggregate_duration_exceeded"] = true
+	}
+	if summary.PhaseElapsedMS < request.PlanInput.Lease.MinimumMS {
+		conflicts["lease_minimum_not_met"] = true
 	}
 	if summary.PhaseElapsedMS < 0 || summary.PhaseElapsedMS > request.PlanInput.Lease.MaximumMS ||
 		summary.PhaseElapsedMS > request.Authority.HardWallMS {
@@ -921,29 +1298,51 @@ type soakCanaryLeaseArtifact struct {
 	Schema         string `json:"schema"`
 	MissionID      string `json:"mission_id"`
 	MinimumNodes   int    `json:"minimum_nodes"`
+	MinimumMS      int64  `json:"minimum_ms"`
+	TargetMS       int64  `json:"target_ms"`
+	MaximumMS      int64  `json:"maximum_ms"`
 	MinimumMinutes int    `json:"minimum_minutes"`
 	TargetMinutes  int    `json:"target_minutes"`
 	MaximumMinutes int    `json:"maximum_minutes"`
 }
 
-type soakCanaryProgressArtifact struct {
-	Schema               string              `json:"schema"`
-	MissionID            string              `json:"mission_id"`
-	CanaryID             string              `json:"canary_id"`
-	PlanID               string              `json:"plan_id"`
-	SourceHead           string              `json:"source_head"`
-	ActivationDigest     string              `json:"activation_manifest_digest"`
-	CommandCatalogDigest string              `json:"command_catalog_digest"`
-	CompletedNodes       int                 `json:"completed_nodes"`
-	ReadyNodes           int                 `json:"ready_nodes"`
-	BlockedNodes         int                 `json:"blocked_nodes"`
-	FailedNodes          int                 `json:"failed_nodes"`
-	ElapsedMinutes       int                 `json:"elapsed_minutes,omitempty"`
-	LeaseTimeStatus      string              `json:"lease_time_status,omitempty"`
-	FinalResponseAllowed bool                `json:"final_response_allowed"`
-	ExactNextAction      string              `json:"exact_next_action"`
-	SafetyBoundaries     TerminalIndexSafety `json:"safety_boundaries"`
+type soakCanaryTerminalTruth struct {
+	AuthorityRecordDigest       string `json:"authority_record_digest"`
+	ActivationManifestDigest    string `json:"activation_manifest_digest"`
+	CommandCatalogDigest        string `json:"command_catalog_digest"`
+	CheckpointDigest            string `json:"checkpoint_digest"`
+	TotalAttempts               int    `json:"total_attempts"`
+	ChildProcessLaunches        int    `json:"child_process_launches"`
+	ScaleLaunches               int    `json:"scale_launches"`
+	ControlledRetryCount        int    `json:"controlled_retry_count"`
+	PassedAttemptCount          int    `json:"passed_attempt_count"`
+	TotalChildElapsedMS         int64  `json:"total_child_elapsed_ms"`
+	TotalAttemptElapsedMS       int64  `json:"total_attempt_elapsed_ms"`
+	PhaseElapsedMS              int64  `json:"phase_elapsed_ms"`
+	LocalTestExecutionPerformed bool   `json:"local_test_execution_performed"`
 }
+
+type soakCanaryProgressArtifact struct {
+	Schema               string                  `json:"schema"`
+	MissionID            string                  `json:"mission_id"`
+	CanaryID             string                  `json:"canary_id"`
+	PlanID               string                  `json:"plan_id"`
+	SourceHead           string                  `json:"source_head"`
+	ActivationDigest     string                  `json:"activation_manifest_digest"`
+	CommandCatalogDigest string                  `json:"command_catalog_digest"`
+	CompletedNodes       int                     `json:"completed_nodes"`
+	ReadyNodes           int                     `json:"ready_nodes"`
+	BlockedNodes         int                     `json:"blocked_nodes"`
+	FailedNodes          int                     `json:"failed_nodes"`
+	ElapsedMinutes       int                     `json:"elapsed_minutes,omitempty"`
+	LeaseTimeStatus      string                  `json:"lease_time_status,omitempty"`
+	FinalResponseAllowed bool                    `json:"final_response_allowed"`
+	ExactNextAction      string                  `json:"exact_next_action"`
+	SafetyBoundaries     TerminalIndexSafety     `json:"safety_boundaries"`
+	OperationalTruth     soakCanaryTerminalTruth `json:"operational_truth"`
+}
+
+const soakCanaryCompletedNextAction = "Bounded canary complete; no further execution is authorized."
 
 func WriteSoakCanaryTerminalBundle(root string, summary SoakCanarySummary) (string, error) {
 	if !filepath.IsAbs(root) {
@@ -992,18 +1391,46 @@ func PersistSoakCanaryCompletion(evidenceRoot string, summary SoakCanarySummary)
 	if err := os.MkdirAll(evidenceRoot, 0o700); err != nil {
 		return err
 	}
-	body, err := json.MarshalIndent(summary, "", "  ")
+	info, err := os.Lstat(evidenceRoot)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return errors.New("soak canary completion evidence root is unsafe")
+	}
+	for _, path := range []string{
+		filepath.Join(evidenceRoot, "run-summary.provisional.json"),
+		filepath.Join(evidenceRoot, "run-summary.json"),
+	} {
+		if err := validateExistingSoakCanaryPathComponents(evidenceRoot, path); err != nil {
+			return err
+		}
+	}
+	summaryBody, err := json.MarshalIndent(summary, "", "  ")
+	if err != nil {
+		return err
+	}
+	provisional := summary
+	provisional.Status = "terminal_reconciliation_pending"
+	provisional.TerminalIndexDigest = ""
+	signSoakCanarySummary(&provisional)
+	provisionalBody, err := json.MarshalIndent(provisional, "", "  ")
 	if err != nil {
 		return err
 	}
 	if err := writeAtomicFile(
-		filepath.Join(evidenceRoot, "run-summary.json"),
-		append(body, '\n'),
+		filepath.Join(evidenceRoot, "run-summary.provisional.json"),
+		append(provisionalBody, '\n'),
 		0o600,
 	); err != nil {
 		return err
 	}
 	terminalRoot := filepath.Join(evidenceRoot, "terminal")
+	if err := validateExistingSoakCanaryPathComponents(evidenceRoot, terminalRoot); err != nil {
+		return err
+	}
+	if err := validateExistingSoakCanaryPathComponents(
+		evidenceRoot, filepath.Join(evidenceRoot, "terminal-surface-ledger.json"),
+	); err != nil {
+		return err
+	}
 	indexPath, err := WriteSoakCanaryTerminalBundle(terminalRoot, summary)
 	if err != nil {
 		return err
@@ -1027,15 +1454,26 @@ func PersistSoakCanaryCompletion(evidenceRoot string, summary SoakCanarySummary)
 	if err := ValidateTerminalSurfaceAgreement(readbacks); err != nil {
 		return err
 	}
-	body, err = json.MarshalIndent(readbacks, "", "  ")
+	body, err := json.MarshalIndent(readbacks, "", "  ")
 	if err != nil {
 		return err
 	}
-	return writeAtomicFile(
+	if err := writeAtomicFile(
 		filepath.Join(evidenceRoot, "terminal-surface-ledger.json"),
 		append(body, '\n'),
 		0o600,
-	)
+	); err != nil {
+		return err
+	}
+	if err := writeAtomicFile(
+		filepath.Join(evidenceRoot, "run-summary.json"),
+		append(summaryBody, '\n'),
+		0o600,
+	); err != nil {
+		return err
+	}
+	_ = os.Remove(filepath.Join(evidenceRoot, "run-summary.provisional.json"))
+	return nil
 }
 
 func buildSoakCanaryTerminalIndex(summary SoakCanarySummary) (CanonicalTerminalIndex, map[string][]byte, error) {
@@ -1043,8 +1481,11 @@ func buildSoakCanaryTerminalIndex(summary SoakCanarySummary) (CanonicalTerminalI
 		summary.PlannedNodes != 10 || summary.CompletedNodes != 10 {
 		return CanonicalTerminalIndex{}, nil, errors.New("soak canary terminal index requires a completed ten-node summary")
 	}
-	minimumMinutes := 1
-	targetMinutes := int((summary.LeaseMaximumMS/2 + 59_999) / 60_000)
+	minimumMinutes := int((summary.LeaseMinimumMS + 59_999) / 60_000)
+	if minimumMinutes < 1 {
+		minimumMinutes = 1
+	}
+	targetMinutes := int((summary.LeaseTargetMS + 59_999) / 60_000)
 	if targetMinutes < minimumMinutes {
 		targetMinutes = minimumMinutes
 	}
@@ -1058,8 +1499,25 @@ func buildSoakCanaryTerminalIndex(summary SoakCanarySummary) (CanonicalTerminalI
 	}
 	lease := soakCanaryLeaseArtifact{
 		Schema: "ao.mission.soak-canary-lease.v1", MissionID: summary.MissionID,
-		MinimumNodes: summary.PlannedNodes, MinimumMinutes: minimumMinutes,
+		MinimumNodes: summary.PlannedNodes,
+		MinimumMS:    summary.LeaseMinimumMS, TargetMS: summary.LeaseTargetMS,
+		MaximumMS: summary.LeaseMaximumMS, MinimumMinutes: minimumMinutes,
 		TargetMinutes: targetMinutes, MaximumMinutes: maximumMinutes,
+	}
+	truth := soakCanaryTerminalTruth{
+		AuthorityRecordDigest:       summary.AuthorityRecordDigest,
+		ActivationManifestDigest:    summary.ActivationManifestDigest,
+		CommandCatalogDigest:        summary.CommandCatalogDigest,
+		CheckpointDigest:            summary.CheckpointDigest,
+		TotalAttempts:               summary.TotalAttempts,
+		ChildProcessLaunches:        summary.ChildProcessLaunches,
+		ScaleLaunches:               summary.ScaleLaunches,
+		ControlledRetryCount:        summary.ControlledRetryCount,
+		PassedAttemptCount:          summary.PassedAttemptCount,
+		TotalChildElapsedMS:         summary.TotalChildElapsedMS,
+		TotalAttemptElapsedMS:       summary.TotalAttemptElapsedMS,
+		PhaseElapsedMS:              summary.PhaseElapsedMS,
+		LocalTestExecutionPerformed: summary.LocalTestExecutionPerformed,
 	}
 	root := soakCanaryProgressArtifact{
 		Schema:    "ao.mission.soak-canary-progress.v1",
@@ -1068,8 +1526,8 @@ func buildSoakCanaryTerminalIndex(summary SoakCanarySummary) (CanonicalTerminalI
 		ActivationDigest:     summary.ActivationManifestDigest,
 		CommandCatalogDigest: summary.CommandCatalogDigest,
 		ReadyNodes:           summary.PlannedNodes,
-		ExactNextAction:      "Run only the activated bounded local soak canary.",
-		SafetyBoundaries:     TerminalIndexSafety{},
+		ExactNextAction:      soakCanaryCompletedNextAction,
+		SafetyBoundaries:     TerminalIndexSafety{}, OperationalTruth: truth,
 	}
 	terminal := soakCanaryProgressArtifact{
 		Schema:    "ao.mission.soak-canary-terminal.v1",
@@ -1079,8 +1537,8 @@ func buildSoakCanaryTerminalIndex(summary SoakCanarySummary) (CanonicalTerminalI
 		CommandCatalogDigest: summary.CommandCatalogDigest,
 		CompletedNodes:       summary.CompletedNodes,
 		ElapsedMinutes:       elapsedMinutes, LeaseTimeStatus: "within_window",
-		FinalResponseAllowed: true, ExactNextAction: "none",
-		SafetyBoundaries: TerminalIndexSafety{},
+		FinalResponseAllowed: true, ExactNextAction: soakCanaryCompletedNextAction,
+		SafetyBoundaries: TerminalIndexSafety{}, OperationalTruth: truth,
 	}
 	values := []struct {
 		role, state, path string
@@ -1107,7 +1565,7 @@ func buildSoakCanaryTerminalIndex(summary SoakCanarySummary) (CanonicalTerminalI
 		CompletionObserved: true, CanonicalEvidenceAgreement: true,
 		ReadinessPassed: true, ReturnGateStatus: "final_response_allowed",
 		FinalResponseAllowed: true, ConflictCodes: []string{},
-		ConflictSummaries: []string{}, ExactNextAction: "none",
+		ConflictSummaries: []string{}, ExactNextAction: soakCanaryCompletedNextAction,
 		SafetyBoundaries: TerminalIndexSafety{},
 	}
 	artifacts := map[string][]byte{}
@@ -1142,8 +1600,11 @@ func BuildSoakCanaryTerminalReadbacks(summary SoakCanarySummary) ([]TerminalInde
 		summary.CompletedNodes != summary.PlannedNodes {
 		return nil, errors.New("soak canary terminal readback requires a completed summary")
 	}
-	minimumMinutes := 1
-	targetMinutes := int((summary.LeaseMaximumMS/2 + 59_999) / 60_000)
+	minimumMinutes := int((summary.LeaseMinimumMS + 59_999) / 60_000)
+	if minimumMinutes < 1 {
+		minimumMinutes = 1
+	}
+	targetMinutes := int((summary.LeaseTargetMS + 59_999) / 60_000)
 	if targetMinutes < minimumMinutes {
 		targetMinutes = minimumMinutes
 	}
@@ -1172,7 +1633,7 @@ func BuildSoakCanaryTerminalReadbacks(summary SoakCanarySummary) ([]TerminalInde
 		CanonicalEvidenceAgreement: true, ReadinessPassed: true,
 		ReturnGateStatus: "final_response_allowed", FinalResponseAllowed: true,
 		ConflictCodes:   []string{},
-		ExactNextAction: "none", ReadOnly: true,
+		ExactNextAction: soakCanaryCompletedNextAction, ReadOnly: true,
 	}
 	surfaces := []string{"inspect", "checkpoint", "event-index", "command-readback"}
 	readbacks := make([]TerminalIndexImportReadback, 0, len(surfaces))

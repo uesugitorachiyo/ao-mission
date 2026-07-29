@@ -28,7 +28,10 @@ ao-mission qualification soak-canary \
 
 Remove `--validate-only` only for an explicitly authorized canary. Execution
 requires a clean repository whose exact `HEAD` matches the plan, catalog,
-authority, and activation manifest.
+authority, and activation manifest. Repository verification uses a fixed
+absolute Git executable whose bytes are pinned at preflight; it does not
+resolve `git` through the caller's `PATH`. Head and cleanliness are rechecked
+immediately before and after every child process.
 
 ## Fixed execution boundary
 
@@ -36,12 +39,17 @@ The command catalog contains exactly one approved scale test and nine approved
 regular tests. Every command uses an absolute regular `go` executable whose
 bytes match its SHA-256, repository-relative working directory `.`, package
 `./internal/mission`, race mode, an exact anchored test or subtest expression,
-`-json`, a millisecond timeout, and the approved effective repeat count.
+`-json`, a millisecond timeout, and the approved effective repeat count. The
+executable digest is rechecked immediately before and after every launch.
 
 Commands are passed to `exec.CommandContext` as argv. No shell is involved.
 The manifest cannot select another executable, package, test, working
 directory, environment variable, or network mode. The environment always
 binds `GOTOOLCHAIN=local`, `GOPROXY=off`, `GOSUMDB=off`, and `GOVCS=*:off`.
+`HOME`, `TMPDIR`, `GOCACHE`, and `GOTMPDIR` are deterministic campaign-owned
+directories beneath a non-symlink evidence root. Host `HOME`, `TMPDIR`,
+`GOCACHE`, `GOMODCACHE`, `GOENV`, `CGO_ENABLED`, and `PATH` values are not
+inherited.
 
 The scale test runs with repeat one and cannot retry. Regular tests run with
 repeat three. One authority-bound regular node records a single
@@ -51,12 +59,20 @@ process launches for ten completed nodes.
 
 ## Checkpoint and evidence
 
+Before `Start`, Mission persists a signed launch reservation. A successful
+start adds a signed running checkpoint, and completion adds a signed terminal
+attempt checkpoint. Restart never relaunches a reserved or running attempt
+whose launch truth is indeterminate; an indeterminate scale reservation is a
+terminal conflict for that campaign.
+
 Every attempt binds the original phase start, source head, plan and policy
 digests, execution profile, command catalog, authority, activation manifest,
 argv, node, partition, test, repeat count, and safety boundaries. Atomic
-checkpoints preserve the attempt digest chain, completed-node set, controlled
-retry consumption, and scale-launch consumption. Restart recomputes completion
-from signed attempts, skips completed nodes, and cannot repeat the scale node.
+checkpoints preserve a signed reservation/running/completion event chain,
+completed-node set, controlled retry consumption, and scale reservation
+consumption. Semantic validation reconstructs every attempt from the
+activation and catalog, including retry identity and scale dimension, rather
+than trusting re-signed checkpoint fields.
 
 Stdout and stderr are bounded before persistence and recorded with relative
 paths, byte counts, truncation state, and SHA-256. Reconciliation reopens each
@@ -64,7 +80,9 @@ artifact through the bounded regular-file reader and rejects digest or path
 changes. Exact Go JSON pass events must equal one for the scale test and three
 for each regular test. Actual duration must remain within the planned estimate,
 attempt timeout, total-node timeout, node budget, aggregate allowance, lease,
-and 45-minute authority wall.
+and 45-minute authority wall. The child context is bounded by the smallest
+remaining attempt, node, retry, lease, and hard-wall allowance. Child elapsed
+time and total attempt elapsed time are recorded separately.
 
 ## Terminal truth
 
@@ -76,8 +94,17 @@ surfaces share one canonical payload and `index_digest`; each surface has its
 own valid `state_digest`. Distinct surface digests are expected and do not
 indicate disagreement.
 
+Terminal artifacts bind the authority, activation, catalog, final checkpoint,
+attempt, launch, retry, pass, duration, and local-execution truth. They preserve
+the exact lease minimum, target, and maximum. The final next action is
+`Bounded canary complete; no further execution is authorized.` Mission writes
+a nonterminal provisional summary first and promotes it to `run-summary.json`
+only after the canonical terminal bundle imports successfully and all four
+surface readbacks agree.
+
 The checked-in activation examples demonstrate a valid self-digest and a
-digest-mismatch rejection. They are contract examples, not reusable execution
-authority. A real activation must be regenerated for the exact repository
-head, executable, evidence root, handoff digest, phase start, plan, and command
-catalog.
+digest-mismatch rejection. The invalid validation matrix records the bounded
+representative rejection cases and their exact conflict codes or transport
+errors. These are contract examples, not reusable execution authority. A real
+activation must be regenerated for the exact repository head, executable,
+evidence root, handoff digest, phase start, plan, and command catalog.

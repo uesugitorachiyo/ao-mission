@@ -122,6 +122,10 @@ func TestSoakCanaryActivationMutationsFailBeforeLaunch(t *testing.T) {
 			f.request.Catalog.Commands[0].Argv[5] = "-count=2"
 			resignSoakCanaryCatalogAndActivation(f)
 		}},
+		{name: "scale dimension", code: "command_scale_dimension_mismatch", mutate: func(f *soakCanaryTestFixture) {
+			f.request.Catalog.Commands[0].ScaleDimension.Value++
+			resignSoakCanaryCatalogAndActivation(f)
+		}},
 		{name: "regular repeat", code: "regular_repeat_above_approved", mutate: func(f *soakCanaryTestFixture) {
 			f.request.Catalog.Commands[1].RequestedRepeatCount = 4
 			f.request.Catalog.Commands[1].EffectiveRepeatCount = 4
@@ -233,7 +237,7 @@ func TestSoakCanaryControlledRetryCheckpointRestartAndIdempotency(t *testing.T) 
 	}
 }
 
-func TestSoakCanaryCheckpointRestartDoesNotRepeatCompletedScaleNode(t *testing.T) {
+func TestSoakCanaryCheckpointRestartDoesNotRepeatCompletedScaleNodeOrGrantSecondRetry(t *testing.T) {
 	fixture := validSoakCanaryFixture(t)
 	clock := &soakCanaryFakeClock{now: time.Date(2026, 7, 29, 21, 0, 0, 0, time.UTC)}
 	firstExecutor := &soakCanaryFakeExecutor{clock: clock, failAtStart: 2}
@@ -254,11 +258,13 @@ func TestSoakCanaryCheckpointRestartDoesNotRepeatCompletedScaleNode(t *testing.T
 	secondExecutor := &soakCanaryFakeExecutor{clock: clock}
 	fixture.request.Executor = secondExecutor
 	summary, err := RunSoakCanary(context.Background(), fixture.request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if summary.Status != "completed" || secondExecutor.starts != 9 {
+	if err == nil || !containsSoakConflict(summary.ConflictCodes, "second_retry_requested") {
 		t.Fatalf("restart summary=%+v starts=%d", summary, secondExecutor.starts)
+	}
+	if summary.TotalAttempts != 3 || summary.ChildProcessLaunches != 1 ||
+		summary.CompletedNodes != 1 || !summary.LocalTestExecutionPerformed ||
+		secondExecutor.starts != 0 {
+		t.Fatalf("restart lost runtime truth: summary=%+v starts=%d", summary, secondExecutor.starts)
 	}
 	for _, request := range secondExecutor.requests {
 		if request.TestID == "scale-event-index-10000" {
@@ -356,35 +362,43 @@ func TestSoakCanaryTerminalSurfacesShareCanonicalPayloadWithDistinctStateDigests
 	}
 }
 
-func TestSoakCanaryEvidenceVerificationRejectsOutputDigestMismatch(t *testing.T) {
-	fixture := validSoakCanaryFixture(t)
-	clock := &soakCanaryFakeClock{now: time.Date(2026, 7, 29, 21, 0, 0, 0, time.UTC)}
-	fixture.request.Clock = clock
-	fixture.request.Executor = &soakCanaryFakeExecutor{clock: clock}
-	if _, err := RunSoakCanary(context.Background(), fixture.request); err != nil {
-		t.Fatal(err)
-	}
-	checkpoint, err := LoadSoakCanaryCheckpoint(fixture.request.CheckpointPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := VerifySoakCanaryEvidence(fixture.request, checkpoint); err != nil {
-		t.Fatal(err)
-	}
-	var launched SoakCanaryAttempt
-	for _, attempt := range checkpoint.Attempts {
-		if attempt.ChildProcessLaunched {
-			launched = attempt
-			break
-		}
-	}
-	path := filepath.Join(fixture.request.EvidenceRoot, launched.Stdout.Path)
-	if err := os.WriteFile(path, []byte("altered"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := VerifySoakCanaryEvidence(fixture.request, checkpoint); err == nil ||
-		!strings.Contains(err.Error(), "stdout digest mismatch") {
-		t.Fatalf("tampered output error=%v", err)
+func TestSoakCanaryEvidenceVerificationRejectsStdoutAndStderrDigestMismatch(t *testing.T) {
+	for _, stream := range []string{"stdout", "stderr"} {
+		t.Run(stream, func(t *testing.T) {
+			fixture := validSoakCanaryFixture(t)
+			clock := &soakCanaryFakeClock{now: time.Date(2026, 7, 29, 21, 0, 0, 0, time.UTC)}
+			fixture.request.Clock = clock
+			fixture.request.Executor = &soakCanaryFakeExecutor{clock: clock}
+			if _, err := RunSoakCanary(context.Background(), fixture.request); err != nil {
+				t.Fatal(err)
+			}
+			checkpoint, err := LoadSoakCanaryCheckpoint(fixture.request.CheckpointPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := VerifySoakCanaryEvidence(fixture.request, checkpoint); err != nil {
+				t.Fatal(err)
+			}
+			var launched SoakCanaryAttempt
+			for _, attempt := range checkpoint.Attempts {
+				if attempt.ChildProcessLaunched {
+					launched = attempt
+					break
+				}
+			}
+			artifact := launched.Stdout
+			if stream == "stderr" {
+				artifact = launched.Stderr
+			}
+			path := filepath.Join(fixture.request.EvidenceRoot, artifact.Path)
+			if err := os.WriteFile(path, []byte("altered"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := VerifySoakCanaryEvidence(fixture.request, checkpoint); err == nil ||
+				!strings.Contains(err.Error(), stream+" digest mismatch") {
+				t.Fatalf("tampered %s error=%v", stream, err)
+			}
+		})
 	}
 }
 
@@ -441,6 +455,7 @@ func TestSoakCanaryStrictInputTransportRejectsUnknownDuplicateTrailingAndSpecial
 		{name: "unknown", body: append(append([]byte{}, body[:len(body)-1]...), []byte(`,"unknown":true}`)...), want: "unknown field"},
 		{name: "duplicate", body: stringsReplaceFirstBytes(body, []byte(`"schema":`), []byte(`"schema":"duplicate","schema":`)), want: "duplicate JSON key"},
 		{name: "trailing", body: append(append([]byte{}, body...), []byte(` {}`)...), want: "trailing JSON"},
+		{name: "malformed", body: []byte(`{"schema":`), want: "invalid JSON"},
 		{name: "oversized", body: []byte(strings.Repeat("x", soakCanaryMaxInputBytes+1)), want: "exceeds"},
 	}
 	for _, test := range tests {
@@ -560,6 +575,64 @@ func TestSoakCanaryRepositoryActivationFixturesExposeExactDigestDecision(t *test
 	if invalid.ActivationManifestDigest == unsigned.ActivationManifestDigest {
 		t.Fatal("invalid activation fixture unexpectedly has a valid digest")
 	}
+
+	matrixPath := filepath.Join("..", "..", "examples", "invalid", "soak-canary-validation-matrix.json")
+	matrixBody, err := readBoundedRegularFile(matrixPath, soakCanaryMaxInputBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var matrix struct {
+		Schema string `json:"schema"`
+		Cases  []struct {
+			ID                   string `json:"id"`
+			ExpectedConflictCode string `json:"expected_conflict_code,omitempty"`
+			ExpectedError        string `json:"expected_error,omitempty"`
+		} `json:"cases"`
+	}
+	matrix, err = decodeSoakCanaryJSON[struct {
+		Schema string `json:"schema"`
+		Cases  []struct {
+			ID                   string `json:"id"`
+			ExpectedConflictCode string `json:"expected_conflict_code,omitempty"`
+			ExpectedError        string `json:"expected_error,omitempty"`
+		} `json:"cases"`
+	}](matrixBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	required := map[string]string{
+		"altered-plan-digest":           "plan_input_digest_mismatch",
+		"altered-policy-digest":         "policy_digest_mismatch",
+		"wrong-source-head":             "source_head_mismatch",
+		"altered-command-catalog":       "command_catalog_digest_mismatch",
+		"altered-partition-binding":     "activation_partition_mismatch",
+		"altered-activation-digest":     "activation_manifest_digest_mismatch",
+		"unplanned-test":                "activation_catalog_bijection_mismatch",
+		"regular-before-scale":          "scale_partition_not_first",
+		"scale-repeat-amplification":    "scale_repeat_above_one",
+		"changed-scale-dimension":       "command_scale_dimension_mismatch",
+		"second-retry":                  "second_retry_requested",
+		"changed-retry-binding":         "controlled_retry_binding_invalid",
+		"free-form-shell-command":       "free_form_shell_command",
+		"changed-executable-provenance": "executable_provenance_mismatch",
+		"symlinked-runtime-root":        "unsafe_runtime_path",
+	}
+	seen := map[string]bool{}
+	for _, test := range matrix.Cases {
+		if test.ID == "" || seen[test.ID] ||
+			(test.ExpectedConflictCode == "") == (test.ExpectedError == "") {
+			t.Fatalf("invalid public matrix row: %+v", test)
+		}
+		seen[test.ID] = true
+		if want, exists := required[test.ID]; exists && test.ExpectedConflictCode != want {
+			t.Fatalf("matrix case=%s conflict=%s want=%s", test.ID, test.ExpectedConflictCode, want)
+		}
+	}
+	for id := range required {
+		if !seen[id] {
+			t.Fatalf("public invalid matrix omitted %s", id)
+		}
+	}
 }
 
 type soakCanaryTestFixture struct {
@@ -645,11 +718,8 @@ func validSoakCanaryFixture(t *testing.T) soakCanaryTestFixture {
 	if err := os.WriteFile(goPath, []byte("bounded fake go executable"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	evidenceRoot := filepath.Join(root, "evidence")
-	if err := os.MkdirAll(evidenceRoot, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	handoffPath := filepath.Join(root, "handoff.md")
+	evidenceRoot := t.TempDir()
+	handoffPath := filepath.Join(evidenceRoot, "handoff.md")
 	handoffBody := []byte("bounded operational canary authority\n")
 	if err := os.WriteFile(handoffPath, handoffBody, 0o600); err != nil {
 		t.Fatal(err)
@@ -703,6 +773,10 @@ func validSoakCanaryFixture(t *testing.T) soakCanaryTestFixture {
 				{Name: "GOVCS", Value: "*:off"},
 			},
 		}
+		if testID == scaleID {
+			dimension := *input.TestCatalog[0].ScaleDimension
+			command.ScaleDimension = &dimension
+		}
 		command.Argv = []string{
 			"test", command.Package, "-race", "-run", command.TestRegex,
 			"-count=" + strconv.Itoa(command.EffectiveRepeatCount),
@@ -723,9 +797,10 @@ func validSoakCanaryFixture(t *testing.T) soakCanaryTestFixture {
 		PlanFixtureSHA256: activation.PlanFixtureSHA256,
 		Authority:         authority, Catalog: catalog, Activation: activation,
 		VerifiedSourceHead: input.SourceHead, RepositoryRoot: root,
-		EvidenceRoot:     evidenceRoot,
-		CheckpointPath:   filepath.Join(evidenceRoot, "checkpoints", "checkpoint.json"),
-		OutputLimitBytes: 64 * 1024,
+		EvidenceRoot:       evidenceRoot,
+		CheckpointPath:     filepath.Join(evidenceRoot, "checkpoints", "checkpoint.json"),
+		OutputLimitBytes:   64 * 1024,
+		RepositoryVerifier: &soakCanaryRecordingRepositoryVerifier{},
 	}
 	return soakCanaryTestFixture{request: request, goPath: goPath}
 }

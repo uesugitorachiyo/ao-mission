@@ -6,8 +6,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -35,12 +37,16 @@ func runSoakCanaryCLI(args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	verifiedHead, err := verifySoakCanaryRepositoryHead(rootAbs)
+	repositoryVerifier, err := newPinnedGitSoakCanaryRepositoryVerifier()
+	if err != nil {
+		return err
+	}
+	verifiedHead, err := repositoryVerifier.Head(rootAbs)
 	if err != nil {
 		return err
 	}
 	if !*validateOnly {
-		clean, err := verifySoakCanaryRepositoryClean(rootAbs)
+		clean, err := repositoryVerifier.Clean(rootAbs)
 		if err != nil {
 			return err
 		}
@@ -77,7 +83,8 @@ func runSoakCanaryCLI(args []string, stdout io.Writer) error {
 		Authority: authority, Catalog: catalog, Activation: activation,
 		VerifiedSourceHead: verifiedHead, RepositoryRoot: rootAbs,
 		EvidenceRoot: *evidenceRoot, CheckpointPath: *checkpointPath,
-		OutputLimitBytes: soakCanaryDefaultOutputBytes,
+		OutputLimitBytes:   soakCanaryDefaultOutputBytes,
+		RepositoryVerifier: repositoryVerifier,
 	}
 	validation := ValidateSoakCanaryActivation(request)
 	if *validateOnly {
@@ -124,8 +131,70 @@ func runSoakCanaryCLI(args []string, stdout io.Writer) error {
 }
 
 func verifySoakCanaryRepositoryHead(root string) (string, error) {
-	command := exec.Command("git", "-C", root, "rev-parse", "HEAD")
-	body, err := command.Output()
+	verifier, err := newPinnedGitSoakCanaryRepositoryVerifier()
+	if err != nil {
+		return "", err
+	}
+	return verifier.Head(root)
+}
+
+func verifySoakCanaryRepositoryClean(root string) (bool, error) {
+	verifier, err := newPinnedGitSoakCanaryRepositoryVerifier()
+	if err != nil {
+		return false, err
+	}
+	return verifier.Clean(root)
+}
+
+type pinnedGitSoakCanaryRepositoryVerifier struct {
+	executablePath   string
+	executableSHA256 string
+}
+
+func newPinnedGitSoakCanaryRepositoryVerifier() (*pinnedGitSoakCanaryRepositoryVerifier, error) {
+	candidates := []string{"/usr/bin/git", "/opt/homebrew/bin/git", "/usr/local/bin/git"}
+	if runtime.GOOS == "windows" {
+		candidates = []string{
+			`C:\Program Files\Git\cmd\git.exe`,
+			`C:\Program Files\Git\bin\git.exe`,
+		}
+	}
+	for _, path := range candidates {
+		info, err := os.Lstat(path)
+		if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+			continue
+		}
+		body, err := readBoundedRegularFile(path, 256<<20)
+		if err != nil {
+			continue
+		}
+		return &pinnedGitSoakCanaryRepositoryVerifier{
+			executablePath: path, executableSHA256: digestBytes(body),
+		}, nil
+	}
+	return nil, errors.New("no fixed absolute Git executable is available for soak canary verification")
+}
+
+func (verifier *pinnedGitSoakCanaryRepositoryVerifier) Verify(root, expectedHead string) error {
+	head, err := verifier.Head(root)
+	if err != nil {
+		return err
+	}
+	if head != expectedHead {
+		return fmt.Errorf("soak canary repository head=%s want=%s", head, expectedHead)
+	}
+	clean, err := verifier.Clean(root)
+	if err != nil {
+		return err
+	}
+	if !clean {
+		return errors.New("soak canary repository is not clean")
+	}
+	return nil
+}
+
+func (verifier *pinnedGitSoakCanaryRepositoryVerifier) Head(root string) (string, error) {
+	body, err := verifier.run(root, "rev-parse", "HEAD")
 	if err != nil {
 		return "", fmt.Errorf("verify soak canary repository head: %w", err)
 	}
@@ -136,13 +205,40 @@ func verifySoakCanaryRepositoryHead(root string) (string, error) {
 	return head, nil
 }
 
-func verifySoakCanaryRepositoryClean(root string) (bool, error) {
-	command := exec.Command("git", "-C", root, "status", "--porcelain")
-	body, err := command.Output()
+func (verifier *pinnedGitSoakCanaryRepositoryVerifier) Clean(root string) (bool, error) {
+	body, err := verifier.run(root, "status", "--porcelain")
 	if err != nil {
 		return false, fmt.Errorf("verify soak canary repository cleanliness: %w", err)
 	}
 	return len(strings.TrimSpace(string(body))) == 0, nil
+}
+
+func (verifier *pinnedGitSoakCanaryRepositoryVerifier) run(root string, args ...string) ([]byte, error) {
+	body, err := readBoundedRegularFile(verifier.executablePath, 256<<20)
+	if err != nil || digestBytes(body) != verifier.executableSHA256 {
+		return nil, errors.New("pinned Git executable provenance changed")
+	}
+	commandArgs := append([]string{"-C", root}, args...)
+	command := exec.Command(verifier.executablePath, commandArgs...)
+	fixedPath := "/usr/bin:/bin"
+	command.Env = []string{
+		"PATH=" + fixedPath,
+		"LC_ALL=C",
+		"GIT_CONFIG_NOSYSTEM=1",
+		"GIT_CONFIG_GLOBAL=" + os.DevNull,
+	}
+	if runtime.GOOS == "windows" {
+		systemRoot := filepath.Join(
+			filepath.VolumeName(verifier.executablePath)+string(os.PathSeparator), "Windows",
+		)
+		fixedPath = strings.Join(
+			[]string{filepath.Dir(verifier.executablePath), filepath.Join(systemRoot, "System32")},
+			string(os.PathListSeparator),
+		)
+		command.Env[0] = "PATH=" + fixedPath
+		command.Env = append(command.Env, "SYSTEMROOT="+systemRoot)
+	}
+	return command.Output()
 }
 
 func soakCanaryCLIValueMissing(values ...string) bool {
