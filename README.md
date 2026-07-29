@@ -49,6 +49,7 @@ ao-mission schedule alerts --fixture <scheduler-readback-replay.json>
 ao-mission schedule recover --mission <id> --fixture <scheduler-readback-replay.json>
 ao-mission qualification orchestrate --fixture examples/valid/stack-qualification-orchestration.json
 ao-mission qualification soak-plan --fixture examples/valid/soak-plan-mixed.json --json
+ao-mission qualification soak-canary --plan <plan.json> --authority <authority.json> --catalog <catalog.json> --activation <activation.json> --checkpoint <checkpoint.json> --evidence-root <dir> --repository-root <ao-mission> --validate-only --json
 ao-mission daemon install|status|uninstall
 ao-mission telegram serve
 ao-mission telegram replay --matrix <matrix.json> --config <telegram-config.json>
@@ -157,4 +158,10 @@ never runs or schedules tests. Scale work stays at effective repeat count one,
 regular repeats remain policy-bounded, and activation eligibility fails closed
 on classification, measured-history, retry, timeout, lease, digest, or authority
 conflicts.
+`ao-mission qualification soak-canary` is the separate source-owned consumer
+for one explicitly authorized ten-node local canary. It rebuilds and binds the
+read-only plan before activation, accepts only the fixed offline Go test
+catalog, uses shell-free argv, records atomic digest-chained checkpoints, and
+supports validation-only mode with zero child-process launches. See
+[Qualification soak canary contract](docs/contracts/qualification-soak-canary.md).
 `ao-mission mission events index` builds a durable local `ao.mission.event-index.v0.2` over mission records, route decisions, event-loop decisions, and artifacts, with `index_digest` and `source_digest` fields so loaded indexes fail closed if tampered. `ao-mission mission events search` emits `ao.mission.event-search-readback.v0.1` without granting execution authority. `ao-mission mission readiness-bundle` binds local readiness summaries from sibling AO repos into one digest-backed readback, `ao-mission gateway replay-bundle` binds Scheduler, Telegram, and A2A replay fixtures into one local no-authority matrix, `ao-mission mission dashboard` emits a compact operator readback over mission status and recent indexed events, `ao-mission mission verification-bundle` emits a top-level digest manifest over the event index, dashboard, artifact manifest, readiness bundle, and replay bundle, and `ao-mission doctor` emits `ao.mission.doctor-readback.v0.1` with local store, event, and artifact health only.

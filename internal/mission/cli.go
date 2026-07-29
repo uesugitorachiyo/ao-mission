@@ -822,7 +822,7 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 		return printJSON(stdout, ScheduleReadback(*id, *every, *eventLoop))
 	case "qualification":
 		if len(args) < 2 {
-			return errors.New("qualification requires orchestrate or soak-plan")
+			return errors.New("qualification requires orchestrate, soak-plan, or soak-canary")
 		}
 		switch args[1] {
 		case "orchestrate":
@@ -885,8 +885,10 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 				strings.Join(readback.ConflictCodes, ","),
 				readback.ExactNextAction)
 			return nil
+		case "soak-canary":
+			return runSoakCanaryCLI(args[2:], stdout)
 		default:
-			return errors.New("qualification requires orchestrate or soak-plan")
+			return errors.New("qualification requires orchestrate, soak-plan, or soak-canary")
 		}
 	case "daemon":
 		if len(args) < 2 {
