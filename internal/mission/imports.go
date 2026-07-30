@@ -156,6 +156,9 @@ func importArtifact(
 			return ImportReadback{}, fmt.Errorf("%s correlation_id does not match mission", kind)
 		}
 	}
+	if err := validateCorrelatedAtlasWorkgraphIdentity(existing, kind, doc); err != nil {
+		return ImportReadback{}, err
+	}
 	ref := ArtifactRef{Schema: ArtifactRefSchema, Ref: refPath, Digest: digestBytes(body), Kind: kind}
 	r, err := s.updateWithCheckpointTransaction(missionID, func(rec *Record) error {
 		if chainReference != nil &&
@@ -632,6 +635,27 @@ func intFromAny(v any) int {
 func stringFromAny(v any) string {
 	s, _ := v.(string)
 	return s
+}
+
+func validateCorrelatedAtlasWorkgraphIdentity(existing Record, kind string, doc map[string]any) error {
+	if kind != "atlas-workgraph" || existing.CorrelationID == "" {
+		return nil
+	}
+	missionID := stringFromAny(doc["mission_id"])
+	if missionID == "" {
+		return fmt.Errorf("atlas-workgraph mission_id is required for correlated mission")
+	}
+	if missionID != existing.MissionID {
+		return fmt.Errorf("atlas-workgraph mission_id does not match mission")
+	}
+	targetInstance := stringFromAny(doc["target_instance"])
+	if targetInstance == "" {
+		return fmt.Errorf("atlas-workgraph target_instance is required for correlated mission")
+	}
+	if targetInstance != existing.MissionID {
+		return fmt.Errorf("atlas-workgraph target_instance does not match mission")
+	}
+	return nil
 }
 
 func boolFromAny(v any) bool {
