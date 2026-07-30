@@ -504,6 +504,11 @@ func ValidateSoakCanaryActivation(request SoakCanaryRunRequest) SoakCanaryActiva
 		request.PlanInput.PolicyDigest != request.Activation.PolicyDigest {
 		add("policy_digest_mismatch")
 	}
+	if request.PlanInput.RetryPolicy != nil &&
+		request.PlanInput.RetryPolicy.MaximumTotalRetries != nil &&
+		*request.PlanInput.RetryPolicy.MaximumTotalRetries != request.Authority.MaximumRetryCount {
+		add("retry_budget_authority_mismatch")
+	}
 	if request.PlanFixtureSHA256 != request.Activation.PlanFixtureSHA256 ||
 		!validSoakHexDigest(request.PlanFixtureSHA256, 71, "sha256:") {
 		add("plan_fixture_digest_mismatch")
