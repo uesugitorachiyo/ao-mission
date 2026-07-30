@@ -96,6 +96,7 @@ type SoakRepeatPolicy struct {
 
 type SoakRetryPolicy struct {
 	MaximumAttempts               int      `json:"maximum_attempts"`
+	MaximumTotalRetries           *int     `json:"maximum_total_retries,omitempty"`
 	RetryableOutcomeClasses       []string `json:"retryable_outcome_classes"`
 	NonRetryableOutcomeClasses    []string `json:"non_retryable_outcome_classes"`
 	CheckpointBehavior            string   `json:"checkpoint_behavior"`
@@ -312,6 +313,53 @@ func BuildSoakPlan(input SoakPlanInput) (SoakPlanReadback, error) {
 		}
 		if withRetry > partition.NodeBudgetMS {
 			addConflict("retry_node_budget_exceeded")
+		}
+	}
+	if input.RetryPolicy != nil && input.RetryPolicy.MaximumTotalRetries != nil {
+		maximumTotalRetries := *input.RetryPolicy.MaximumTotalRetries
+		retrySlotsPerPartition := 0
+		if maxAttempts > 1 {
+			retrySlotsPerPartition = maxAttempts - 1
+		}
+		maximumInt := int(^uint(0) >> 1)
+		retrySlotCapacity := 0
+		if len(readback.Partitions) > 0 && retrySlotsPerPartition > 0 {
+			if retrySlotsPerPartition > maximumInt/len(readback.Partitions) {
+				retrySlotCapacity = maximumInt
+			} else {
+				retrySlotCapacity = len(readback.Partitions) * retrySlotsPerPartition
+			}
+		}
+		switch {
+		case maximumTotalRetries < 0:
+			addConflict("retry_budget_invalid")
+		case maximumTotalRetries > retrySlotCapacity:
+			addConflict("retry_budget_exceeds_attempt_capacity")
+		default:
+			retrySlotCosts := make([]int64, len(readback.Partitions))
+			for index, partition := range readback.Partitions {
+				retrySlotCosts[index] = partition.EstimatedDurationMS
+			}
+			sort.Slice(retrySlotCosts, func(i, j int) bool {
+				return retrySlotCosts[i] > retrySlotCosts[j]
+			})
+			totalWithRetry = total
+			remainingRetrySlots := maximumTotalRetries
+			for _, retrySlotCost := range retrySlotCosts {
+				retrySlots := retrySlotsPerPartition
+				if retrySlots > remainingRetrySlots {
+					retrySlots = remainingRetrySlots
+				}
+				totalWithRetry = checkedSoakAdd(
+					totalWithRetry,
+					checkedSoakMultiply(retrySlotCost, int64(retrySlots), addConflict),
+					addConflict,
+				)
+				remainingRetrySlots -= retrySlots
+				if remainingRetrySlots == 0 {
+					break
+				}
+			}
 		}
 	}
 	readback.LeaseBudget = SoakLeaseSummary{
