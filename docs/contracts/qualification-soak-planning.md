@@ -28,7 +28,8 @@ sorts each set, selects its nearest-rank 95th percentile, multiplies it by the
 effective repeat count with checked integer arithmetic, sums the test estimates,
 and adds declared setup and safety overhead once per planned partition. Each
 estimate must fit its per-attempt timeout. Its maximum-attempt allowance must fit
-the total node timeout, node budget, and aggregate lease maximum.
+the total node timeout and node budget. The retry-inclusive aggregate described
+below must fit the aggregate lease maximum.
 
 Retry policy may set `maximum_total_retries`. Omission or explicit `null`
 preserves the legacy conservative aggregate bound: the sum of every planned

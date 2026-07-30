@@ -126,22 +126,26 @@ func TestBuildSoakPlanExplicitZeroTotalRetryBudgetPreservesPartitionBounds(t *te
 
 func TestBuildSoakPlanRejectsInvalidTotalRetryBudgetsWithExactConflicts(t *testing.T) {
 	tests := []struct {
-		name            string
-		maximumAttempts int
-		cap             int
-		want            []string
+		name                 string
+		maximumAttempts      int
+		cap                  int
+		want                 []string
+		wantTotalWithRetryMS int64
 	}{
 		{
 			name: "negative cap", maximumAttempts: 2, cap: -1,
-			want: []string{"retry_budget_invalid"},
+			want:                 []string{"retry_budget_invalid"},
+			wantTotalWithRetryMS: 5_520,
 		},
 		{
 			name: "cap above available retry slots", maximumAttempts: 2, cap: 3,
-			want: []string{"retry_budget_exceeds_attempt_capacity"},
+			want:                 []string{"retry_budget_exceeds_attempt_capacity"},
+			wantTotalWithRetryMS: 5_520,
 		},
 		{
 			name: "one attempt has no retry slots", maximumAttempts: 1, cap: 1,
-			want: []string{"retry_budget_exceeds_attempt_capacity"},
+			want:                 []string{"retry_budget_exceeds_attempt_capacity"},
+			wantTotalWithRetryMS: 2_760,
 		},
 	}
 	for _, test := range tests {
@@ -151,8 +155,17 @@ func TestBuildSoakPlanRejectsInvalidTotalRetryBudgetsWithExactConflicts(t *testi
 			setSoakMaximumTotalRetries(t, input.RetryPolicy, soakIntPointer(test.cap))
 
 			readback := buildValidSoakPlan(t, input)
-			if readback.ActivationAllowed || !reflect.DeepEqual(readback.ConflictCodes, test.want) {
-				t.Fatalf("allowed=%t conflicts=%v want=%v", readback.ActivationAllowed, readback.ConflictCodes, test.want)
+			if readback.ActivationAllowed ||
+				!reflect.DeepEqual(readback.ConflictCodes, test.want) ||
+				readback.LeaseBudget.TotalPlannedWithRetryMS != test.wantTotalWithRetryMS {
+				t.Fatalf(
+					"allowed=%t conflicts=%v total_with_retry=%d want conflicts=%v total_with_retry=%d",
+					readback.ActivationAllowed,
+					readback.ConflictCodes,
+					readback.LeaseBudget.TotalPlannedWithRetryMS,
+					test.want,
+					test.wantTotalWithRetryMS,
+				)
 			}
 		})
 	}
