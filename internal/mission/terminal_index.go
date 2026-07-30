@@ -503,7 +503,10 @@ func recomputeTerminalIndex(
 	result.FinalResponseAllowed = result.ReadinessPassed && terminal.final
 	if result.FinalResponseAllowed {
 		result.ReturnGateStatus = "final_response_allowed"
-		result.ExactNextAction = "none"
+		result.ExactNextAction = strings.TrimSpace(terminal.nextAction)
+		if result.ExactNextAction == "" {
+			result.ExactNextAction = "none"
+		}
 	} else {
 		result.ReturnGateStatus = "final_response_denied"
 		result.ExactNextAction = "Review the canonical conflict codes and produce a fresh governed terminal observation."
@@ -753,7 +756,8 @@ func firstTerminalPositive(values ...int) int {
 
 func terminalNoAction(action string) bool {
 	action = strings.TrimSpace(strings.ToLower(action))
-	return action == "" || action == "none" || action == "no further action"
+	return action == "" || action == "none" || action == "no further action" ||
+		action == strings.ToLower(soakCanaryCompletedNextAction)
 }
 
 func containsTerminalString(values []string, wanted string) bool {
