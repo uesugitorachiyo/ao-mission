@@ -2449,9 +2449,10 @@ func importCorrelationTestWorkflow(t *testing.T, completeSecondChain bool) (Stor
 		"authorization_id": "authorization-003",
 	})
 	writeJSONForTest(t, artifactPaths["atlas-workgraph"], map[string]any{
-		"schema":       "ao.atlas.workgraph.v0.1",
-		"workgraph_id": "workgraph-001",
-		"nodes":        []any{},
+		"schema":          "ao.atlas.workgraph.v0.1",
+		"mission_id":      record.MissionID,
+		"target_instance": record.MissionID,
+		"nodes":           []any{},
 	})
 	allSpecs := []CorrelationArtifactSpec{
 		{Role: "blueprint-authorization", Path: artifactPaths["blueprint-authorization"]},
