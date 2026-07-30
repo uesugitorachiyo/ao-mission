@@ -179,6 +179,37 @@ func TestSoakCanaryActivationMutationsFailBeforeLaunch(t *testing.T) {
 	}
 }
 
+func TestSoakCanaryBindsTotalRetryBudgetToAuthorityBeforeExecutorReachability(t *testing.T) {
+	t.Run("matching cap", func(t *testing.T) {
+		fixture := validSoakCanaryFixture(t)
+		rebindSoakCanaryTotalRetryBudget(t, &fixture, 1)
+
+		readback := ValidateSoakCanaryActivation(fixture.request)
+		if fixture.request.Authority.MaximumRetryCount != 1 ||
+			!readback.ActivationAllowed ||
+			!reflect.DeepEqual(readback.ConflictCodes, []string{}) ||
+			readback.ChildProcessLaunches != 0 {
+			t.Fatalf("matching retry authority was rejected: authority=%d readback=%+v", fixture.request.Authority.MaximumRetryCount, readback)
+		}
+	})
+
+	t.Run("mismatched cap", func(t *testing.T) {
+		fixture := validSoakCanaryFixture(t)
+		rebindSoakCanaryTotalRetryBudget(t, &fixture, 0)
+		executor := &soakCanaryFakeExecutor{}
+		fixture.request.Executor = executor
+
+		summary, err := RunSoakCanary(context.Background(), fixture.request)
+		if err == nil ||
+			!reflect.DeepEqual(summary.ConflictCodes, []string{"retry_budget_authority_mismatch"}) {
+			t.Fatalf("error=%v conflicts=%v want retry_budget_authority_mismatch", err, summary.ConflictCodes)
+		}
+		if executor.starts != 0 || summary.ChildProcessLaunches != 0 {
+			t.Fatalf("retry authority mismatch reached executor: starts=%d summary=%+v", executor.starts, summary)
+		}
+	})
+}
+
 func TestSoakCanaryControlledRetryCheckpointRestartAndIdempotency(t *testing.T) {
 	fixture := validSoakCanaryFixture(t)
 	clock := &soakCanaryFakeClock{now: time.Date(2026, 7, 29, 21, 0, 0, 0, time.UTC)}
@@ -834,6 +865,29 @@ func validSoakCanaryFixture(t *testing.T) soakCanaryTestFixture {
 		OutputLimitBytes: 64 * 1024,
 	}
 	return soakCanaryTestFixture{request: request, goPath: goPath}
+}
+
+func rebindSoakCanaryTotalRetryBudget(t *testing.T, fixture *soakCanaryTestFixture, cap int) {
+	t.Helper()
+	setSoakMaximumTotalRetries(t, fixture.request.PlanInput.RetryPolicy, soakIntPointer(cap))
+	fixture.request.PlanInput.PolicyDigest = soakPolicyDigest(fixture.request.PlanInput)
+	fixture.request.PlanInput.Activation.BoundPolicyDigest = fixture.request.PlanInput.PolicyDigest
+	fixture.request.PlanReadback = buildValidSoakPlan(t, fixture.request.PlanInput)
+	activation, err := BuildSoakCanaryActivation(
+		fixture.request.PlanInput,
+		fixture.request.PlanReadback,
+		fixture.request.PlanFixtureSHA256,
+		fixture.request.Authority,
+		fixture.request.Catalog,
+		fixture.request.SourceProvenance,
+		fixture.request.RepositorySnapshot,
+		fixture.request.Activation.PhaseStartUTC,
+		fixture.request.Activation.ControlledRetryNodeID,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.request.Activation = activation
 }
 
 func rebindSoakCanarySource(t *testing.T, fixture *soakCanaryTestFixture, sourceHead string) {

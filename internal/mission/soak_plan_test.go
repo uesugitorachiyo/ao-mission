@@ -2,7 +2,9 @@ package mission
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -83,6 +85,272 @@ func TestBuildSoakPlanDurationEstimateIsIndependentOfSampleOrder(t *testing.T) {
 	gotSecond := buildValidSoakPlan(t, second)
 	if !reflect.DeepEqual(gotFirst, gotSecond) {
 		t.Fatalf("history ordering changed semantic output:\nfirst=%+v\nsecond=%+v", gotFirst, gotSecond)
+	}
+}
+
+func TestBuildSoakPlanCapsTotalRetryBudget(t *testing.T) {
+	input := validSoakPlanInput()
+	setSoakMaximumTotalRetries(t, input.RetryPolicy, soakIntPointer(1))
+
+	readback := buildValidSoakPlan(t, input)
+	if readback.LeaseBudget.TotalPlannedMS != 2_760 ||
+		readback.LeaseBudget.TotalPlannedWithRetryMS != 4_260 ||
+		!readback.ActivationAllowed ||
+		!reflect.DeepEqual(readback.ConflictCodes, []string{}) {
+		t.Fatalf("capped plan=%+v want total=2760 total_with_retry=4260 allowed=true", readback)
+	}
+	if len(readback.Partitions) != 2 ||
+		readback.Partitions[0].RetryAllowanceMS != 3_000 ||
+		readback.Partitions[1].RetryAllowanceMS != 2_520 {
+		t.Fatalf("partition retry bounds changed under aggregate cap: %+v", readback.Partitions)
+	}
+}
+
+func TestBuildSoakPlanExplicitZeroTotalRetryBudgetPreservesPartitionBounds(t *testing.T) {
+	input := validSoakPlanInput()
+	setSoakMaximumTotalRetries(t, input.RetryPolicy, soakIntPointer(0))
+
+	readback := buildValidSoakPlan(t, input)
+	if readback.LeaseBudget.TotalPlannedMS != 2_760 ||
+		readback.LeaseBudget.TotalPlannedWithRetryMS != 2_760 ||
+		!readback.ActivationAllowed ||
+		!reflect.DeepEqual(readback.ConflictCodes, []string{}) {
+		t.Fatalf("zero-cap plan=%+v want aggregate equal to base", readback)
+	}
+	if len(readback.Partitions) != 2 ||
+		readback.Partitions[0].RetryAllowanceMS != 3_000 ||
+		readback.Partitions[1].RetryAllowanceMS != 2_520 {
+		t.Fatalf("zero aggregate cap changed partition retry bounds: %+v", readback.Partitions)
+	}
+}
+
+func TestBuildSoakPlanRejectsInvalidTotalRetryBudgetsWithExactConflicts(t *testing.T) {
+	tests := []struct {
+		name            string
+		maximumAttempts int
+		cap             int
+		want            []string
+	}{
+		{
+			name: "negative cap", maximumAttempts: 2, cap: -1,
+			want: []string{"retry_budget_invalid"},
+		},
+		{
+			name: "cap above available retry slots", maximumAttempts: 2, cap: 3,
+			want: []string{"retry_budget_exceeds_attempt_capacity"},
+		},
+		{
+			name: "one attempt has no retry slots", maximumAttempts: 1, cap: 1,
+			want: []string{"retry_budget_exceeds_attempt_capacity"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			input := validSoakPlanInput()
+			input.RetryPolicy.MaximumAttempts = test.maximumAttempts
+			setSoakMaximumTotalRetries(t, input.RetryPolicy, soakIntPointer(test.cap))
+
+			readback := buildValidSoakPlan(t, input)
+			if readback.ActivationAllowed || !reflect.DeepEqual(readback.ConflictCodes, test.want) {
+				t.Fatalf("allowed=%t conflicts=%v want=%v", readback.ActivationAllowed, readback.ConflictCodes, test.want)
+			}
+		})
+	}
+}
+
+func TestBuildSoakPlanUsesKLargestRetrySlotsIndependentOfPartitionOrder(t *testing.T) {
+	tests := []struct {
+		name       string
+		partitions []SoakPartitionRequest
+		budgets    []SoakPartitionBudget
+		wantOrder  []string
+	}{
+		{
+			name: "regular then scale",
+			partitions: []SoakPartitionRequest{
+				{PartitionID: "partition-regular", NodeID: "node-regular", TestIDs: []string{"regular-alpha", "regular-beta"}},
+				{PartitionID: "partition-scale", NodeID: "node-scale", TestIDs: []string{"scale-index-10000"}},
+			},
+			budgets: []SoakPartitionBudget{
+				{PartitionID: "partition-regular", NodeBudgetMS: 10_000},
+				{PartitionID: "partition-scale", NodeBudgetMS: 10_000},
+			},
+			wantOrder: []string{"regular", "scale"},
+		},
+		{
+			name: "scale then regular",
+			partitions: []SoakPartitionRequest{
+				{PartitionID: "partition-scale", NodeID: "node-scale", TestIDs: []string{"scale-index-10000"}},
+				{PartitionID: "partition-regular", NodeID: "node-regular", TestIDs: []string{"regular-beta", "regular-alpha"}},
+			},
+			budgets: []SoakPartitionBudget{
+				{PartitionID: "partition-scale", NodeBudgetMS: 10_000},
+				{PartitionID: "partition-regular", NodeBudgetMS: 10_000},
+			},
+			wantOrder: []string{"scale", "regular"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			input := validSoakPlanInput()
+			input.Partitions = test.partitions
+			input.PartitionBudgets = test.budgets
+			input.RetryPolicy.MaximumAttempts = 4
+			setSoakMaximumTotalRetries(t, input.RetryPolicy, soakIntPointer(4))
+			input.TimeoutPolicy.TotalNodeTimeoutMS = 7_000
+			input.Lease = SoakLeaseBudget{MinimumMS: 1_000, TargetMS: 9_000, MaximumMS: 10_000}
+
+			readback := buildValidSoakPlan(t, input)
+			if !readback.ActivationAllowed ||
+				readback.LeaseBudget.TotalPlannedMS != 2_760 ||
+				readback.LeaseBudget.TotalPlannedWithRetryMS != 8_520 {
+				t.Fatalf("K-largest retry total is wrong: %+v", readback)
+			}
+			if len(readback.Partitions) != 2 ||
+				!reflect.DeepEqual(
+					[]string{readback.Partitions[0].Classification, readback.Partitions[1].Classification},
+					test.wantOrder,
+				) {
+				t.Fatalf("partition order=%+v want=%v", readback.Partitions, test.wantOrder)
+			}
+			allowances := map[string]int64{}
+			for _, partition := range readback.Partitions {
+				allowances[partition.Classification] = partition.RetryAllowanceMS
+			}
+			if !reflect.DeepEqual(allowances, map[string]int64{"scale": 6_000, "regular": 5_040}) {
+				t.Fatalf("partition retry bounds=%v want scale=6000 regular=5040", allowances)
+			}
+		})
+	}
+}
+
+func TestBuildSoakPlanCappedTotalStillFailsClosedAtLeaseBound(t *testing.T) {
+	input := validSoakPlanInput()
+	setSoakMaximumTotalRetries(t, input.RetryPolicy, soakIntPointer(1))
+	input.Lease = SoakLeaseBudget{MinimumMS: 1_000, TargetMS: 3_000, MaximumMS: 4_000}
+
+	readback := buildValidSoakPlan(t, input)
+	if readback.LeaseBudget.TotalPlannedWithRetryMS != 4_260 ||
+		readback.LeaseBudget.Fits ||
+		readback.ActivationAllowed ||
+		!reflect.DeepEqual(readback.ConflictCodes, []string{"lease_budget_exceeded"}) {
+		t.Fatalf("capped lease decision is wrong: %+v", readback)
+	}
+}
+
+func TestBuildSoakPlanTotalRetryCapPreservesPartitionSafetyConflicts(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*SoakPlanInput)
+		want   []string
+	}{
+		{
+			name: "per-attempt timeout",
+			mutate: func(input *SoakPlanInput) {
+				input.TimeoutPolicy.PerAttemptTimeoutMS = 1_000
+			},
+			want: []string{"timeout_below_estimate"},
+		},
+		{
+			name: "total-node timeout",
+			mutate: func(input *SoakPlanInput) {
+				input.TimeoutPolicy.TotalNodeTimeoutMS = 2_500
+			},
+			want: []string{"retry_total_timeout_exceeded"},
+		},
+		{
+			name: "node budget",
+			mutate: func(input *SoakPlanInput) {
+				input.PartitionBudgets[0].NodeBudgetMS = 1_000
+			},
+			want: []string{"partition_node_budget_exceeded", "retry_node_budget_exceeded"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			input := validSoakPlanInput()
+			setSoakMaximumTotalRetries(t, input.RetryPolicy, soakIntPointer(0))
+			test.mutate(&input)
+
+			readback := buildValidSoakPlan(t, input)
+			if readback.ActivationAllowed || !reflect.DeepEqual(readback.ConflictCodes, test.want) {
+				t.Fatalf("conflicts=%v want=%v readback=%+v", readback.ConflictCodes, test.want, readback)
+			}
+		})
+	}
+}
+
+func TestLoadSoakPlanInputStrictlyRejectsWrongTotalRetryBudgetTypes(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{name: "string", raw: `"1"`, want: "cannot unmarshal string"},
+		{name: "object", raw: `{"value":1}`, want: "cannot unmarshal object"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dir := t.TempDir()
+			body := soakInputJSONWithMaximumTotalRetries(t, validSoakPlanInput(), test.raw)
+			path := writeSoakTestFile(t, dir, "plan.json", body)
+
+			_, err := LoadSoakPlanInput(dir, path)
+			if err == nil ||
+				!strings.Contains(err.Error(), test.want) ||
+				!strings.Contains(err.Error(), "maximum_total_retries") {
+				t.Fatalf("error=%v want %q for maximum_total_retries", err, test.want)
+			}
+		})
+	}
+}
+
+func TestLoadSoakPlanInputExplicitNullUsesConservativeLegacyRetryBudget(t *testing.T) {
+	dir := t.TempDir()
+	body := soakInputJSONWithMaximumTotalRetries(t, validSoakPlanInput(), "null")
+	path := writeSoakTestFile(t, dir, "plan.json", body)
+	input, err := LoadSoakPlanInput(dir, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	readback := buildValidSoakPlan(t, input)
+	if readback.LeaseBudget.TotalPlannedMS != 2_760 ||
+		readback.LeaseBudget.TotalPlannedWithRetryMS != 5_520 ||
+		!readback.ActivationAllowed {
+		t.Fatalf("explicit null did not preserve legacy retry planning: %+v", readback)
+	}
+}
+
+func TestSoakPlanOmittedTotalRetryBudgetPreservesPublicReadbackDigests(t *testing.T) {
+	path := filepath.Join("..", "..", "examples", "valid", "soak-plan-mixed.json")
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(body, []byte(`"maximum_total_retries"`)) {
+		t.Fatal("legacy compatibility fixture unexpectedly contains maximum_total_retries")
+	}
+
+	input, err := LoadSoakPlanInput(filepath.Dir(path), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	readback, err := BuildSoakPlan(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.InputDigest != "sha256:9364b97651b8038ad81dae602f91c335f7f08b5bdbb6c9d21b8d2edfd3764bdd" ||
+		readback.PolicyDigest != "sha256:0013f205813eea89870773080ffde100026a4592ea14c033ff596837e6ae28b0" {
+		t.Fatalf("legacy digests changed: input=%s policy=%s", readback.InputDigest, readback.PolicyDigest)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if code := Run([]string{"qualification", "soak-plan", "--fixture", path, "--json"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("code=%d stderr=%s", code, stderr.String())
+	}
+	if got := fmt.Sprintf("%x", sha256.Sum256(stdout.Bytes())); got != "cc0a01170828dae3bc6b8979635ebcd456fe823c54a8c385a4d53fac08c68b6d" {
+		t.Fatalf("readback_sha256=%s want cc0a01170828dae3bc6b8979635ebcd456fe823c54a8c385a4d53fac08c68b6d", got)
 	}
 }
 
@@ -444,6 +712,40 @@ func buildValidSoakPlan(t *testing.T, input SoakPlanInput) SoakPlanReadback {
 		t.Fatal(err)
 	}
 	return readback
+}
+
+func soakIntPointer(value int) *int {
+	return &value
+}
+
+func setSoakMaximumTotalRetries(t *testing.T, policy *SoakRetryPolicy, value *int) {
+	t.Helper()
+	if policy == nil {
+		t.Fatal("retry policy is nil")
+	}
+	field := reflect.ValueOf(policy).Elem().FieldByName("MaximumTotalRetries")
+	if !field.IsValid() {
+		t.Fatal("SoakRetryPolicy.MaximumTotalRetries is missing")
+	}
+	if !field.CanSet() || field.Type() != reflect.TypeOf((*int)(nil)) {
+		t.Fatalf("SoakRetryPolicy.MaximumTotalRetries has type %s, want *int", field.Type())
+	}
+	field.Set(reflect.ValueOf(value))
+}
+
+func soakInputJSONWithMaximumTotalRetries(t *testing.T, input SoakPlanInput, rawValue string) []byte {
+	t.Helper()
+	body, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	needle := []byte(`"maximum_attempts":2`)
+	replacement := []byte(`"maximum_attempts":2,"maximum_total_retries":` + rawValue)
+	updated := bytes.Replace(body, needle, replacement, 1)
+	if bytes.Equal(updated, body) {
+		t.Fatal("retry policy maximum_attempts JSON field was not found")
+	}
+	return updated
 }
 
 func writeSoakTestFile(t *testing.T, dir, name string, body []byte) string {
