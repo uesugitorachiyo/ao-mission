@@ -100,6 +100,20 @@ func TestImportTerminalIndexAcceptsValidEvidenceAndIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestImportTerminalIndexAcceptsCanonicalizedFresh60Closure(t *testing.T) {
+	root, indexPath := writeMissionTerminalFixture(t, terminalFixtureOptions{
+		terminalNextAction: fresh60CompletedNextAction,
+	})
+
+	readback, err := ImportTerminalIndex(root, indexPath, filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.ExactNextAction != "none" || !readback.FinalResponseAllowed || len(readback.ConflictCodes) != 0 {
+		t.Fatalf("unexpected canonical closure readback: %+v", readback)
+	}
+}
+
 func TestImportTerminalIndexRejectsInvalidOrContradictoryEvidence(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -248,6 +262,7 @@ func writeFailClosedTimingFixture(t *testing.T, elapsed int, sourceLabel string)
 
 type terminalFixtureOptions struct {
 	generatedAt         string
+	terminalNextAction  string
 	ready               int
 	alterArtifactDigest bool
 	alterIndexDigest    bool
@@ -280,6 +295,7 @@ func writeMissionTerminalFixtureAtRoot(t *testing.T, root string, options termin
 	if options.nonMonotonic {
 		completed = 39
 	}
+	terminalNextAction := defaultTerminalString(options.terminalNextAction, "none")
 	leaseBody := []byte(`{"schema":"lease.v1","mission_id":"fixture-wave","minimum_nodes":40,"minimum_minutes":120,"target_minutes":150,"maximum_minutes":180}`)
 	rootCompleted := 0
 	rootReady := 40
@@ -288,7 +304,7 @@ func writeMissionTerminalFixtureAtRoot(t *testing.T, root string, options termin
 		rootReady = 0
 	}
 	rootBody := []byte(fmt.Sprintf(`{"schema":"root.v1","mission_id":"fixture-wave","completed_nodes":%d,"ready_nodes":%d,"blocked_nodes":0,"failed_nodes":0}`, rootCompleted, rootReady))
-	terminalBody := []byte(fmt.Sprintf(`{"schema":"terminal.v1","mission_id":"%s","completed_nodes":%d,"ready_nodes":%d,"blocked_nodes":0,"failed_nodes":0,"elapsed_minutes":150,"lease_time_status":"within_window","final_response_allowed":true,"exact_next_action":"none","executes_work":false,"approves_work":false,"mutates_repositories":false,"calls_providers":false,"publishes":false,"releases":false,"deploys":false,"advances_authority":false}`, terminalMission, completed, options.ready))
+	terminalBody := []byte(fmt.Sprintf(`{"schema":"terminal.v1","mission_id":"%s","completed_nodes":%d,"ready_nodes":%d,"blocked_nodes":0,"failed_nodes":0,"elapsed_minutes":150,"lease_time_status":"within_window","final_response_allowed":true,"exact_next_action":%q,"executes_work":false,"approves_work":false,"mutates_repositories":false,"calls_providers":false,"publishes":false,"releases":false,"deploys":false,"advances_authority":false}`, terminalMission, completed, options.ready, terminalNextAction))
 	if options.malformed {
 		terminalBody = []byte("{")
 	}
@@ -397,4 +413,21 @@ func defaultTerminalString(value, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func TestTerminalNoActionAcceptsFresh60ClosureOnly(t *testing.T) {
+	const closure = "Fresh 60-node Mission-to-Atlas soak complete; no further execution is authorized."
+
+	if !terminalNoAction(closure) {
+		t.Fatalf("expected exact fresh 60-node closure to be treated as no action")
+	}
+
+	for _, action := range []string{
+		"Run " + closure,
+		closure + " Then execute another soak.",
+	} {
+		if terminalNoAction(action) {
+			t.Fatalf("expected executable variant to remain actionable: %q", action)
+		}
+	}
 }

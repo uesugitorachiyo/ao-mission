@@ -1691,7 +1691,7 @@ func buildSoakCanaryTerminalIndex(summary SoakCanarySummary) (CanonicalTerminalI
 		CompletionObserved: true, CanonicalEvidenceAgreement: true,
 		ReadinessPassed: true, ReturnGateStatus: "final_response_allowed",
 		FinalResponseAllowed: true, ConflictCodes: []string{},
-		ConflictSummaries: []string{}, ExactNextAction: soakCanaryCompletedNextAction,
+		ConflictSummaries: []string{}, ExactNextAction: "none",
 		SafetyBoundaries: TerminalIndexSafety{},
 	}
 	artifacts := map[string][]byte{}
@@ -1759,7 +1759,7 @@ func BuildSoakCanaryTerminalReadbacks(summary SoakCanarySummary) ([]TerminalInde
 		CanonicalEvidenceAgreement: true, ReadinessPassed: true,
 		ReturnGateStatus: "final_response_allowed", FinalResponseAllowed: true,
 		ConflictCodes:   []string{},
-		ExactNextAction: soakCanaryCompletedNextAction, ReadOnly: true,
+		ExactNextAction: "none", ReadOnly: true,
 	}
 	surfaces := []string{"inspect", "checkpoint", "event-index", "command-readback"}
 	readbacks := make([]TerminalIndexImportReadback, 0, len(surfaces))

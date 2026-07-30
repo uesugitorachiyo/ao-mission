@@ -18,6 +18,7 @@ const (
 	terminalIndexMaxFileBytes  = 1 << 20
 	terminalIndexMaxTotalBytes = 16 << 20
 	terminalIndexMaxArtifacts  = 128
+	fresh60CompletedNextAction = "Fresh 60-node Mission-to-Atlas soak complete; no further execution is authorized."
 )
 
 type TerminalIndexArtifact struct {
@@ -504,7 +505,7 @@ func recomputeTerminalIndex(
 	if result.FinalResponseAllowed {
 		result.ReturnGateStatus = "final_response_allowed"
 		result.ExactNextAction = strings.TrimSpace(terminal.nextAction)
-		if result.ExactNextAction == "" {
+		if terminalNoAction(result.ExactNextAction) {
 			result.ExactNextAction = "none"
 		}
 	} else {
@@ -757,7 +758,8 @@ func firstTerminalPositive(values ...int) int {
 func terminalNoAction(action string) bool {
 	action = strings.TrimSpace(strings.ToLower(action))
 	return action == "" || action == "none" || action == "no further action" ||
-		action == strings.ToLower(soakCanaryCompletedNextAction)
+		action == strings.ToLower(soakCanaryCompletedNextAction) ||
+		action == strings.ToLower(fresh60CompletedNextAction)
 }
 
 func containsTerminalString(values []string, wanted string) bool {
