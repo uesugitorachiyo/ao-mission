@@ -513,7 +513,7 @@ func TestSoakCanaryTerminalBindsOperationalTruthAndExactClosure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if index.ExactNextAction != soakCanaryCompletedNextAction ||
+	if index.ExactNextAction != "none" ||
 		!terminalNoAction(index.ExactNextAction) {
 		t.Fatalf("terminal next action=%q", index.ExactNextAction)
 	}
@@ -540,7 +540,7 @@ func TestSoakCanaryTerminalBindsOperationalTruthAndExactClosure(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, readback := range readbacks {
-		if readback.ExactNextAction != soakCanaryCompletedNextAction {
+		if readback.ExactNextAction != "none" {
 			t.Fatalf("surface=%s next=%q", readback.Surface, readback.ExactNextAction)
 		}
 	}
