@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -19,13 +20,14 @@ import (
 )
 
 const (
-	soakCanaryGitMaxIndexBytes   = 64 << 20
-	soakCanaryGitMaxEntries      = 200_000
-	soakCanaryGitMaxObjectBytes  = 64 << 20
-	soakCanaryGitMaxPackIndex    = 256 << 20
-	soakCanaryGitMaxPacks        = 128
-	soakCanaryGitMaxDeltaDepth   = 64
-	soakCanaryGitMaxReferenceLen = 4 << 10
+	soakCanaryGitMaxIndexBytes     = 64 << 20
+	soakCanaryGitMaxEntries        = 200_000
+	soakCanaryGitMaxObjectBytes    = 64 << 20
+	soakCanaryGitMaxPackIndex      = 256 << 20
+	soakCanaryGitMaxPacks          = 128
+	soakCanaryGitMaxDeltaDepth     = 64
+	soakCanaryGitMaxReferenceLen   = 4 << 10
+	soakCanaryGitTotalObjectBudget = 16 << 20
 )
 
 type soakCanaryGitLayout struct {
@@ -49,11 +51,100 @@ type soakCanaryGitTreeEntry struct {
 
 type soakCanaryGitObjectStore struct {
 	commonDir string
+	budget    *soakCanaryGitBudget
 }
 
 type soakCanaryGitObject struct {
 	kind string
 	data []byte
+}
+
+type soakCanaryGitBudget struct {
+	remaining uint64
+}
+
+func newSoakCanaryGitBudget(limit uint64) *soakCanaryGitBudget {
+	return &soakCanaryGitBudget{remaining: limit}
+}
+
+func (budget *soakCanaryGitBudget) reserve(amount uint64) error {
+	if budget == nil || amount > budget.remaining {
+		return errors.New("soak canary Git cumulative object budget exceeded")
+	}
+	budget.remaining -= amount
+	return nil
+}
+
+func checkedSoakCanaryGitAdd(left, right uint64) (uint64, error) {
+	if right > math.MaxUint64-left {
+		return 0, errors.New("soak canary Git integer addition overflow")
+	}
+	return left + right, nil
+}
+
+func checkedSoakCanaryGitMultiply(left, right uint64) (uint64, error) {
+	if left != 0 && right > math.MaxUint64/left {
+		return 0, errors.New("soak canary Git integer multiplication overflow")
+	}
+	return left * right, nil
+}
+
+func checkedSoakCanaryGitInt(value uint64) (int, error) {
+	if value > uint64(^uint(0)>>1) {
+		return 0, errors.New("soak canary Git value exceeds platform int")
+	}
+	return int(value), nil
+}
+
+func checkedSoakCanaryGitInt64(value uint64) (int64, error) {
+	if value > math.MaxInt64 {
+		return 0, errors.New("soak canary Git value exceeds int64")
+	}
+	return int64(value), nil
+}
+
+func checkedSoakCanaryGitSubtractInt64(left, right int64) (int64, error) {
+	if left < 0 || right < 0 || right > left {
+		return 0, errors.New("soak canary Git integer subtraction underflow")
+	}
+	return left - right, nil
+}
+
+func checkedSoakCanaryGitAddInt64(left, right int64) (int64, error) {
+	if left < 0 || right < 0 || right > math.MaxInt64-left {
+		return 0, errors.New("soak canary Git integer addition overflow")
+	}
+	return left + right, nil
+}
+
+func checkedSoakCanaryGitSliceBounds(total, start, length uint64) (int, int, error) {
+	if start > total || length > total-start {
+		return 0, 0, errors.New("soak canary Git slice bounds are invalid")
+	}
+	end := start + length
+	startInt, err := checkedSoakCanaryGitInt(start)
+	if err != nil {
+		return 0, 0, err
+	}
+	endInt, err := checkedSoakCanaryGitInt(end)
+	if err != nil {
+		return 0, 0, err
+	}
+	return startInt, endInt, nil
+}
+
+func checkedSoakCanaryGitTableEntryBounds(
+	total, start, index, width uint64,
+) (int, int, error) {
+	entryOffset, err := checkedSoakCanaryGitMultiply(index, width)
+	if err != nil {
+		return 0, 0, err
+	}
+	entryStart, err := checkedSoakCanaryGitAdd(start, entryOffset)
+	if err != nil {
+		return 0, 0, err
+	}
+	return checkedSoakCanaryGitSliceBounds(total, entryStart, width)
 }
 
 func (InProcessSoakCanaryGitVerifier) Verify(repositoryRoot, expectedRevision string) error {
@@ -76,7 +167,10 @@ func (InProcessSoakCanaryGitVerifier) Verify(repositoryRoot, expectedRevision st
 	if err != nil {
 		return err
 	}
-	store := soakCanaryGitObjectStore{commonDir: layout.commonDir}
+	store := soakCanaryGitObjectStore{
+		commonDir: layout.commonDir,
+		budget:    newSoakCanaryGitBudget(soakCanaryGitTotalObjectBudget),
+	}
 	tree, err := loadSoakCanaryGitHEADTree(store, head)
 	if err != nil {
 		return err
@@ -95,12 +189,8 @@ func (InProcessSoakCanaryGitVerifier) Verify(repositoryRoot, expectedRevision st
 }
 
 func resolveSoakCanaryGitLayout(repositoryRoot string) (soakCanaryGitLayout, error) {
-	root, err := filepath.Abs(repositoryRoot)
+	root, err := canonicalSoakCanaryGitDirectory(repositoryRoot)
 	if err != nil {
-		return soakCanaryGitLayout{}, err
-	}
-	info, err := os.Lstat(root)
-	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return soakCanaryGitLayout{}, errors.New("soak canary Git root is not a regular directory")
 	}
 	dotGit := filepath.Join(root, ".git")
@@ -111,9 +201,16 @@ func resolveSoakCanaryGitLayout(repositoryRoot string) (soakCanaryGitLayout, err
 	var gitDir string
 	switch {
 	case dotInfo.IsDir() && dotInfo.Mode()&os.ModeSymlink == 0:
+		if err := validateSoakCanaryGitMetadataDirectory(root, dotGit); err != nil {
+			return soakCanaryGitLayout{}, err
+		}
 		gitDir = dotGit
 	case dotInfo.Mode().IsRegular() && dotInfo.Mode()&os.ModeSymlink == 0:
-		body, err := readBoundedRegularFile(dotGit, soakCanaryGitMaxReferenceLen)
+		body, err := readSoakCanaryGitMetadataFile(
+			root,
+			dotGit,
+			soakCanaryGitMaxReferenceLen,
+		)
 		if err != nil {
 			return soakCanaryGitLayout{}, err
 		}
@@ -138,7 +235,11 @@ func resolveSoakCanaryGitLayout(repositoryRoot string) (soakCanaryGitLayout, err
 		if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
 			return soakCanaryGitLayout{}, errors.New("soak canary Git commondir is unsafe")
 		}
-		body, err := readBoundedRegularFile(commonPath, soakCanaryGitMaxReferenceLen)
+		body, err := readSoakCanaryGitMetadataFile(
+			gitDir,
+			commonPath,
+			soakCanaryGitMaxReferenceLen,
+		)
 		if err != nil {
 			return soakCanaryGitLayout{}, err
 		}
@@ -160,19 +261,12 @@ func resolveSoakCanaryGitLayout(repositoryRoot string) (soakCanaryGitLayout, err
 }
 
 func cleanSoakCanaryGitDirectory(path string) (string, error) {
-	absolute, err := filepath.Abs(filepath.Clean(path))
-	if err != nil {
-		return "", err
-	}
-	info, err := os.Lstat(absolute)
-	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-		return "", errors.New("soak canary Git metadata directory is unsafe")
-	}
-	return absolute, nil
+	return canonicalSoakCanaryGitDirectory(path)
 }
 
 func resolveSoakCanaryGitHEAD(layout soakCanaryGitLayout) (soakCanaryGitOID, error) {
-	body, err := readBoundedRegularFile(
+	body, err := readSoakCanaryGitMetadataFile(
+		layout.gitDir,
 		filepath.Join(layout.gitDir, "HEAD"),
 		soakCanaryGitMaxReferenceLen,
 	)
@@ -204,7 +298,11 @@ func resolveSoakCanaryGitReference(
 	}
 	for _, directory := range []string{layout.gitDir, layout.commonDir} {
 		path := filepath.Join(directory, filepath.FromSlash(name))
-		body, err := readBoundedRegularFile(path, soakCanaryGitMaxReferenceLen)
+		body, err := readSoakCanaryGitMetadataFile(
+			directory,
+			path,
+			soakCanaryGitMaxReferenceLen,
+		)
 		if err == nil {
 			value := strings.TrimSpace(string(body))
 			if strings.HasPrefix(value, "ref: ") {
@@ -227,7 +325,8 @@ func resolveSoakCanaryGitReference(
 			break
 		}
 	}
-	body, err := readBoundedRegularFile(
+	body, err := readSoakCanaryGitMetadataFile(
+		layout.commonDir,
 		filepath.Join(layout.commonDir, "packed-refs"),
 		soakCanaryGitMaxIndexBytes,
 	)
@@ -261,7 +360,8 @@ func validSoakCanaryGitReferenceName(name string) bool {
 }
 
 func loadSoakCanaryGitIndex(layout soakCanaryGitLayout) ([]soakCanaryGitIndexEntry, error) {
-	body, err := readBoundedRegularFile(
+	body, err := readSoakCanaryGitMetadataFile(
+		layout.gitDir,
 		filepath.Join(layout.gitDir, "index"),
 		soakCanaryGitMaxIndexBytes,
 	)
@@ -275,39 +375,78 @@ func loadSoakCanaryGitIndex(layout soakCanaryGitLayout) ([]soakCanaryGitIndexEnt
 	if version != 2 && version != 3 {
 		return nil, fmt.Errorf("soak canary Git index version %d is unsupported", version)
 	}
-	checksumStart := len(body) - sha1.Size
-	checksum := sha1.Sum(body[:checksumStart])
-	if !bytes.Equal(checksum[:], body[checksumStart:]) {
+	total := uint64(len(body))
+	checksumStart := total - sha1.Size
+	checksumStartInt, checksumEndInt, err := checkedSoakCanaryGitSliceBounds(
+		total,
+		checksumStart,
+		sha1.Size,
+	)
+	if err != nil {
+		return nil, err
+	}
+	checksum := sha1.Sum(body[:checksumStartInt])
+	if !bytes.Equal(checksum[:], body[checksumStartInt:checksumEndInt]) {
 		return nil, errors.New("soak canary Git index checksum mismatch")
 	}
-	count := int(binary.BigEndian.Uint32(body[8:12]))
-	if count < 0 || count > soakCanaryGitMaxEntries {
+	countValue := uint64(binary.BigEndian.Uint32(body[8:12]))
+	if countValue > soakCanaryGitMaxEntries {
 		return nil, errors.New("soak canary Git index entry count exceeds limit")
 	}
+	count, err := checkedSoakCanaryGitInt(countValue)
+	if err != nil {
+		return nil, err
+	}
 	entries := make([]soakCanaryGitIndexEntry, 0, count)
-	offset := 12
+	offset := uint64(12)
 	previousPath := ""
-	for index := 0; index < count; index++ {
+	for index := uint64(0); index < countValue; index++ {
 		entryStart := offset
-		if offset+62 > checksumStart {
+		entryLeft, entryRight, boundsErr := checkedSoakCanaryGitSliceBounds(
+			checksumStart,
+			offset,
+			62,
+		)
+		if boundsErr != nil {
 			return nil, errors.New("soak canary Git index entry is truncated")
 		}
-		mode := binary.BigEndian.Uint32(body[offset+24 : offset+28])
+		entryBody := body[entryLeft:entryRight]
+		mode := binary.BigEndian.Uint32(entryBody[24:28])
 		var oid soakCanaryGitOID
-		copy(oid[:], body[offset+40:offset+60])
-		flags := binary.BigEndian.Uint16(body[offset+60 : offset+62])
-		offset += 62
+		copy(oid[:], entryBody[40:60])
+		flags := binary.BigEndian.Uint16(entryBody[60:62])
+		offset, err = checkedSoakCanaryGitAdd(offset, 62)
+		if err != nil {
+			return nil, err
+		}
 		if flags&0x4000 != 0 {
 			return nil, errors.New("soak canary Git index extended entries are unsupported")
 		}
 		if flags&0x3000 != 0 {
 			return nil, errors.New("soak canary Git index contains an unmerged stage")
 		}
-		nameEnd := bytes.IndexByte(body[offset:checksumStart], 0)
+		nameLeft, nameRight, boundsErr := checkedSoakCanaryGitSliceBounds(
+			checksumStart,
+			offset,
+			checksumStart-offset,
+		)
+		if boundsErr != nil {
+			return nil, errors.New("soak canary Git index path bounds are invalid")
+		}
+		nameEnd := bytes.IndexByte(body[nameLeft:nameRight], 0)
 		if nameEnd < 0 {
 			return nil, errors.New("soak canary Git index path is unterminated")
 		}
-		pathBytes := body[offset : offset+nameEnd]
+		nameLength := uint64(nameEnd)
+		pathLeft, pathRight, boundsErr := checkedSoakCanaryGitSliceBounds(
+			checksumStart,
+			offset,
+			nameLength,
+		)
+		if boundsErr != nil {
+			return nil, errors.New("soak canary Git index path bounds are invalid")
+		}
+		pathBytes := body[pathLeft:pathRight]
 		if flags&0x0fff != 0x0fff && int(flags&0x0fff) != len(pathBytes) {
 			return nil, errors.New("soak canary Git index path length is inconsistent")
 		}
@@ -319,36 +458,65 @@ func loadSoakCanaryGitIndex(layout soakCanaryGitLayout) ([]soakCanaryGitIndexEnt
 			return nil, fmt.Errorf("soak canary Git index mode %o is unsupported", mode)
 		}
 		previousPath = path
-		offset += nameEnd + 1
+		offset, err = checkedSoakCanaryGitAdd(offset, nameLength)
+		if err != nil {
+			return nil, err
+		}
+		offset, err = checkedSoakCanaryGitAdd(offset, 1)
+		if err != nil {
+			return nil, err
+		}
 		entryLength := offset - entryStart
-		paddedLength := (entryLength + 7) &^ 7
-		if entryStart+paddedLength > checksumStart {
+		paddedLength, err := checkedSoakCanaryGitAdd(entryLength, 7)
+		if err != nil {
+			return nil, err
+		}
+		paddedLength &^= 7
+		paddedEnd, err := checkedSoakCanaryGitAdd(entryStart, paddedLength)
+		if err != nil || paddedEnd > checksumStart {
 			return nil, errors.New("soak canary Git index padding is truncated")
 		}
-		for _, padding := range body[offset : entryStart+paddedLength] {
+		paddingLeft, paddingRight, boundsErr := checkedSoakCanaryGitSliceBounds(
+			checksumStart,
+			offset,
+			paddedEnd-offset,
+		)
+		if boundsErr != nil {
+			return nil, errors.New("soak canary Git index padding is truncated")
+		}
+		for _, padding := range body[paddingLeft:paddingRight] {
 			if padding != 0 {
 				return nil, errors.New("soak canary Git index padding is corrupt")
 			}
 		}
-		offset = entryStart + paddedLength
+		offset = paddedEnd
 		entries = append(entries, soakCanaryGitIndexEntry{path: path, mode: mode, oid: oid})
 	}
 	seenTree := false
 	for offset < checksumStart {
-		if offset+8 > checksumStart {
+		headerLeft, headerRight, boundsErr := checkedSoakCanaryGitSliceBounds(
+			checksumStart,
+			offset,
+			8,
+		)
+		if boundsErr != nil {
 			return nil, errors.New("soak canary Git index extension is truncated")
 		}
-		signature := string(body[offset : offset+4])
-		size := int(binary.BigEndian.Uint32(body[offset+4 : offset+8]))
-		offset += 8
-		if size < 0 || offset+size > checksumStart {
+		header := body[headerLeft:headerRight]
+		signature := string(header[:4])
+		size := uint64(binary.BigEndian.Uint32(header[4:8]))
+		offset, err = checkedSoakCanaryGitAdd(offset, 8)
+		if err != nil || offset > checksumStart || size > checksumStart-offset {
 			return nil, errors.New("soak canary Git index extension size is invalid")
 		}
 		if signature != "TREE" || seenTree {
 			return nil, fmt.Errorf("soak canary Git index extension %q is unsupported", signature)
 		}
 		seenTree = true
-		offset += size
+		offset, err = checkedSoakCanaryGitAdd(offset, size)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return entries, nil
 }
@@ -581,7 +749,11 @@ func soakCanaryGitCoreFileMode(layout soakCanaryGitLayout) (bool, error) {
 		filepath.Join(layout.commonDir, "config"),
 		filepath.Join(layout.gitDir, "config.worktree"),
 	} {
-		body, err := readBoundedRegularFile(path, 1<<20)
+		root := layout.commonDir
+		if strings.HasPrefix(path, layout.gitDir+string(os.PathSeparator)) {
+			root = layout.gitDir
+		}
+		body, err := readSoakCanaryGitMetadataFile(root, path, 1<<20)
 		if err != nil {
 			if os.IsNotExist(err) {
 				continue
@@ -698,37 +870,54 @@ func (store soakCanaryGitObjectStore) looseObject(
 ) (soakCanaryGitObject, error) {
 	value := oid.String()
 	path := filepath.Join(store.commonDir, "objects", value[:2], value[2:])
-	file, err := os.Open(path)
+	file, _, err := openSoakCanaryGitMetadataRegular(store.commonDir, path)
 	if err != nil {
 		return soakCanaryGitObject{}, err
 	}
 	defer file.Close()
-	info, err := file.Stat()
-	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
-		return soakCanaryGitObject{}, errors.New("soak canary loose Git object is unsafe")
-	}
 	reader, err := zlib.NewReader(file)
 	if err != nil {
 		return soakCanaryGitObject{}, errors.New("soak canary loose Git object is corrupt")
 	}
 	defer reader.Close()
-	raw, err := io.ReadAll(io.LimitReader(reader, soakCanaryGitMaxObjectBytes+256+1))
-	if err != nil || len(raw) > soakCanaryGitMaxObjectBytes+256 {
-		return soakCanaryGitObject{}, errors.New("soak canary loose Git object exceeds limit")
+	var header [256]byte
+	headerLength := 0
+	for headerLength < len(header) {
+		if _, err := io.ReadFull(reader, header[headerLength:headerLength+1]); err != nil {
+			return soakCanaryGitObject{}, errors.New("soak canary loose Git object header is corrupt")
+		}
+		if header[headerLength] == 0 {
+			break
+		}
+		headerLength++
 	}
-	separator := bytes.IndexByte(raw, 0)
-	if separator <= 0 {
+	if headerLength == 0 || headerLength >= len(header) {
 		return soakCanaryGitObject{}, errors.New("soak canary loose Git object header is corrupt")
 	}
-	fields := strings.Fields(string(raw[:separator]))
+	fields := strings.Fields(string(header[:headerLength]))
 	if len(fields) != 2 {
 		return soakCanaryGitObject{}, errors.New("soak canary loose Git object header is invalid")
 	}
-	size, err := strconv.Atoi(fields[1])
-	if err != nil || size != len(raw)-separator-1 || size > soakCanaryGitMaxObjectBytes {
+	size, err := strconv.ParseUint(fields[1], 10, 64)
+	if err != nil || size > soakCanaryGitMaxObjectBytes {
 		return soakCanaryGitObject{}, errors.New("soak canary loose Git object size is invalid")
 	}
-	object := soakCanaryGitObject{kind: fields[0], data: raw[separator+1:]}
+	if err := store.budget.reserve(size); err != nil {
+		return soakCanaryGitObject{}, err
+	}
+	sizeInt, err := checkedSoakCanaryGitInt(size)
+	if err != nil {
+		return soakCanaryGitObject{}, err
+	}
+	data := make([]byte, sizeInt)
+	if _, err := io.ReadFull(reader, data); err != nil {
+		return soakCanaryGitObject{}, errors.New("soak canary loose Git object is truncated")
+	}
+	var extra [1]byte
+	if count, readErr := reader.Read(extra[:]); count != 0 || (readErr != nil && readErr != io.EOF) {
+		return soakCanaryGitObject{}, errors.New("soak canary loose Git object size is inconsistent")
+	}
+	object := soakCanaryGitObject{kind: fields[0], data: data}
 	if hashSoakCanaryGitObject(object.kind, object.data) != oid {
 		return soakCanaryGitObject{}, errors.New("soak canary loose Git object hash mismatch")
 	}
@@ -740,6 +929,9 @@ func (store soakCanaryGitObjectStore) packedObject(
 	depth int,
 ) (soakCanaryGitObject, error) {
 	packDirectory := filepath.Join(store.commonDir, "objects", "pack")
+	if err := validateSoakCanaryGitMetadataDirectory(store.commonDir, packDirectory); err != nil {
+		return soakCanaryGitObject{}, err
+	}
 	children, err := os.ReadDir(packDirectory)
 	if err != nil {
 		return soakCanaryGitObject{}, fmt.Errorf("read soak canary Git pack directory: %w", err)
@@ -771,17 +963,32 @@ func findSoakCanaryGitPackedOffset(
 	indexPath string,
 	oid soakCanaryGitOID,
 ) (string, int64, bool, error) {
-	body, err := readBoundedRegularFile(indexPath, soakCanaryGitMaxPackIndex)
+	commonDir := filepath.Dir(filepath.Dir(filepath.Dir(indexPath)))
+	body, err := readSoakCanaryGitMetadataFile(
+		commonDir,
+		indexPath,
+		soakCanaryGitMaxPackIndex,
+	)
 	if err != nil {
 		return "", 0, false, err
 	}
-	if len(body) < 8+256*4+40 ||
+	total := uint64(len(body))
+	if total < 8+256*4+40 ||
 		!bytes.Equal(body[:4], []byte{0xff, 0x74, 0x4f, 0x63}) ||
 		binary.BigEndian.Uint32(body[4:8]) != 2 {
 		return "", 0, false, errors.New("soak canary Git pack index version is unsupported")
 	}
-	indexChecksum := sha1.Sum(body[:len(body)-sha1.Size])
-	if !bytes.Equal(indexChecksum[:], body[len(body)-sha1.Size:]) {
+	checksumStart := total - sha1.Size
+	checksumStartInt, checksumEndInt, err := checkedSoakCanaryGitSliceBounds(
+		total,
+		checksumStart,
+		sha1.Size,
+	)
+	if err != nil {
+		return "", 0, false, err
+	}
+	indexChecksum := sha1.Sum(body[:checksumStartInt])
+	if !bytes.Equal(indexChecksum[:], body[checksumStartInt:checksumEndInt]) {
 		return "", 0, false, errors.New("soak canary Git pack index checksum mismatch")
 	}
 	fanout := body[8 : 8+256*4]
@@ -791,49 +998,134 @@ func findSoakCanaryGitPackedOffset(
 			return "", 0, false, errors.New("soak canary Git pack index fanout is corrupt")
 		}
 	}
-	count := int(binary.BigEndian.Uint32(fanout[255*4 : 256*4]))
-	if count < 0 || count > soakCanaryGitMaxEntries*10 {
+	countValue := uint64(binary.BigEndian.Uint32(fanout[255*4 : 256*4]))
+	if countValue > soakCanaryGitMaxEntries*10 {
 		return "", 0, false, errors.New("soak canary Git pack index entry count exceeds limit")
 	}
-	namesStart := 8 + 256*4
-	crcStart := namesStart + count*sha1.Size
-	offsetsStart := crcStart + count*4
-	largeStart := offsetsStart + count*4
-	if largeStart+40 > len(body) {
+	namesStart := uint64(8 + 256*4)
+	namesBytes, err := checkedSoakCanaryGitMultiply(countValue, sha1.Size)
+	if err != nil {
+		return "", 0, false, err
+	}
+	crcStart, err := checkedSoakCanaryGitAdd(namesStart, namesBytes)
+	if err != nil {
+		return "", 0, false, err
+	}
+	crcBytes, err := checkedSoakCanaryGitMultiply(countValue, 4)
+	if err != nil {
+		return "", 0, false, err
+	}
+	offsetsStart, err := checkedSoakCanaryGitAdd(crcStart, crcBytes)
+	if err != nil {
+		return "", 0, false, err
+	}
+	offsetsBytes, err := checkedSoakCanaryGitMultiply(countValue, 4)
+	if err != nil {
+		return "", 0, false, err
+	}
+	largeStart, err := checkedSoakCanaryGitAdd(offsetsStart, offsetsBytes)
+	if err != nil {
+		return "", 0, false, err
+	}
+	trailerStart := total - 2*sha1.Size
+	if largeStart > trailerStart {
 		return "", 0, false, errors.New("soak canary Git pack index is truncated")
 	}
-	for index := 1; index < count; index++ {
-		previous := body[namesStart+(index-1)*sha1.Size : namesStart+index*sha1.Size]
-		current := body[namesStart+index*sha1.Size : namesStart+(index+1)*sha1.Size]
+	for index := uint64(1); index < countValue; index++ {
+		previousLeft, previousRight, boundsErr := checkedSoakCanaryGitTableEntryBounds(
+			total,
+			namesStart,
+			index-1,
+			sha1.Size,
+		)
+		if boundsErr != nil {
+			return "", 0, false, boundsErr
+		}
+		currentLeft, currentRight, boundsErr := checkedSoakCanaryGitTableEntryBounds(
+			total,
+			namesStart,
+			index,
+			sha1.Size,
+		)
+		if boundsErr != nil {
+			return "", 0, false, boundsErr
+		}
+		previous := body[previousLeft:previousRight]
+		current := body[currentLeft:currentRight]
 		if bytes.Compare(previous, current) >= 0 {
 			return "", 0, false, errors.New("soak canary Git pack index names are unsorted")
 		}
 	}
-	index := sort.Search(count, func(index int) bool {
-		return bytes.Compare(body[namesStart+index*sha1.Size:namesStart+(index+1)*sha1.Size], oid[:]) >= 0
-	})
-	if index >= count ||
-		!bytes.Equal(body[namesStart+index*sha1.Size:namesStart+(index+1)*sha1.Size], oid[:]) {
+	leftIndex, rightIndex := uint64(0), countValue
+	for leftIndex < rightIndex {
+		middle := leftIndex + (rightIndex-leftIndex)/2
+		left, right, boundsErr := checkedSoakCanaryGitTableEntryBounds(
+			total,
+			namesStart,
+			middle,
+			sha1.Size,
+		)
+		if boundsErr != nil {
+			return "", 0, false, boundsErr
+		}
+		if bytes.Compare(body[left:right], oid[:]) < 0 {
+			leftIndex = middle + 1
+		} else {
+			rightIndex = middle
+		}
+	}
+	if leftIndex >= countValue {
 		return "", 0, false, nil
 	}
-	value := binary.BigEndian.Uint32(body[offsetsStart+index*4 : offsetsStart+(index+1)*4])
+	index := leftIndex
+	nameLeft, nameRight, err := checkedSoakCanaryGitTableEntryBounds(
+		total,
+		namesStart,
+		index,
+		sha1.Size,
+	)
+	if err != nil {
+		return "", 0, false, err
+	}
+	if !bytes.Equal(body[nameLeft:nameRight], oid[:]) {
+		return "", 0, false, nil
+	}
+	offsetLeft, offsetRight, err := checkedSoakCanaryGitTableEntryBounds(
+		total,
+		offsetsStart,
+		index,
+		4,
+	)
+	if err != nil {
+		return "", 0, false, err
+	}
+	value := binary.BigEndian.Uint32(body[offsetLeft:offsetRight])
 	var offset int64
 	if value&0x80000000 == 0 {
 		offset = int64(value)
 	} else {
-		largeIndex := int(value & 0x7fffffff)
-		position := largeStart + largeIndex*8
-		if position+8 > len(body)-40 {
+		largeOffset, multiplyErr := checkedSoakCanaryGitMultiply(
+			uint64(value&0x7fffffff),
+			8,
+		)
+		if multiplyErr != nil {
+			return "", 0, false, multiplyErr
+		}
+		position, addErr := checkedSoakCanaryGitAdd(largeStart, largeOffset)
+		if addErr != nil || position > trailerStart || 8 > trailerStart-position {
 			return "", 0, false, errors.New("soak canary Git pack large offset is invalid")
 		}
-		large := binary.BigEndian.Uint64(body[position : position+8])
-		if large > uint64(^uint64(0)>>1) {
-			return "", 0, false, errors.New("soak canary Git pack offset exceeds limit")
+		left, right, boundsErr := checkedSoakCanaryGitSliceBounds(total, position, 8)
+		if boundsErr != nil {
+			return "", 0, false, boundsErr
 		}
-		offset = int64(large)
+		offset, err = checkedSoakCanaryGitInt64(binary.BigEndian.Uint64(body[left:right]))
+		if err != nil {
+			return "", 0, false, err
+		}
 	}
 	packPath := strings.TrimSuffix(indexPath, ".idx") + ".pack"
-	pack, err := os.Open(packPath)
+	pack, _, err := openSoakCanaryGitMetadataRegular(commonDir, packPath)
 	if err != nil {
 		return "", 0, false, err
 	}
@@ -841,6 +1133,10 @@ func findSoakCanaryGitPackedOffset(
 	info, err := pack.Stat()
 	if err != nil || !info.Mode().IsRegular() || info.Size() < 12+sha1.Size {
 		return "", 0, false, errors.New("soak canary Git pack is unsafe")
+	}
+	packEnd, err := checkedSoakCanaryGitSubtractInt64(info.Size(), sha1.Size)
+	if err != nil {
+		return "", 0, false, err
 	}
 	var header [12]byte
 	if _, err := pack.ReadAt(header[:], 0); err != nil ||
@@ -850,13 +1146,21 @@ func findSoakCanaryGitPackedOffset(
 		return "", 0, false, errors.New("soak canary Git pack header is invalid")
 	}
 	var trailer [sha1.Size]byte
-	if _, err := pack.ReadAt(trailer[:], info.Size()-sha1.Size); err != nil {
+	if _, err := pack.ReadAt(trailer[:], packEnd); err != nil {
 		return "", 0, false, err
 	}
-	if !bytes.Equal(trailer[:], body[len(body)-2*sha1.Size:len(body)-sha1.Size]) {
+	packChecksumLeft, packChecksumRight, err := checkedSoakCanaryGitSliceBounds(
+		total,
+		trailerStart,
+		sha1.Size,
+	)
+	if err != nil {
+		return "", 0, false, err
+	}
+	if !bytes.Equal(trailer[:], body[packChecksumLeft:packChecksumRight]) {
 		return "", 0, false, errors.New("soak canary Git pack checksum binding mismatch")
 	}
-	if offset < 12 || offset >= info.Size()-sha1.Size {
+	if offset < 12 || offset >= packEnd {
 		return "", 0, false, errors.New("soak canary Git pack offset is invalid")
 	}
 	return packPath, offset, true, nil
@@ -873,13 +1177,17 @@ func (store soakCanaryGitObjectStore) packObjectAt(
 	}
 	seen[objectOffset] = true
 	defer delete(seen, objectOffset)
-	file, err := os.Open(packPath)
+	file, _, err := openSoakCanaryGitMetadataRegular(store.commonDir, packPath)
 	if err != nil {
 		return soakCanaryGitObject{}, err
 	}
 	defer file.Close()
 	info, err := file.Stat()
-	if err != nil || objectOffset < 12 || objectOffset >= info.Size()-sha1.Size {
+	if err != nil {
+		return soakCanaryGitObject{}, err
+	}
+	packEnd, err := checkedSoakCanaryGitSubtractInt64(info.Size(), sha1.Size)
+	if err != nil || objectOffset < 12 || objectOffset >= packEnd {
 		return soakCanaryGitObject{}, errors.New("soak canary Git pack object offset is invalid")
 	}
 	position := objectOffset
@@ -888,20 +1196,24 @@ func (store soakCanaryGitObjectStore) packObjectAt(
 		return soakCanaryGitObject{}, err
 	}
 	objectType := (first >> 4) & 7
-	size := int64(first & 0x0f)
+	size := uint64(first & 0x0f)
 	shift := uint(4)
 	for first&0x80 != 0 {
 		first, err = readSoakCanaryGitByteAt(file, &position)
 		if err != nil {
 			return soakCanaryGitObject{}, err
 		}
-		if shift >= 63 || int64(first&0x7f) > (soakCanaryGitMaxObjectBytes>>shift) {
+		if shift >= 64 {
 			return soakCanaryGitObject{}, errors.New("soak canary Git pack object size exceeds limit")
 		}
-		size |= int64(first&0x7f) << shift
+		part := uint64(first & 0x7f)
+		if part > math.MaxUint64>>shift {
+			return soakCanaryGitObject{}, errors.New("soak canary Git pack object size overflows")
+		}
+		size |= part << shift
 		shift += 7
 	}
-	if size < 0 || size > soakCanaryGitMaxObjectBytes {
+	if size > soakCanaryGitMaxObjectBytes {
 		return soakCanaryGitObject{}, errors.New("soak canary Git pack object size exceeds limit")
 	}
 	var baseOffset int64
@@ -912,41 +1224,69 @@ func (store soakCanaryGitObjectStore) packObjectAt(
 		if err != nil {
 			return soakCanaryGitObject{}, err
 		}
-		distance := int64(value & 0x7f)
+		distance := uint64(value & 0x7f)
 		for value&0x80 != 0 {
 			value, err = readSoakCanaryGitByteAt(file, &position)
 			if err != nil {
 				return soakCanaryGitObject{}, err
 			}
-			if distance > (1<<56)-1 {
-				return soakCanaryGitObject{}, errors.New("soak canary Git pack delta offset exceeds limit")
+			incremented, addErr := checkedSoakCanaryGitAdd(distance, 1)
+			if addErr != nil || incremented > math.MaxUint64>>7 {
+				return soakCanaryGitObject{}, errors.New("soak canary Git pack delta offset overflows")
 			}
-			distance = ((distance + 1) << 7) | int64(value&0x7f)
+			distance = (incremented << 7) | uint64(value&0x7f)
 		}
-		baseOffset = objectOffset - distance
+		distanceInt64, convertErr := checkedSoakCanaryGitInt64(distance)
+		if convertErr != nil {
+			return soakCanaryGitObject{}, convertErr
+		}
+		baseOffset, err = checkedSoakCanaryGitSubtractInt64(objectOffset, distanceInt64)
 		if baseOffset < 12 {
 			return soakCanaryGitObject{}, errors.New("soak canary Git pack delta base offset is invalid")
 		}
 	case 7:
+		if position > packEnd || int64(sha1.Size) > packEnd-position {
+			return soakCanaryGitObject{}, errors.New("soak canary Git pack ref delta base is truncated")
+		}
 		if _, err := file.ReadAt(baseOID[:], position); err != nil {
 			return soakCanaryGitObject{}, err
 		}
-		position += sha1.Size
+		position, err = checkedSoakCanaryGitAddInt64(position, sha1.Size)
+		if err != nil {
+			return soakCanaryGitObject{}, err
+		}
 	case 1, 2, 3, 4:
 	default:
 		return soakCanaryGitObject{}, errors.New("soak canary Git pack object type is unsupported")
 	}
+	if position > packEnd {
+		return soakCanaryGitObject{}, errors.New("soak canary Git pack object data offset is invalid")
+	}
+	sectionLength := packEnd - position
 	reader, err := zlib.NewReader(io.NewSectionReader(
 		file,
 		position,
-		info.Size()-sha1.Size-position,
+		sectionLength,
 	))
 	if err != nil {
 		return soakCanaryGitObject{}, errors.New("soak canary Git pack object compression is corrupt")
 	}
-	data, readErr := io.ReadAll(io.LimitReader(reader, soakCanaryGitMaxObjectBytes+1))
+	if err := store.budget.reserve(size); err != nil {
+		reader.Close()
+		return soakCanaryGitObject{}, err
+	}
+	sizeInt, err := checkedSoakCanaryGitInt(size)
+	if err != nil {
+		reader.Close()
+		return soakCanaryGitObject{}, err
+	}
+	data := make([]byte, sizeInt)
+	_, readErr := io.ReadFull(reader, data)
+	var extra [1]byte
+	extraCount, extraErr := reader.Read(extra[:])
 	closeErr := reader.Close()
-	if readErr != nil || closeErr != nil || int64(len(data)) != size {
+	if readErr != nil || closeErr != nil || extraCount != 0 ||
+		(extraErr != nil && extraErr != io.EOF) {
 		return soakCanaryGitObject{}, errors.New("soak canary Git pack object data is corrupt")
 	}
 	switch objectType {
@@ -963,7 +1303,7 @@ func (store soakCanaryGitObjectStore) packObjectAt(
 		if err != nil {
 			return soakCanaryGitObject{}, err
 		}
-		result, err := applySoakCanaryGitDelta(base.data, data)
+		result, err := applySoakCanaryGitDelta(base.data, data, store.budget)
 		if err != nil {
 			return soakCanaryGitObject{}, err
 		}
@@ -977,78 +1317,107 @@ func readSoakCanaryGitByteAt(file *os.File, offset *int64) (byte, error) {
 	if _, err := file.ReadAt(body[:], *offset); err != nil {
 		return 0, err
 	}
-	*offset = *offset + 1
+	next, err := checkedSoakCanaryGitAddInt64(*offset, 1)
+	if err != nil {
+		return 0, err
+	}
+	*offset = next
 	return body[0], nil
 }
 
-func applySoakCanaryGitDelta(base, delta []byte) ([]byte, error) {
+func applySoakCanaryGitDelta(
+	base, delta []byte,
+	budget *soakCanaryGitBudget,
+) ([]byte, error) {
 	baseSize, offset, err := readSoakCanaryGitDeltaSize(delta, 0)
-	if err != nil || baseSize != int64(len(base)) {
+	if err != nil || baseSize != uint64(len(base)) {
 		return nil, errors.New("soak canary Git delta base size is invalid")
 	}
 	resultSize, offset, err := readSoakCanaryGitDeltaSize(delta, offset)
-	if err != nil || resultSize < 0 || resultSize > soakCanaryGitMaxObjectBytes {
+	if err != nil || resultSize > soakCanaryGitMaxObjectBytes {
 		return nil, errors.New("soak canary Git delta result size is invalid")
 	}
-	result := make([]byte, 0, resultSize)
-	for offset < len(delta) {
+	if err := budget.reserve(resultSize); err != nil {
+		return nil, err
+	}
+	resultCapacity, err := checkedSoakCanaryGitInt(resultSize)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]byte, 0, resultCapacity)
+	deltaLength := uint64(len(delta))
+	for offset < deltaLength {
 		command := delta[offset]
 		offset++
 		if command&0x80 == 0 {
-			count := int(command)
-			if count == 0 || offset+count > len(delta) ||
-				int64(len(result)+count) > resultSize {
+			count := uint64(command)
+			start, end, boundsErr := checkedSoakCanaryGitSliceBounds(deltaLength, offset, count)
+			if count == 0 || boundsErr != nil || count > resultSize ||
+				uint64(len(result)) > resultSize-count {
 				return nil, errors.New("soak canary Git delta literal is invalid")
 			}
-			result = append(result, delta[offset:offset+count]...)
-			offset += count
+			result = append(result, delta[start:end]...)
+			offset, err = checkedSoakCanaryGitAdd(offset, count)
+			if err != nil {
+				return nil, err
+			}
 			continue
 		}
-		copyOffset := 0
-		copySize := 0
+		var copyOffset uint64
+		var copySize uint64
 		for bit := byte(0); bit < 4; bit++ {
 			if command&(1<<bit) != 0 {
-				if offset >= len(delta) {
+				if offset >= deltaLength {
 					return nil, errors.New("soak canary Git delta copy offset is truncated")
 				}
-				copyOffset |= int(delta[offset]) << (8 * bit)
+				copyOffset |= uint64(delta[offset]) << (8 * bit)
 				offset++
 			}
 		}
 		for bit := byte(0); bit < 3; bit++ {
 			if command&(1<<(4+bit)) != 0 {
-				if offset >= len(delta) {
+				if offset >= deltaLength {
 					return nil, errors.New("soak canary Git delta copy size is truncated")
 				}
-				copySize |= int(delta[offset]) << (8 * bit)
+				copySize |= uint64(delta[offset]) << (8 * bit)
 				offset++
 			}
 		}
 		if copySize == 0 {
 			copySize = 0x10000
 		}
-		if copyOffset < 0 || copySize < 0 || copyOffset+copySize > len(base) ||
-			int64(len(result)+copySize) > resultSize {
+		start, end, boundsErr := checkedSoakCanaryGitSliceBounds(
+			uint64(len(base)),
+			copyOffset,
+			copySize,
+		)
+		if boundsErr != nil || copySize > resultSize ||
+			uint64(len(result)) > resultSize-copySize {
 			return nil, errors.New("soak canary Git delta copy is out of bounds")
 		}
-		result = append(result, base[copyOffset:copyOffset+copySize]...)
+		result = append(result, base[start:end]...)
 	}
-	if int64(len(result)) != resultSize {
+	if uint64(len(result)) != resultSize {
 		return nil, errors.New("soak canary Git delta result length mismatch")
 	}
 	return result, nil
 }
 
-func readSoakCanaryGitDeltaSize(body []byte, offset int) (int64, int, error) {
-	var value int64
+func readSoakCanaryGitDeltaSize(body []byte, offset uint64) (uint64, uint64, error) {
+	var value uint64
 	var shift uint
+	length := uint64(len(body))
 	for {
-		if offset >= len(body) || shift >= 63 {
+		if offset >= length || shift >= 64 {
 			return 0, offset, errors.New("soak canary Git delta size is truncated")
 		}
 		current := body[offset]
 		offset++
-		value |= int64(current&0x7f) << shift
+		part := uint64(current & 0x7f)
+		if part > math.MaxUint64>>shift {
+			return 0, offset, errors.New("soak canary Git delta size overflows")
+		}
+		value |= part << shift
 		if current&0x80 == 0 {
 			return value, offset, nil
 		}

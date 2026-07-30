@@ -210,6 +210,136 @@ func TestSoakCanaryGitVerifierSupportsPackedRefsAndObjects(t *testing.T) {
 	}
 }
 
+func TestSoakCanaryGitVerifierRejectsUnsafeMetadataComponents(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*testing.T, string, string)
+	}{
+		{
+			name: "intermediate reference symlink",
+			mutate: func(t *testing.T, root, _ string) {
+				refs := filepath.Join(root, ".git", "refs")
+				outside := filepath.Join(t.TempDir(), "refs")
+				if err := os.Rename(refs, outside); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(outside, refs); err != nil {
+					t.Skipf("symlink unavailable: %v", err)
+				}
+			},
+		},
+		{
+			name: "final index symlink",
+			mutate: func(t *testing.T, root, _ string) {
+				index := filepath.Join(root, ".git", "index")
+				outside := filepath.Join(t.TempDir(), "index")
+				if err := os.Rename(index, outside); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(outside, index); err != nil {
+					t.Skipf("symlink unavailable: %v", err)
+				}
+			},
+		},
+		{
+			name: "loose object symlink",
+			mutate: func(t *testing.T, root, head string) {
+				object := filepath.Join(root, ".git", "objects", head[:2], head[2:])
+				outside := filepath.Join(t.TempDir(), "object")
+				if err := os.Rename(object, outside); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(outside, object); err != nil {
+					t.Skipf("symlink unavailable: %v", err)
+				}
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			head := initializeSoakCanaryGitRepository(t, root)
+			test.mutate(t, root, head)
+			err := (InProcessSoakCanaryGitVerifier{}).Verify(root, head)
+			if err == nil || !strings.Contains(strings.ToLower(err.Error()), "unsafe") {
+				t.Fatalf("unsafe metadata accepted or wrong error: %v", err)
+			}
+		})
+	}
+}
+
+func TestSoakCanaryGitVerifierRejectsPackedObjectSymlink(t *testing.T) {
+	root := t.TempDir()
+	head := initializeSoakCanaryGitRepository(t, root)
+	runSoakCanaryTestGit(t, root, "gc", "--prune=now")
+	packs, err := filepath.Glob(filepath.Join(root, ".git", "objects", "pack", "*.pack"))
+	if err != nil || len(packs) != 1 {
+		t.Fatalf("locate packed Git object: packs=%v err=%v", packs, err)
+	}
+	outside := filepath.Join(t.TempDir(), "object.pack")
+	if err := os.Rename(packs[0], outside); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, packs[0]); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	err = (InProcessSoakCanaryGitVerifier{}).Verify(root, head)
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "unsafe") {
+		t.Fatalf("unsafe packed-object symlink accepted or wrong error: %v", err)
+	}
+}
+
+func TestSoakCanaryGitVerifierRejectsRepositoryRootSymlink(t *testing.T) {
+	root := t.TempDir()
+	head := initializeSoakCanaryGitRepository(t, root)
+	link := filepath.Join(t.TempDir(), "repository")
+	if err := os.Symlink(root, link); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	err := (InProcessSoakCanaryGitVerifier{}).Verify(link, head)
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "root") {
+		t.Fatalf("repository-root symlink accepted or wrong error: %v", err)
+	}
+}
+
+func TestSoakCanaryGitObjectBudgetIsCumulativeAcrossDeltas(t *testing.T) {
+	base := []byte("abcdefgh")
+	delta := []byte{
+		8,
+		8,
+		0x90, 8,
+	}
+	budget := newSoakCanaryGitBudget(15)
+	if _, err := applySoakCanaryGitDelta(base, delta, budget); err != nil {
+		t.Fatalf("first bounded delta failed: %v", err)
+	}
+	if _, err := applySoakCanaryGitDelta(base, delta, budget); err == nil ||
+		!strings.Contains(strings.ToLower(err.Error()), "budget") {
+		t.Fatalf("cumulative delta budget exhaustion accepted: %v", err)
+	}
+}
+
+func TestSoakCanaryGitCheckedArithmeticRejectsMalformedBounds(t *testing.T) {
+	if _, err := checkedSoakCanaryGitAdd(^uint64(0), 1); err == nil {
+		t.Fatal("uint64 addition overflow accepted")
+	}
+	if _, err := checkedSoakCanaryGitMultiply(^uint64(0), 2); err == nil {
+		t.Fatal("uint64 multiplication overflow accepted")
+	}
+	if _, _, err := checkedSoakCanaryGitSliceBounds(16, 15, 2); err == nil {
+		t.Fatal("slice end overflow accepted")
+	}
+	if _, err := checkedSoakCanaryGitInt(^uint64(0)); err == nil {
+		t.Fatal("platform int overflow accepted")
+	}
+	if _, err := checkedSoakCanaryGitSubtractInt64(12, 13); err == nil {
+		t.Fatal("negative pack subtraction accepted")
+	}
+	if _, err := checkedSoakCanaryGitAddInt64(int64(^uint64(0)>>1), 1); err == nil {
+		t.Fatal("int64 addition overflow accepted")
+	}
+}
+
 func TestSoakCanaryRunningCheckpointFailureReapsChildAndRestartFailsClosed(t *testing.T) {
 	fixture := validSoakCanaryFixture(t)
 	clock := &soakCanaryFakeClock{now: time.Date(2026, 7, 29, 21, 0, 0, 0, time.UTC)}
