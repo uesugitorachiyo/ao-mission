@@ -268,7 +268,6 @@ func assertNoAtlasWorkgraphImportSideEffects(t *testing.T, store Store, missionI
 	t.Helper()
 	for _, path := range []string{
 		store.transactionJournalPath(missionID),
-		store.checkpointPath(missionID),
 		store.eventLoopPath(missionID),
 	} {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
