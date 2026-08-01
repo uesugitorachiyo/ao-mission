@@ -110,14 +110,14 @@ func objectiveLifecycleCommands(missionID string) []string {
 }
 
 func NextActionForRecord(r Record) RouteDecision {
-	if r.WorkflowContract == nil {
+	if r.WorkflowContract == nil && len(r.ArtifactRefs) == 0 {
 		return NextAction(r)
 	}
 	return RouteDecision{
 		Schema:          RouteSchema,
 		MissionID:       r.MissionID,
 		Route:           r.CurrentRoute,
-		Reason:          "follow persisted objective workflow contract",
+		Reason:          "follow persisted workflow state",
 		SafeToRequest:   true,
 		SafeToExecute:   false,
 		SafeToPromote:   false,
