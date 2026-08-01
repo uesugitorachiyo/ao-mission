@@ -62,6 +62,12 @@ It does not run an Atlas node, modify a repository, approve work, or publish.
 Invoke one continuation cycle after importing the evidence for each real node.
 Do not use a large repeat count to manufacture progress.
 
+The complex objective normally routes to `ao-atlas` immediately.
+A current Atlas route is not build authorization.
+Before Atlas creates the first monthly workgraph, the supervisor must produce
+or validate a fresh AO Blueprint pack and bounded build-authorization packet
+for that month's declared scope.
+
 ## Mission Prompt
 
 You are supervising AO Mission for one six-month AO Stack production-adoption
@@ -118,6 +124,8 @@ directory. A scope change requires a reviewed Architecture lifecycle decision.
 
 - AO Mission owns the program identity, durable ledger, routing, checkpoints,
   imported readbacks, and final reconciliation.
+- AO Blueprint owns the fresh monthly requirements pack, scope sufficiency,
+  traceability, and bounded build authorization required before Atlas.
 - AO Atlas owns one fresh dependency workgraph per month. Historical waves are
   immutable evidence and must not be resumed.
 - AO Foundry selects and delegates one dependency-ready implementation node at
@@ -285,9 +293,12 @@ At the start of each month:
 
 1. Verify the previous terminal index and artifact manifest independently.
 2. Inventory exact repository heads and unresolved operator decisions.
-3. Create a new Atlas workgraph identity; never resume an old monthly wave.
-4. Bind the lease, retry policy, timeouts, and measured duration estimate.
-5. Select one dependency-ready node and keep all other mutation nodes inactive.
+3. Produce or validate a fresh Blueprint pack and build authorization bound to
+   the monthly scope and current source inventory.
+4. Import that authorization into Atlas and create a new workgraph identity;
+   never resume an old monthly wave.
+5. Bind the lease, retry policy, timeouts, and measured duration estimate.
+6. Select one dependency-ready node and keep all other mutation nodes inactive.
 
 After each real node:
 
@@ -366,15 +377,20 @@ Completion does not authorize publication.
 
 1. Create the fresh Mission record and record its objective digest, supervisor
    source SHA, binary SHA-256, workspace root, and external state root.
-2. Create a fresh Month 1 Atlas workgraph identity with 8-12 bounded nodes.
-3. Run the provider-free 14-repository inventory and compare it with the
+2. Run the provider-free 14-repository inventory and compare it with the
    Architecture registry.
-4. Validate the AO2 `v0.5.7` reconciliation handoff and make it the first
+3. Compile and validate a fresh Month 1 Blueprint pack and bounded build
+   authorization from this approved objective, the inventory, and current
+   authority constraints.
+4. Import the Blueprint authorization into Atlas and create a fresh Month 1
+   workgraph identity with 8-12 bounded nodes.
+5. Validate the AO2 `v0.5.7` reconciliation handoff and make it the first
    dependency-safe candidate node if still current.
-5. Import the first Atlas readback, reconcile all Mission views, and preserve
+6. Import the first Atlas readback, reconcile all Mission views, and preserve
    one exact next action.
 
 The first execution readback must include the Mission ID, objective digest,
-supervisor SHA and binary digest, Month 1 workgraph identity, current route,
-authority statement, first node, exact next action, lease, state root, and
+supervisor SHA and binary digest, Blueprint pack and authorization identities
+and digests, Month 1 workgraph identity, current route, authority statement,
+first node, exact next action, lease, state root, and
 `final_response_allowed=false`.

@@ -38,6 +38,23 @@ shasum -a 256 "$MISSION_BIN"
 Keep using that binary until an AO Mission change has merged and passed the
 self-change procedure below.
 
+## Monthly Bootstrap
+
+The first monthly route may point at Atlas because the objective is complex.
+That route is a request for compilation, not authorization to compile or run
+work. Bootstrap every monthly campaign in this order:
+
+1. Mission records the approved monthly objective, source inventory, and
+   authority boundary.
+2. Blueprint emits a fresh requirements pack and bounded build authorization
+   for that exact monthly scope.
+3. Atlas validates the Blueprint artifacts and creates the fresh monthly
+   workgraph.
+4. Foundry receives only the first dependency-ready node after Atlas readback.
+
+Never reuse a historical Blueprint authorization merely because its prose is
+similar, and never let Mission or Atlas manufacture approval fields.
+
 ## Lease Contract
 
 One six-month program uses one Mission identity.
@@ -87,18 +104,20 @@ continuation step completed an implementation node.
 ## Per-Node Cycle
 
 1. Load and verify the Mission checkpoint and current monthly terminal index.
-2. Confirm the exact dependency-ready node and its authority class.
-3. Verify no other mutation node is active.
-4. Execute the node in an isolated source-owner branch or worktree.
-5. Run focused and applicable full gates.
-6. Open a bounded pull request, wait for hosted CI, merge only when green, and
+2. Verify the current monthly Blueprint and Atlas artifact identities and
+   digests.
+3. Confirm the exact dependency-ready node and its authority class.
+4. Verify no other mutation node is active.
+5. Execute the node in an isolated source-owner branch or worktree.
+6. Run focused and applicable full gates.
+7. Open a bounded pull request, wait for hosted CI, merge only when green, and
    synchronize the source owner's `main` when mutation is authorized.
-7. Record source heads, commands, exits, CI, artifact digests, rollback, and
+8. Record source heads, commands, exits, CI, artifact digests, rollback, and
    cleanup.
-8. Import Atlas, Foundry, scheduler, or source-owner readbacks into Mission as
+9. Import Atlas, Foundry, scheduler, or source-owner readbacks into Mission as
    applicable.
-9. Run one Mission continuation cycle.
-10. Reconcile status, inspect, checkpoint, event index, and Command readbacks.
+10. Run one Mission continuation cycle.
+11. Reconcile status, inspect, checkpoint, event index, and Command readbacks.
 
 Surface-specific `state_digest` values can differ because each surface has a
 different envelope. Canonical mission identity, correlation identity, payload,
