@@ -3114,6 +3114,8 @@ func TestSixMonthHandoffUsesCurrentExecutionContract(t *testing.T) {
 		"fresh Atlas workgraph",
 		"--max-iterations 1",
 		"It does not run an Atlas node",
+		"A current Atlas route is not build authorization",
+		"fresh AO Blueprint pack",
 		"AO Mission Self-Change Protocol",
 		"READY_FOR_SEPARATE_RELEASE_AUTHORIZATION",
 	} {
