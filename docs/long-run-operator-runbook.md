@@ -1,137 +1,170 @@
 # AO Mission Long-Run Operator Runbook
 
-Use this runbook when the operator asks for a 2-3 hour AO run, a doubled
-recommendation wave, a minimum node budget, or a correction that must not return
-after a short batch.
+Use this runbook for multi-repository AO programs that need durable Mission
+state across bounded execution leases. It supplements the canonical
+[six-month production-adoption handoff](ao-stack-six-month-roadmap-handoff-prompt.md).
 
-## Request Shape
+## Runtime Layout
 
-Start with an explicit lease and node budget:
+Use three distinct locations:
 
-```sh
-ao-mission start "<objective>"
-ao-mission continue --mission <mission-id> --until-done --max-iterations 60 --min-nodes 30 --min-minutes 120 --max-minutes 180 --return-only-when mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action --checkpoint-policy after_each_node_or_timed_interval
-```
+| Purpose | Location | Rule |
+| --- | --- | --- |
+| Owning source context | Clean AO Mission repository root | Start the supervisor here from clean, synchronized source. |
+| Shared workspace | Common parent of the active repository checkouts | Access sibling repositories; never use it as Mission's owning source context. |
+| Durable state and evidence | A campaign directory outside all repositories | Preserve across worktrees, rebuilds, restarts, and compaction. |
 
-Use at least 30 bounded nodes for a doubled wave. Use 120-180 minutes for the
-time lease. The mission may continue past the minimum node count when ready work
-or exact next actions remain.
+Set `AO_MISSION_HOME` or pass `--home <dir>` before the command name. Never
+commit the Mission store, generated readbacks, temporary bundles, or supervisor
+binaries.
 
-## Role Routing
+## Supervisor Pinning
 
-AO Mission owns the long-run lease, checkpoint policy, route reconciliation,
-return gate, final rollup, and feature-depth continuation pressure.
-
-AO Atlas owns the workgraph, context-heavy sequencing, exact next node
-selection, and final-state reconciliation packet. Atlas must refuse a final
-response while ready nodes, missing evidence, or exact next actions remain.
-
-AO Foundry owns exactly one bounded implementation node at a time. It produces
-node gate, candidate, rollback, implementation, test, verification, Sentinel,
-Promoter, and Command/readback evidence for that node.
-
-AO Command owns compact status readback across Mission, Atlas, Foundry,
-Promoter, checkpoint freshness, return gate, and early-return risk. It remains
-read-only.
-
-AO Blueprint is not a batching queue. Use Blueprint only for missing
-requirements, missing authorization, or an unclear safety boundary. Ready Atlas
-nodes route directly to Foundry, not back through Blueprint.
-
-## Stop Gate
-
-Do not stop after one PR, one CI pass, one Foundry import, one route decision,
-one rollup, one evidence artifact, or one short batch. Continue until one of
-these is true:
-
-- all generated nodes are complete, no ready nodes remain, no exact next action
-  remains, and `final_response_allowed=true`;
-- the lease minimums are met, no ready work remains, all required readbacks
-  agree, and Command status is complete;
-- a true hard blocker remains after safe repair, repack, or support work has
-  already been attempted.
-
-Treat `final_response_allowed=false`, ready nodes, stale checkpoints, stale route
-decisions, mismatched Foundry/Atlas/Command counts, or an `exact_next_action` as
-continuation pressure, not completion.
-
-## Per-Node Evidence
-
-Each bounded node should leave these artifacts or readbacks:
-
-- node gate;
-- candidate record;
-- rollback record;
-- Foundry import or owning-repo equivalent;
-- implementation evidence;
-- Sentinel/public-safety wording evidence where applicable;
-- Promoter no-promotion or promotion-readiness evidence where applicable;
-- Command/readback evidence where applicable;
-- focused tests;
-- verification command output;
-- PR, CI, merge, sync, and branch cleanup evidence when remote lifecycle is
-  available.
-
-Keep exactly one executable mutation node active at a time. Docs-only,
-readback-only, and evidence-only tasks still need the same rollback and
-verification trail.
-
-## Continuation Commands
-
-After each node or checkpoint interval, refresh the route and event evidence:
+Build a uniquely named supervisor from a clean AO Mission SHA and record both
+the source and binary digests:
 
 ```sh
-ao-mission mission events index --out tmp/mission-event-index.json
-ao-mission mission events query-index --index tmp/mission-event-index.json --out tmp/mission-timeline-query-index.json
-ao-mission mission events search --mission <mission-id> --query "route" --index tmp/mission-event-index.json --json
-ao-mission mission events search --mission <mission-id> --query "checkpoint" --index tmp/mission-event-index.json --json
-ao-mission mission events resume-prompt --mission <mission-id> --out tmp/<mission-id>-compaction-resume-prompt.json --json
-ao-mission mission dashboard --mission <mission-id> --compact --out tmp/<mission-id>-dashboard.json
-ao-mission command status --mission <mission-id> --json
-ao-mission final rollup --mission <mission-id>
-ao-mission final reconcile --mission <mission-id>
+# Run from the clean AO Mission repository root.
+export AO_STACK_CAMPAIGN="${AO_STACK_CAMPAIGN:-$HOME/.local/state/ao-stack/production-adoption-20260801}"
+export AO_MISSION_HOME="$AO_STACK_CAMPAIGN/mission-state"
+
+SUPERVISOR_SHA="$(git rev-parse HEAD)"
+MISSION_BIN="$AO_STACK_CAMPAIGN/bin/ao-mission-$SUPERVISOR_SHA"
+mkdir -p "$(dirname "$MISSION_BIN")" "$AO_MISSION_HOME" "$AO_STACK_CAMPAIGN/readbacks"
+go build -o "$MISSION_BIN" ./cmd/ao-mission
+shasum -a 256 "$MISSION_BIN"
 ```
 
-If final rollup emits Feature Depth Recommendations, convert them into the next
-Atlas workgraph wave with at least 10 concrete tasks by default and at least 30
-tasks for a doubled 2-3 hour request.
+Keep using that binary until an AO Mission change has merged and passed the
+self-change procedure below.
 
-## Prompt Template
+## Lease Contract
 
-Use this shape when handing a doubled wave back to Atlas:
+One six-month program uses one Mission identity.
+Each month uses one fresh Atlas workgraph.
+Execution happens in 120-180 minute leases with roughly 8-12 measured, useful
+nodes.
 
-```text
-You are AO Atlas, continuing the AO Mission doubled long-run wave.
+Before activation, bind:
 
-Do not ask the operator for permission. Do not stop after one repo, one PR, one
-CI pass, one Foundry import, one route decision, one evidence artifact, one
-rollup, or one short batch.
+- exact source-head inventory;
+- workgraph and node identities;
+- measured duration estimate and estimator source;
+- minimum and maximum lease duration;
+- retry count and retry-eligible failures;
+- node and aggregate timeouts;
+- checkpoint policy; and
+- return gate.
 
-Target 2-3 hours of useful work. Complete at least 30 bounded nodes unless all
-generated nodes are complete or a true hard blocker remains after safe repair,
-repack, and support work.
+Classify expensive scale tests before partitioning. A scale declaration and a
+repeat count must never multiply implicitly. Store requested and effective
+repeat values separately and reject unsafe amplification.
 
-Load the latest AO Mission lease, checkpoint bundle, event index, Atlas
-workgraph, Foundry rollup, Promoter readback, and Command compact status.
+## Mission Continuation Semantics
 
-Route ownership:
-- Mission owns lease, checkpoint, return gate, and final rollup.
-- Atlas owns workgraph/context-heavy sequencing and final-response refusal.
-- Foundry owns exactly one bounded implementation node at a time.
-- Command owns compact readback.
-- Blueprint is used only for missing requirements, missing authorization, or an
-  unclear safety boundary.
+`ao-mission continue` records routing, continuation, checkpoint, and return
+gate state. It does not execute repository work. A high `--max-iterations`
+value without imported node progress only appends repeated handoff records.
 
-For each node, produce node gate, candidate, rollback, implementation,
-Sentinel/public-safety, Promoter/no-promotion or promotion-readiness,
-Command/readback, tests, verification output, PR/CI/merge evidence when
-available, and branch cleanup evidence.
+Use one continuation cycle per real node:
 
-Final response is denied while ready nodes, exact next actions, stale
-checkpoints, stale route decisions, mismatched readbacks, or unmet lease
-minimums remain.
-
-Return only with completed node count, merged PRs, evidence roots, verification,
-clean repo status, Command readback, Foundry rollup, Atlas workgraph status, and
-at least 10 next Feature Depth Recommendations.
+```sh
+"$MISSION_BIN" --home "$AO_MISSION_HOME" continue \
+  --mission "$MISSION_ID" \
+  --until-done \
+  --max-iterations 1 \
+  --min-nodes 8 \
+  --min-minutes 120 \
+  --max-minutes 180 \
+  --return-only-when mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action \
+  --checkpoint-policy after_each_node_or_timed_interval
 ```
+
+The supervising agent performs or delegates the authorized source-owner node,
+imports its readbacks, and then invokes this command once. Do not claim that a
+continuation step completed an implementation node.
+
+## Per-Node Cycle
+
+1. Load and verify the Mission checkpoint and current monthly terminal index.
+2. Confirm the exact dependency-ready node and its authority class.
+3. Verify no other mutation node is active.
+4. Execute the node in an isolated source-owner branch or worktree.
+5. Run focused and applicable full gates.
+6. Open a bounded pull request, wait for hosted CI, merge only when green, and
+   synchronize the source owner's `main` when mutation is authorized.
+7. Record source heads, commands, exits, CI, artifact digests, rollback, and
+   cleanup.
+8. Import Atlas, Foundry, scheduler, or source-owner readbacks into Mission as
+   applicable.
+9. Run one Mission continuation cycle.
+10. Reconcile status, inspect, checkpoint, event index, and Command readbacks.
+
+Surface-specific `state_digest` values can differ because each surface has a
+different envelope. Canonical mission identity, correlation identity, payload,
+status, counts, authority, and exact next action must agree.
+
+## Checkpoint And Restart
+
+Inspect the durable state before and after every restart:
+
+```sh
+"$MISSION_BIN" --home "$AO_MISSION_HOME" status --mission "$MISSION_ID" --json
+"$MISSION_BIN" --home "$AO_MISSION_HOME" checkpoint inspect --mission "$MISSION_ID" --json
+"$MISSION_BIN" --home "$AO_MISSION_HOME" command status --mission "$MISSION_ID" --json
+```
+
+After a process restart, verify the Mission ID, objective digest, supervisor
+SHA, workgraph ID, checkpoint count, imported artifact digests, route, lease,
+and exact next action before resuming. A restart must not duplicate an external
+effect or create a replacement Mission.
+
+Perform at least one bounded checkpoint/restart and one compaction/replay in
+each monthly campaign. Validate manifests before deleting superseded runtime
+material.
+
+## AO Mission Self-Change
+
+When AO Mission itself needs modification:
+
+1. Leave the durable store outside all source checkouts.
+2. Keep the running supervisor pinned to its recorded clean SHA.
+3. Create an isolated AO Mission task worktree.
+4. Implement and verify the bounded source change there.
+5. Merge through a reviewed pull request with green hosted CI.
+6. Synchronize `main` and build a new uniquely named supervisor binary.
+7. Record old/new source SHAs and binary SHA-256 values.
+8. Read the existing Mission with the new binary.
+9. Verify objective, checkpoint, route, artifact, and next-action continuity.
+10. Resume the same Mission identity.
+
+Do not hand-edit Mission JSON, move the store into the worktree, or restart the
+program with a new identity merely because supervisor code changed.
+
+## Monthly Closure
+
+Each month closes with:
+
+- exact source-head and authority inventory;
+- canonical Atlas terminal index;
+- Mission status, inspect, checkpoint, event-index, and Command reconciliation;
+- node and CI evidence;
+- measured lease and timeout results;
+- blocker and operator-decision dispositions;
+- independently rehashed artifact manifest;
+- clean branch/worktree readback; and
+- one exact next-month action.
+
+Create a fresh workgraph for the next month. Never revive a historical wave.
+Monthly closure does not complete the six-month Mission.
+
+## Return Gate
+
+Final response remains denied while any authorized useful node, bounded repair,
+unreconciled readback, stale checkpoint, or exact next action remains.
+
+A true blocker report must identify the month, workgraph, node, repository,
+source SHA, command or workflow, run ID when applicable, artifact state,
+attempted repairs, and smallest operator action. Missing release, pilot,
+provider, credential, deployment, or migration authority is an approval gate;
+it must not be inferred from program progress.
