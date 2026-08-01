@@ -3426,6 +3426,41 @@ func TestMissionCompactCLIEmitsReadback(t *testing.T) {
 	}
 }
 
+func TestMissionCompactionPreservesConcreteExactNextAction(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	rec, err := s.Start("preserve the next ready Atlas node through compaction")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const nextAction = "send first safe Atlas node to AO Foundry"
+	if _, err := s.Update(rec.MissionID, func(r *Record) error {
+		r.ExactNextAction = nextAction
+		for i := 0; i < 4; i++ {
+			r.Steps = append(r.Steps, ContinuationStep{Schema: StepSchema, MissionID: r.MissionID, Iteration: i + 1, Route: "ao-foundry", Result: "handoff_required", ExactNextAction: nextAction, GeneratedAtUTC: "2026-08-01T00:00:00Z"})
+			AppendRouteHistory(r, RouteDecision{Schema: RouteSchema, MissionID: r.MissionID, Route: "ao-foundry", SafeToRequest: true, SafeToExecute: false, SafeToPromote: false, ExactNextAction: nextAction, GeneratedAtUTC: "2026-08-01T00:00:00Z"})
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	readback, err := CompactMissionLedger(s, rec.MissionID, LedgerCompactionOptions{KeepRouteHistory: 2, KeepSteps: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.ExactNextAction != nextAction {
+		t.Fatalf("compaction readback lost exact next action: got %q want %q", readback.ExactNextAction, nextAction)
+	}
+	compacted, err := s.Load(rec.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if compacted.ExactNextAction != nextAction {
+		t.Fatalf("compacted mission lost exact next action: got %q want %q", compacted.ExactNextAction, nextAction)
+	}
+}
+
 func TestMissionCompactDryRunDoesNotMutateRecord(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)

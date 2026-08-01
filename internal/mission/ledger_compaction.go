@@ -63,7 +63,6 @@ func CompactMissionLedger(s Store, missionID string, opts LedgerCompactionOption
 			StepsAfter:         len(r.Steps),
 		}
 		r.Evidence.LedgerCompaction = &counts
-		r.ExactNextAction = "mission ledger compacted; continue from latest retained route and step readbacks"
 		readback = LedgerCompactionReadback{
 			Schema:              "ao.mission.ledger-compaction-readback.v0.1",
 			MissionID:           r.MissionID,
