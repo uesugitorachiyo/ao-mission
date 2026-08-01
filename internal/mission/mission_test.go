@@ -3082,21 +3082,57 @@ func TestOperatorNextActionsDocsAreConcreteAndPublicSafe(t *testing.T) {
 	}
 	runbook := string(runbookBody)
 	for _, want := range []string{
-		"Target 2-3 hours",
-		"--min-nodes 30 --min-minutes 120 --max-minutes 180",
-		"AO Mission owns the long-run lease",
-		"AO Atlas owns the workgraph",
-		"AO Foundry owns exactly one bounded implementation node",
-		"AO Blueprint is not a batching queue",
-		"final_response_allowed=false",
-		"Feature Depth Recommendations",
-		"Do not stop after one PR",
+		"120-180 minute leases",
+		"8-12",
+		"fresh Atlas workgraph",
+		"It does not execute repository work",
+		"Use one continuation cycle per real node",
+		"repeat count must never multiply implicitly",
+		"AO Mission Self-Change",
+		"Final response remains denied",
 	} {
 		if !strings.Contains(runbook, want) {
 			t.Fatalf("long-run operator runbook missing %q", want)
 		}
 	}
 	if err := ValidatePublicSafeText(runbook); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSixMonthHandoffUsesCurrentExecutionContract(t *testing.T) {
+	path := filepath.Join("..", "..", "docs", "ao-stack-six-month-roadmap-handoff-prompt.md")
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(body)
+	for _, want := range []string{
+		"August 1, 2026 through January 31, 2027",
+		"Execution owner: AO Mission",
+		"current approved roadmap scope contains these 14 hosted repositories",
+		"fresh Atlas workgraph",
+		"--max-iterations 1",
+		"It does not run an Atlas node",
+		"AO Mission Self-Change Protocol",
+		"READY_FOR_SEPARATE_RELEASE_AUTHORIZATION",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("six-month handoff missing %q", want)
+		}
+	}
+	for _, stale := range []string{
+		"<workspace>",
+		"Baseline Truth As Of July 9, 2026",
+		"gpt-5.6-luna",
+		"gpt-5.6-terra",
+		"gpt-5.6-sol",
+	} {
+		if strings.Contains(text, stale) {
+			t.Fatalf("six-month handoff retained stale content %q", stale)
+		}
+	}
+	if err := ValidatePublicSafeText(text); err != nil {
 		t.Fatal(err)
 	}
 }
