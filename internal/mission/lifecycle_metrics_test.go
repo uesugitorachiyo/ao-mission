@@ -63,6 +63,43 @@ func TestMissionMetricsCLIEmitsAuditableReadback(t *testing.T) {
 	}
 }
 
+func TestMissionMetricsCLIClearsTerminalNextAction(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(dir)
+	record, err := store.Start("terminal mission metrics CLI")
+	if err != nil {
+		t.Fatal(err)
+	}
+	record.Status = "done"
+	record.CurrentRoute = "complete"
+	record.CurrentPhase = "complete"
+	record.ExactNextAction = "mission complete; read final rollup and recommended next tasks"
+	record.Evidence.AtlasRecommendation = &AtlasRecommendationReadbackCounts{
+		Status:               "completed",
+		TotalNodes:           10,
+		CompletedNodes:       10,
+		ReadyNodes:           0,
+		FinalResponseAllowed: true,
+		ReturnGateStatus:     "final_response_allowed",
+	}
+	if err := store.Save(record); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if code := Run([]string{"--home", dir, "mission", "metrics", "--mission", record.MissionID, "--json"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("terminal mission metrics failed: code=%d stderr=%s", code, stderr.String())
+	}
+	var metrics MissionLifecycleMetrics
+	if err := json.Unmarshal(stdout.Bytes(), &metrics); err != nil {
+		t.Fatal(err)
+	}
+	if !metrics.FinalResponseAllowed || metrics.ReturnGateStatus != "return_allowed" || metrics.ExactNextAction != "" {
+		t.Fatalf("terminal metrics retained an actionable continuation: %#v", metrics)
+	}
+}
+
 func TestLifecycleMetricsContractFixtureValidates(t *testing.T) {
 	path := filepath.Join("..", "..", "examples", "valid", "lifecycle-metrics-readback.json")
 	result, err := ValidateContractFile(path)

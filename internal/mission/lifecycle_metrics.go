@@ -32,6 +32,10 @@ func BuildMissionLifecycleMetrics(r Record) MissionLifecycleMetrics {
 	gate := EvaluateReturnGate(r)
 	completed := completedEvidenceNodes(r)
 	total, blocked, failed := missionNodeTotals(r)
+	exactNextAction := gate.ExactNextAction
+	if gate.FinalResponseAllowed {
+		exactNextAction = ""
+	}
 	return MissionLifecycleMetrics{
 		Schema:                            MissionLifecycleMetricsSchema,
 		MissionID:                         r.MissionID,
@@ -47,7 +51,7 @@ func BuildMissionLifecycleMetrics(r Record) MissionLifecycleMetrics {
 		HandoffStepsCountAsCompletedNodes: false,
 		FinalResponseAllowed:              gate.FinalResponseAllowed,
 		ReturnGateStatus:                  gate.Status,
-		ExactNextAction:                   gate.ExactNextAction,
+		ExactNextAction:                   exactNextAction,
 		SafeToExecute:                     false,
 		ExecutesWork:                      false,
 		ApprovesWork:                      false,
