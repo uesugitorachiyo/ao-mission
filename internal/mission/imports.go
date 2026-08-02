@@ -7,11 +7,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
 
 const correlationEvidenceImportKind = "correlation-evidence"
+
+var atlasWorkgraphNodeIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$`)
 
 type ImportReadback struct {
 	Schema                 string      `json:"schema"`
@@ -159,6 +162,13 @@ func importArtifact(
 	if err := validateCorrelatedAtlasWorkgraphIdentity(existing, kind, doc); err != nil {
 		return ImportReadback{}, err
 	}
+	atlasWorkgraphNextAction := ""
+	if kind == "atlas-workgraph" {
+		atlasWorkgraphNextAction, err = firstReadyAtlasWorkgraphNode(doc)
+		if err != nil {
+			return ImportReadback{}, err
+		}
+	}
 	ref := ArtifactRef{Schema: ArtifactRefSchema, Ref: refPath, Digest: digestBytes(body), Kind: kind}
 	r, err := s.updateWithCheckpointTransaction(missionID, func(rec *Record) error {
 		if chainReference != nil &&
@@ -179,7 +189,10 @@ func importArtifact(
 			rec.Evidence.AtlasWorkgraph = &counts
 			rec.CurrentRoute = "ao-foundry"
 			rec.CurrentPhase = "atlas_workgraph_ready"
-			rec.ExactNextAction = "send first safe Atlas node to AO Foundry"
+			rec.ExactNextAction = atlasWorkgraphNextAction
+			if rec.ExactNextAction == "" {
+				rec.ExactNextAction = "send first safe Atlas node to AO Foundry"
+			}
 			AppendRouteHistory(rec, routeFromRecord(*rec, "Atlas workgraph imported"))
 			gate := EvaluateReturnGate(*rec)
 			rec.ReturnGate = &gate
@@ -438,6 +451,53 @@ func countWorkgraphNodes(doc map[string]any) NodeCounts {
 		}
 	}
 	return counts
+}
+
+func firstReadyAtlasWorkgraphNode(doc map[string]any) (string, error) {
+	nodes, _ := doc["nodes"].([]any)
+	firstReady := ""
+	sawReady := false
+	for index, node := range nodes {
+		obj, _ := node.(map[string]any)
+		if stringFromAny(obj["status"]) != "ready" {
+			continue
+		}
+		id, idPresent, err := atlasWorkgraphNodeID(obj, "id")
+		if err != nil {
+			return "", fmt.Errorf("atlas-workgraph nodes[%d] %w", index, err)
+		}
+		nodeID, nodeIDPresent, err := atlasWorkgraphNodeID(obj, "node_id")
+		if err != nil {
+			return "", fmt.Errorf("atlas-workgraph nodes[%d] %w", index, err)
+		}
+		if idPresent && nodeIDPresent && id != nodeID {
+			return "", fmt.Errorf("atlas-workgraph nodes[%d] has conflicting id and node_id", index)
+		}
+		candidate := id
+		if candidate == "" {
+			candidate = nodeID
+		}
+		if candidate != "" && !atlasWorkgraphNodeIDPattern.MatchString(candidate) {
+			return "", fmt.Errorf("atlas-workgraph nodes[%d] identity must be a bounded ASCII identifier", index)
+		}
+		if !sawReady {
+			firstReady = candidate
+			sawReady = true
+		}
+	}
+	return firstReady, nil
+}
+
+func atlasWorkgraphNodeID(node map[string]any, field string) (string, bool, error) {
+	value, present := node[field]
+	if !present {
+		return "", false, nil
+	}
+	id, ok := value.(string)
+	if !ok || strings.TrimSpace(id) == "" {
+		return "", true, fmt.Errorf("%s must be a non-empty string", field)
+	}
+	return id, true, nil
 }
 
 func parseFoundryRollupCounts(doc map[string]any) FoundryRollupCounts {

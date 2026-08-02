@@ -45,7 +45,7 @@ func TestContinuePreservesImportedWorkflowRouteForLegacyMission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if continued.CurrentRoute != "ao-foundry" || continued.ExactNextAction != "send first safe Atlas node to AO Foundry" {
+	if continued.CurrentRoute != "ao-foundry" || continued.ExactNextAction != "node-1" {
 		t.Fatalf("continuation discarded imported route: route=%s next=%q", continued.CurrentRoute, continued.ExactNextAction)
 	}
 	if len(continued.Steps) != 1 || continued.Steps[0].Route != "ao-foundry" {
