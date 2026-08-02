@@ -133,6 +133,9 @@ func AppendRouteHistory(r *Record, decision RouteDecision) {
 	if decision.MissionID == "" {
 		decision.MissionID = r.MissionID
 	}
+	if decision.CorrelationID == "" {
+		decision.CorrelationID = r.CorrelationID
+	}
 	if decision.GeneratedAtUTC == "" {
 		decision.GeneratedAtUTC = now(nil)
 	}
