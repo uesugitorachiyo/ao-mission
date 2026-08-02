@@ -1,6 +1,13 @@
 package mission
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
+
+const pauseNextAction = "resume mission before continuation"
+const pauseBoundaryReason = "mission pause boundary"
 
 type ContinueOptions struct {
 	UntilDone        bool
@@ -79,21 +86,42 @@ func Continue(s Store, missionID string, opts ContinueOptions) (Record, error) {
 
 func Pause(s Store, id string) (Record, error) {
 	return s.Update(id, func(r *Record) error {
+		if usableResumeState(r.CurrentRoute, r.CurrentPhase, r.ExactNextAction) {
+			AppendRouteHistory(r, RouteDecision{
+				Schema:          RouteSchema,
+				MissionID:       r.MissionID,
+				CorrelationID:   r.CorrelationID,
+				Route:           r.CurrentRoute,
+				Reason:          pauseBoundaryReason,
+				SafeToRequest:   true,
+				SafeToExecute:   false,
+				SafeToPromote:   false,
+				ExactNextAction: r.ExactNextAction,
+				GeneratedAtUTC:  now(s.Clock),
+			})
+		}
 		r.Status = "paused"
 		r.CurrentPhase = "paused"
-		r.ExactNextAction = "resume mission before continuation"
+		r.ExactNextAction = pauseNextAction
+		gate := EvaluateReturnGate(*r)
+		gate.ExactNextAction = pauseNextAction
+		r.ReturnGate = &gate
+		reconciliation := BuildRouteReconciliation(*r)
+		reconciliation.ExactNextAction = pauseNextAction
+		r.Reconciliation = &reconciliation
 		return nil
 	})
 }
 func Resume(s Store, id string) (Record, error) {
 	return s.Update(id, func(r *Record) error {
-		r.Status = "active"
-		r.CurrentPhase = "routing"
-		if r.WorkflowContract != nil && r.CurrentRoute == r.WorkflowContract.InitialRoute {
-			r.ExactNextAction = r.WorkflowContract.ExactNextAction
-		} else {
-			r.ExactNextAction = NextActionForRecord(*r).ExactNextAction
+		state, err := durableResumeState(*r)
+		if err != nil {
+			return err
 		}
+		r.Status = "active"
+		r.CurrentRoute = state.Route
+		r.CurrentPhase = state.Phase
+		r.ExactNextAction = state.ExactNextAction
 		gate := EvaluateReturnGate(*r)
 		r.ReturnGate = &gate
 		reconciliation := BuildRouteReconciliation(*r)
@@ -101,6 +129,96 @@ func Resume(s Store, id string) (Record, error) {
 		return nil
 	})
 }
+
+type resumeState struct {
+	Route           string
+	Phase           string
+	ExactNextAction string
+}
+
+func durableResumeState(r Record) (resumeState, error) {
+	for index, checkpoint := range r.Checkpoints {
+		if checkpoint.Schema != MissionCheckpointSchema || checkpoint.MissionID != r.MissionID {
+			return resumeState{}, fmt.Errorf("Mission checkpoint %d identity is invalid", index+1)
+		}
+		if checkpoint.CorrelationID != r.CorrelationID {
+			return resumeState{}, fmt.Errorf("Mission checkpoint correlation does not match record")
+		}
+	}
+	for index, step := range r.Steps {
+		if step.Schema != StepSchema || step.MissionID != r.MissionID {
+			return resumeState{}, fmt.Errorf("Mission continuation step %d identity is invalid", index+1)
+		}
+		if step.CorrelationID != r.CorrelationID {
+			return resumeState{}, fmt.Errorf("Mission continuation step correlation does not match record")
+		}
+	}
+	for index, route := range r.RouteHistory {
+		if route.Schema != RouteSchema || route.MissionID != r.MissionID {
+			return resumeState{}, fmt.Errorf("Mission route history %d identity is invalid", index+1)
+		}
+		if route.CorrelationID != "" && route.CorrelationID != r.CorrelationID {
+			return resumeState{}, fmt.Errorf("Mission route history correlation does not match record")
+		}
+	}
+	for index := len(r.RouteHistory) - 1; index >= 0; index-- {
+		route := r.RouteHistory[index]
+		if route.Reason == pauseBoundaryReason && route.CorrelationID == r.CorrelationID &&
+			usableResumeState(route.Route, "routing", route.ExactNextAction) {
+			return resumeState{
+				Route: route.Route, Phase: "routing",
+				ExactNextAction: route.ExactNextAction,
+			}, nil
+		}
+	}
+	for index := len(r.Checkpoints) - 1; index >= 0; index-- {
+		checkpoint := r.Checkpoints[index]
+		if usableResumeState(checkpoint.Route, checkpoint.Phase, checkpoint.ExactNextAction) {
+			return resumeState{
+				Route: checkpoint.Route, Phase: checkpoint.Phase,
+				ExactNextAction: checkpoint.ExactNextAction,
+			}, nil
+		}
+	}
+	for index := len(r.Steps) - 1; index >= 0; index-- {
+		step := r.Steps[index]
+		if usableResumeState(step.Route, "handoff_required", step.ExactNextAction) {
+			return resumeState{
+				Route: step.Route, Phase: "handoff_required",
+				ExactNextAction: step.ExactNextAction,
+			}, nil
+		}
+	}
+	for index := len(r.RouteHistory) - 1; index >= 0; index-- {
+		route := r.RouteHistory[index]
+		if route.CorrelationID == r.CorrelationID {
+			if usableResumeState(route.Route, "routing", route.ExactNextAction) {
+				return resumeState{
+					Route: route.Route, Phase: "routing",
+					ExactNextAction: route.ExactNextAction,
+				}, nil
+			}
+		}
+	}
+	if r.WorkflowContract != nil &&
+		usableResumeState(r.WorkflowContract.InitialRoute, "routing", r.WorkflowContract.ExactNextAction) {
+		return resumeState{
+			Route: r.WorkflowContract.InitialRoute, Phase: "routing",
+			ExactNextAction: r.WorkflowContract.ExactNextAction,
+		}, nil
+	}
+	decision := NextAction(r)
+	return resumeState{
+		Route: decision.Route, Phase: "routing", ExactNextAction: decision.ExactNextAction,
+	}, nil
+}
+
+func usableResumeState(route, phase, action string) bool {
+	return strings.TrimSpace(route) != "" && route != "complete" &&
+		strings.TrimSpace(phase) != "" && phase != "paused" && phase != "complete" &&
+		strings.TrimSpace(action) != "" && action != pauseNextAction
+}
+
 func Stop(s Store, id string) (Record, error) {
 	return s.Update(id, func(r *Record) error {
 		r.Status = "stopped"

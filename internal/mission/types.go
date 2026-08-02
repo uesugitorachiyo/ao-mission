@@ -376,6 +376,7 @@ type SchedulerRecoveryCounts struct {
 type RouteDecision struct {
 	Schema          string `json:"schema"`
 	MissionID       string `json:"mission_id"`
+	CorrelationID   string `json:"correlation_id,omitempty"`
 	Route           string `json:"route"`
 	Reason          string `json:"reason"`
 	SafeToRequest   bool   `json:"safe_to_request"`
