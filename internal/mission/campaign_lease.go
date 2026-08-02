@@ -101,10 +101,14 @@ func EvaluateReturnGate(r Record) ReturnGate {
 		GeneratedAtUTC:       now(nil),
 	}
 	switch {
-	case r.Status == "done":
-		gate.Reason = "mission status is done"
 	case hardBlocker:
 		gate.Reason = "mission has a terminal hard blocker for operator review"
+	case readyNodes > 0:
+		gate.Status = "early_return_denied"
+		gate.FinalResponseAllowed = false
+		gate.Reason = fmt.Sprintf("ready Atlas nodes remain: %d", readyNodes)
+	case r.Status == "done":
+		gate.Reason = "mission status is done"
 	case r.Evidence.AtlasRecommendation != nil && !r.Evidence.AtlasRecommendation.FinalResponseAllowed:
 		gate.Status = "early_return_denied"
 		gate.FinalResponseAllowed = false
@@ -116,10 +120,6 @@ func EvaluateReturnGate(r Record) ReturnGate {
 		gate.Status = "early_return_denied"
 		gate.FinalResponseAllowed = false
 		gate.Reason = fmt.Sprintf("lease minimum unmet: completed_nodes=%d min_nodes=%d", completedNodes, minNodes)
-	case readyNodes > 0:
-		gate.Status = "early_return_denied"
-		gate.FinalResponseAllowed = false
-		gate.Reason = fmt.Sprintf("ready Atlas nodes remain: %d", readyNodes)
 	case strings.TrimSpace(r.ExactNextAction) != "" && r.Status != "done":
 		gate.Status = "early_return_denied"
 		gate.FinalResponseAllowed = false
