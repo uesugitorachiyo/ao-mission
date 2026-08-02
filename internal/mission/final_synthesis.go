@@ -47,6 +47,7 @@ func BuildAtlasWaveFinalSynthesis(r Record, evidenceRoot string) (AtlasWaveFinal
 	return AtlasWaveFinalSynthesis{
 		Schema:                                "ao.mission.atlas-wave-final-synthesis.v0.1",
 		Mission:                               mission,
+		CorrelationID:                         r.CorrelationID,
 		Status:                                status,
 		MissionID:                             r.MissionID,
 		CompletedNodes:                        completed,

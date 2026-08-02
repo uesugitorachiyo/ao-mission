@@ -194,6 +194,7 @@ type AtlasRecommendationReadbackCounts struct {
 
 type AtlasFinalSynthesisReadbackCounts struct {
 	MissionID            string `json:"mission_id,omitempty"`
+	CorrelationID        string `json:"correlation_id,omitempty"`
 	ContractVersion      string `json:"contract_version"`
 	Status               string `json:"status"`
 	TotalNodes           int    `json:"total_nodes"`
@@ -812,6 +813,7 @@ type MissionFinalReconciliationPacket struct {
 type AtlasWaveFinalSynthesis struct {
 	Schema                                string                       `json:"schema"`
 	Mission                               string                       `json:"mission"`
+	CorrelationID                         string                       `json:"correlation_id,omitempty"`
 	Status                                string                       `json:"status"`
 	MissionID                             string                       `json:"mission_id"`
 	CompletedNodes                        int                          `json:"completed_nodes"`

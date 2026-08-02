@@ -530,6 +530,7 @@ func parseAtlasRecommendationReadbackCounts(doc map[string]any) AtlasRecommendat
 func parseAtlasFinalSynthesisReadbackCounts(doc map[string]any) AtlasFinalSynthesisReadbackCounts {
 	return AtlasFinalSynthesisReadbackCounts{
 		MissionID:            stringFromAny(doc["mission_id"]),
+		CorrelationID:        stringFromAny(doc["correlation_id"]),
 		ContractVersion:      stringFromAny(doc["contract_version"]),
 		Status:               stringFromAny(doc["status"]),
 		TotalNodes:           intFromAny(doc["total_nodes"]),

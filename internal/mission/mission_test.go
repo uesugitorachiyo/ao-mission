@@ -1867,6 +1867,74 @@ func writeParentBoundAtlasFinalSynthesisReadback(t *testing.T, dir, missionID st
 	return parentBoundReadbackPath
 }
 
+func TestImportAtlasFinalSynthesisReadbackBindsCorrelatedMission(t *testing.T) {
+	tests := []struct {
+		name          string
+		correlationID *string
+		wantError     string
+	}{
+		{name: "matching", correlationID: stringPointer("corr-final-synthesis-001")},
+		{name: "missing", wantError: "correlation_id is required for correlated mission"},
+		{name: "mismatched", correlationID: stringPointer("corr-final-synthesis-other"), wantError: "correlation_id does not match mission"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			store := NewStore(dir)
+			contract, err := store.StartObjective("correlated final synthesis import", ObjectiveStartOptions{
+				CorrelationID: "corr-final-synthesis-001",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			path := writeParentBoundAtlasFinalSynthesisReadback(t, dir, contract.MissionID)
+			body, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var document map[string]any
+			if err := json.Unmarshal(body, &document); err != nil {
+				t.Fatal(err)
+			}
+			if tt.correlationID != nil {
+				document["correlation_id"] = *tt.correlationID
+			}
+			body, err = json.Marshal(document)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, body, 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = ImportArtifact(store, contract.MissionID, "atlas-final-synthesis-readback", path)
+			if tt.wantError == "" {
+				if err != nil {
+					t.Fatalf("matching correlation was rejected: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.wantError) {
+				t.Fatalf("got error %v, want %q", err, tt.wantError)
+			}
+		})
+	}
+
+	dir := t.TempDir()
+	store := NewStore(dir)
+	record, err := store.Start("legacy final synthesis import")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(store, record.MissionID, "atlas-final-synthesis-readback", writeParentBoundAtlasFinalSynthesisReadback(t, dir, record.MissionID)); err != nil {
+		t.Fatalf("legacy uncorrelated import regressed: %v", err)
+	}
+}
+
+func stringPointer(value string) *string {
+	return &value
+}
+
 func TestImportAtlasFinalSynthesisReadbackRejectsReadyNodeDrift(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)
@@ -2258,6 +2326,37 @@ func TestCLIFinalSynthesizeEmitsEvidenceRootPacket(t *testing.T) {
 	}
 	if packet.CurrentNodePRPending || packet.PromotionClaimed || packet.ClaimsAuthorityAdvance || !packet.RSIRemainsDenied || packet.ExecutesWork || packet.ApprovesWork || packet.MutatesRepositories {
 		t.Fatalf("final synthesis widened authority or kept stale pending state: %+v", packet)
+	}
+}
+
+func TestBuildAtlasWaveFinalSynthesisPreservesCorrelationID(t *testing.T) {
+	evidenceRoot := t.TempDir()
+	workgraph := `{"schema":"ao.atlas.workgraph.v0.1","mission":"mission-correlated","status":"completed","minimum_nodes":8,"target_minutes":145,"max_minutes":180,"completed_nodes":8,"ready_nodes":0,"blocked_nodes":0,"final_response_allowed":true,"exact_next_action":"read final synthesis"}`
+	if err := os.WriteFile(filepath.Join(evidenceRoot, "workgraph.json"), []byte(workgraph), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	closure := `{"schema":"ao.mission.post-merge-final-closure.v0.1","mission":"mission-correlated","status":"completed","completed_nodes":8,"ready_nodes":0,"blocked_nodes":0,"merged_prs":[610],"final_response_allowed":true}`
+	if err := os.WriteFile(filepath.Join(evidenceRoot, "post-merge-final-closure.json"), []byte(closure), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	packet, err := BuildAtlasWaveFinalSynthesis(Record{
+		MissionID:     "mission-correlated",
+		CorrelationID: "corr-external-repair-001",
+	}, evidenceRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := json.Marshal(packet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(body, &document); err != nil {
+		t.Fatal(err)
+	}
+	if document["correlation_id"] != "corr-external-repair-001" {
+		t.Fatalf("final synthesis lost correlation binding: %#v", document)
 	}
 }
 
