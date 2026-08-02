@@ -187,6 +187,12 @@ func importArtifact(
 		case kind == "atlas-workgraph":
 			counts := countWorkgraphNodes(doc)
 			rec.Evidence.AtlasWorkgraph = &counts
+			if counts.Ready > 0 {
+				rec.Status = "active"
+				rec.Evidence.AtlasRecommendation = nil
+				rec.Evidence.AtlasFinalSynthesis = nil
+				rec.Evidence.FoundryRollup = nil
+			}
 			rec.CurrentRoute = "ao-foundry"
 			rec.CurrentPhase = "atlas_workgraph_ready"
 			rec.ExactNextAction = atlasWorkgraphNextAction
