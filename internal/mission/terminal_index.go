@@ -118,21 +118,22 @@ type TerminalIndexImportReadback struct {
 }
 
 type terminalIndexObservation struct {
-	missionID      string
-	schema         string
-	completed      int
-	ready          int
-	blocked        int
-	failed         int
-	minimumNodes   int
-	minimumMinutes int
-	targetMinutes  int
-	maximumMinutes int
-	elapsedMinutes int
-	leaseStatus    string
-	final          bool
-	nextAction     string
-	safety         TerminalIndexSafety
+	missionID         string
+	schema            string
+	completed         int
+	ready             int
+	blocked           int
+	failed            int
+	minimumNodes      int
+	minimumMinutes    int
+	minimumMinutesSet bool
+	targetMinutes     int
+	maximumMinutes    int
+	elapsedMinutes    int
+	leaseStatus       string
+	final             bool
+	nextAction        string
+	safety            TerminalIndexSafety
 }
 
 func ImportTerminalIndex(root, indexPath, statePath string) (TerminalIndexImportReadback, error) {
@@ -414,13 +415,15 @@ func recomputeTerminalIndex(
 ) CanonicalTerminalIndex {
 	result := CanonicalTerminalIndex{}
 	leaseAuthority := observations["lease"]
-	if leaseAuthority.minimumMinutes == 0 {
-		leaseAuthority = rootObservation
-	}
 	result.Counts.Minimum = firstTerminalPositive(
 		leaseAuthority.minimumNodes, terminal.minimumNodes, rootObservation.minimumNodes,
 	)
-	result.Lease.MinimumMinutes = firstTerminalPositive(leaseAuthority.minimumMinutes, rootObservation.minimumMinutes)
+	minimumMinutesSet := leaseAuthority.minimumMinutesSet
+	result.Lease.MinimumMinutes = leaseAuthority.minimumMinutes
+	if !minimumMinutesSet {
+		minimumMinutesSet = rootObservation.minimumMinutesSet
+		result.Lease.MinimumMinutes = rootObservation.minimumMinutes
+	}
 	result.Lease.TargetMinutes = firstTerminalPositive(leaseAuthority.targetMinutes, rootObservation.targetMinutes)
 	result.Lease.MaximumMinutes = firstTerminalPositive(leaseAuthority.maximumMinutes, rootObservation.maximumMinutes)
 	if !hasTerminal {
@@ -430,7 +433,10 @@ func recomputeTerminalIndex(
 		result.Counts.Failed = rootObservation.failed
 		result.Counts.Total = result.Counts.Completed + result.Counts.Ready + result.Counts.Blocked + result.Counts.Failed
 		if duration, ok := observations["duration"]; ok {
-			result.Lease.MinimumMinutes = firstTerminalPositive(result.Lease.MinimumMinutes, duration.minimumMinutes)
+			if !minimumMinutesSet && duration.minimumMinutesSet {
+				minimumMinutesSet = true
+				result.Lease.MinimumMinutes = duration.minimumMinutes
+			}
 			result.Lease.TargetMinutes = firstTerminalPositive(result.Lease.TargetMinutes, duration.targetMinutes)
 			result.Lease.MaximumMinutes = firstTerminalPositive(result.Lease.MaximumMinutes, duration.maximumMinutes)
 			result.Lease.ElapsedMinutes = duration.elapsedMinutes
@@ -463,7 +469,7 @@ func recomputeTerminalIndex(
 	result.CompletionObserved = result.Counts.Minimum > 0 && terminal.completed >= result.Counts.Minimum
 	result.CanonicalEvidenceAgreement = true
 	switch {
-	case result.Lease.MinimumMinutes <= 0 || result.Lease.MaximumMinutes <= 0 || result.Lease.MaximumMinutes < result.Lease.MinimumMinutes:
+	case !minimumMinutesSet || result.Lease.MinimumMinutes < 0 || result.Lease.MaximumMinutes <= 0 || result.Lease.MaximumMinutes < result.Lease.MinimumMinutes:
 		result.Lease.Status = "invalid"
 		result.ConflictCodes = append(result.ConflictCodes, "lease_window_invalid")
 	case terminal.elapsedMinutes < result.Lease.MinimumMinutes:
@@ -638,20 +644,21 @@ func observeTerminalIndexArtifact(raw map[string]any) terminalIndexObservation {
 	supervisor, _ := raw["supervisor"].(map[string]any)
 	safety, _ := raw["safety_boundaries"].(map[string]any)
 	return terminalIndexObservation{
-		missionID:      terminalFirstString(raw, "mission_id", "mission"),
-		schema:         terminalFirstString(raw, "schema", "contract_version"),
-		completed:      terminalFirstInt(raw, counts, "completed", "completed_nodes"),
-		ready:          terminalFirstInt(raw, counts, "ready", "ready_nodes"),
-		blocked:        terminalFirstInt(raw, counts, "blocked", "blocked_nodes"),
-		failed:         terminalFirstInt(raw, counts, "failed", "failed_nodes"),
-		minimumNodes:   terminalFirstInt(raw, supervisor, "minimum_nodes", "min_nodes"),
-		minimumMinutes: terminalFirstInt(raw, supervisor, "minimum_minutes", "min_minutes"),
-		targetMinutes:  terminalFirstInt(raw, supervisor, "target_minutes"),
-		maximumMinutes: terminalFirstInt(raw, supervisor, "maximum_minutes", "max_minutes"),
-		elapsedMinutes: terminalFirstInt(raw, nil, "elapsed_minutes", "elapsed_minutes_observed"),
-		leaseStatus:    terminalString(raw, "lease_time_status"),
-		final:          terminalBool(raw, "final_response_allowed"),
-		nextAction:     terminalString(raw, "exact_next_action"),
+		missionID:         terminalFirstString(raw, "mission_id", "mission"),
+		schema:            terminalFirstString(raw, "schema", "contract_version"),
+		completed:         terminalFirstInt(raw, counts, "completed", "completed_nodes"),
+		ready:             terminalFirstInt(raw, counts, "ready", "ready_nodes"),
+		blocked:           terminalFirstInt(raw, counts, "blocked", "blocked_nodes"),
+		failed:            terminalFirstInt(raw, counts, "failed", "failed_nodes"),
+		minimumNodes:      terminalFirstInt(raw, supervisor, "minimum_nodes", "min_nodes"),
+		minimumMinutes:    terminalFirstInt(raw, supervisor, "minimum_minutes", "min_minutes"),
+		minimumMinutesSet: terminalHasInt(raw, supervisor, "minimum_minutes", "min_minutes"),
+		targetMinutes:     terminalFirstInt(raw, supervisor, "target_minutes"),
+		maximumMinutes:    terminalFirstInt(raw, supervisor, "maximum_minutes", "max_minutes"),
+		elapsedMinutes:    terminalFirstInt(raw, nil, "elapsed_minutes", "elapsed_minutes_observed"),
+		leaseStatus:       terminalString(raw, "lease_time_status"),
+		final:             terminalBool(raw, "final_response_allowed"),
+		nextAction:        terminalString(raw, "exact_next_action"),
 		safety: TerminalIndexSafety{
 			ExecutesWork:        terminalBool(raw, "executes_work") || terminalBool(safety, "executes_work"),
 			ApprovesWork:        terminalBool(raw, "approves_work") || terminalBool(safety, "approves_work"),
@@ -744,6 +751,18 @@ func terminalFirstInt(primary, secondary map[string]any, keys ...string) int {
 		}
 	}
 	return 0
+}
+
+func terminalHasInt(primary, secondary map[string]any, keys ...string) bool {
+	for _, source := range []map[string]any{primary, secondary} {
+		for _, key := range keys {
+			switch source[key].(type) {
+			case float64, json.Number:
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func firstTerminalPositive(values ...int) int {
