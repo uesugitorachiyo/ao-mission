@@ -292,7 +292,7 @@ ao-mission status --mission <mission-id>
 ## Continue Locally
 
 ```sh
-ao-mission continue --mission <mission-id> --until-done --max-iterations 20 --min-nodes 15 --min-minutes 120 --max-minutes 180
+ao-mission continue --mission <mission-id> --until-done --max-iterations 20 --min-nodes 15 --min-minutes 0 --max-minutes 180
 ao-mission mission history --mission <mission-id>
 ao-mission mission events index --out tmp/mission-event-index.json
 ao-mission mission events query-index --index tmp/mission-event-index.json --out tmp/mission-timeline-query-index.json

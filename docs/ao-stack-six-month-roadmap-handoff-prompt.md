@@ -50,7 +50,7 @@ MISSION_ID="$(printf '%s' "$MISSION_JSON" | jq -r '.mission_id')"
   --until-done \
   --max-iterations 1 \
   --min-nodes 8 \
-  --min-minutes 120 \
+  --min-minutes 0 \
   --max-minutes 180 \
   --return-only-when mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action \
   --checkpoint-policy after_each_node_or_timed_interval \
@@ -61,6 +61,8 @@ MISSION_ID="$(printf '%s' "$MISSION_JSON" | jq -r '.mission_id')"
 It does not run an Atlas node, modify a repository, approve work, or publish.
 Invoke one continuation cycle after importing the evidence for each real node.
 Do not use a large repeat count to manufacture progress.
+Useful work may finish before the target duration. An explicit zero-minute
+minimum must remain zero; never wait or pad execution to increase elapsed time.
 
 The complex objective normally routes to `ao-atlas` immediately.
 A current Atlas route is not build authorization.

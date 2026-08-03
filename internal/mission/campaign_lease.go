@@ -9,7 +9,7 @@ const (
 	GoalLeaseSchema         = "ao.mission.goal-lease.v0.3"
 	ReturnGateSchema        = "ao.mission.return-gate.v0.3"
 	defaultMinNodes         = 10
-	defaultMinMinutes       = 120
+	defaultMinMinutes       = 0
 	defaultMaxMinutes       = 180
 	defaultReturnOnlyWhen   = "mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action"
 	defaultCheckpointPolicy = "after_each_node_or_timed_interval"
@@ -22,7 +22,7 @@ func ensureGoalLease(r *Record, opts ContinueOptions) GoalLease {
 		minNodes = defaultMinNodes
 	}
 	minMinutes := opts.MinMinutes
-	if minMinutes <= 0 {
+	if minMinutes < 0 {
 		minMinutes = defaultMinMinutes
 	}
 	maxMinutes := opts.MaxMinutes
@@ -59,7 +59,9 @@ func ensureGoalLease(r *Record, opts ContinueOptions) GoalLease {
 	if r.GoalLease.MinNodes <= 0 {
 		r.GoalLease.MinNodes = minNodes
 	}
-	if r.GoalLease.MinMinutes <= 0 {
+	if opts.MinMinutesSet || opts.MinMinutes > 0 {
+		r.GoalLease.MinMinutes = minMinutes
+	} else if r.GoalLease.MinMinutes < 0 {
 		r.GoalLease.MinMinutes = minMinutes
 	}
 	if r.GoalLease.MaxMinutes <= 0 {

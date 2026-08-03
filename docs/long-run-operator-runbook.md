@@ -59,8 +59,9 @@ similar, and never let Mission or Atlas manufacture approval fields.
 
 One six-month program uses one Mission identity.
 Each month uses one fresh Atlas workgraph.
-Execution happens in 120-180 minute leases with roughly 8-12 measured, useful
-nodes.
+Execution targets roughly 120 minutes and hard-stops at 180 minutes, with
+roughly 6-10 measured, useful nodes. Useful work may finish early; elapsed time
+is not a completion requirement.
 
 Before activation, bind:
 
@@ -91,7 +92,7 @@ Use one continuation cycle per real node:
   --until-done \
   --max-iterations 1 \
   --min-nodes 8 \
-  --min-minutes 120 \
+  --min-minutes 0 \
   --max-minutes 180 \
   --return-only-when mission_done_or_true_hard_blocker_or_no_ready_work_and_no_exact_next_action \
   --checkpoint-policy after_each_node_or_timed_interval
@@ -100,6 +101,10 @@ Use one continuation cycle per real node:
 The supervising agent performs or delegates the authorized source-owner node,
 imports its readbacks, and then invokes this command once. Do not claim that a
 continuation step completed an implementation node.
+
+An explicit `--min-minutes 0` is meaningful and must remain zero in the durable
+lease. Omit the flag to preserve an existing historical lease. Never wait or
+pad work merely to increase elapsed duration.
 
 ## Per-Node Cycle
 

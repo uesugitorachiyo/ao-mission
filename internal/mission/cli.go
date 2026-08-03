@@ -704,11 +704,18 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 		if err := fs.Parse(args[1:]); err != nil {
 			return err
 		}
+		minMinutesSet := false
+		fs.Visit(func(current *flag.Flag) {
+			if current.Name == "min-minutes" {
+				minMinutesSet = true
+			}
+		})
 		r, err := Continue(s, *id, ContinueOptions{
 			UntilDone:        *until,
 			MaxIterations:    *max,
 			MinNodes:         *minNodes,
 			MinMinutes:       *minMinutes,
+			MinMinutesSet:    minMinutesSet,
 			MaxMinutes:       *maxMinutes,
 			ReturnOnlyWhen:   *returnOnlyWhen,
 			CheckpointPolicy: *checkpointPolicy,

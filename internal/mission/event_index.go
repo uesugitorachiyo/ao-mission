@@ -582,7 +582,7 @@ func BuildMissionDoctorReadback(s Store) MissionDoctorReadback {
 	for _, record := range records {
 		if record.GoalLease != nil {
 			readback.LeaseCount++
-			if record.GoalLease.MinNodes <= 0 || record.GoalLease.MinMinutes <= 0 || record.GoalLease.MaxMinutes <= 0 || strings.TrimSpace(record.GoalLease.ReturnOnlyWhen) == "" || strings.TrimSpace(record.GoalLease.CheckpointPolicy) == "" {
+			if record.GoalLease.MinNodes <= 0 || record.GoalLease.MinMinutes < 0 || record.GoalLease.MaxMinutes <= 0 || strings.TrimSpace(record.GoalLease.ReturnOnlyWhen) == "" || strings.TrimSpace(record.GoalLease.CheckpointPolicy) == "" {
 				readback.LeaseHealthStatus = "invalid"
 				readback.RiskMissions = append(readback.RiskMissions, missionDoctorRisk(record.MissionID, "lease_health", "invalid", "goal lease is missing minimums or stop/checkpoint policy", "repair goal lease before continuation"))
 				readback.Status = "blocked"

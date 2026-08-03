@@ -14,12 +14,16 @@ type ContinueOptions struct {
 	MaxIterations    int
 	MinNodes         int
 	MinMinutes       int
+	MinMinutesSet    bool
 	MaxMinutes       int
 	ReturnOnlyWhen   string
 	CheckpointPolicy string
 }
 
 func Continue(s Store, missionID string, opts ContinueOptions) (Record, error) {
+	if opts.MinMinutes < 0 {
+		return Record{}, errors.New("min-minutes must be zero or greater")
+	}
 	if opts.MaxIterations <= 0 {
 		opts.MaxIterations = 1
 	}

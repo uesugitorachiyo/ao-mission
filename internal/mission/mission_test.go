@@ -3181,8 +3181,10 @@ func TestOperatorNextActionsDocsAreConcreteAndPublicSafe(t *testing.T) {
 	}
 	runbook := string(runbookBody)
 	for _, want := range []string{
-		"120-180 minute leases",
-		"8-12",
+		"targets roughly 120 minutes and hard-stops at 180 minutes",
+		"6-10",
+		"--min-minutes 0",
+		"Never wait or",
 		"fresh Atlas workgraph",
 		"It does not execute repository work",
 		"Use one continuation cycle per real node",
@@ -3215,6 +3217,8 @@ func TestSixMonthHandoffUsesCurrentExecutionContract(t *testing.T) {
 		"It does not run an Atlas node",
 		"A current Atlas route is not build authorization",
 		"fresh AO Blueprint pack",
+		"--min-minutes 0",
+		"never wait or pad execution",
 		"AO Mission Self-Change Protocol",
 		"READY_FOR_SEPARATE_RELEASE_AUTHORIZATION",
 	} {
