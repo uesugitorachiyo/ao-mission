@@ -114,6 +114,19 @@ func TestImportTerminalIndexAcceptsCanonicalizedFresh60Closure(t *testing.T) {
 	}
 }
 
+func TestImportTerminalIndexPreservesExplicitZeroMinimumMinutes(t *testing.T) {
+	root, indexPath := writeMissionTerminalFixture(t, terminalFixtureOptions{zeroMinimumMinutes: true})
+
+	readback, err := ImportTerminalIndex(root, indexPath, filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.Counts.Minimum != 40 || readback.Lease.MinimumMinutes != 0 ||
+		!readback.ReadinessPassed || !readback.FinalResponseAllowed {
+		t.Fatalf("explicit zero-minute lease changed during import: %+v", readback)
+	}
+}
+
 func TestImportTerminalIndexRejectsInvalidOrContradictoryEvidence(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -263,6 +276,7 @@ func writeFailClosedTimingFixture(t *testing.T, elapsed int, sourceLabel string)
 type terminalFixtureOptions struct {
 	generatedAt         string
 	terminalNextAction  string
+	zeroMinimumMinutes  bool
 	ready               int
 	alterArtifactDigest bool
 	alterIndexDigest    bool
@@ -296,7 +310,11 @@ func writeMissionTerminalFixtureAtRoot(t *testing.T, root string, options termin
 		completed = 39
 	}
 	terminalNextAction := defaultTerminalString(options.terminalNextAction, "none")
-	leaseBody := []byte(`{"schema":"lease.v1","mission_id":"fixture-wave","minimum_nodes":40,"minimum_minutes":120,"target_minutes":150,"maximum_minutes":180}`)
+	minimumMinutes := 120
+	if options.zeroMinimumMinutes {
+		minimumMinutes = 0
+	}
+	leaseBody := []byte(fmt.Sprintf(`{"schema":"lease.v1","mission_id":"fixture-wave","minimum_nodes":40,"minimum_minutes":%d,"target_minutes":150,"maximum_minutes":180}`, minimumMinutes))
 	rootCompleted := 0
 	rootReady := 40
 	if options.nonMonotonic {
@@ -330,7 +348,7 @@ func writeMissionTerminalFixtureAtRoot(t *testing.T, root string, options termin
 		GeneratedAtUTC:             defaultTerminalString(options.generatedAt, "2026-07-28T12:00:00Z"),
 		TerminalReference:          "terminal.json",
 		Counts:                     TerminalIndexCounts{Total: 40, Minimum: 40, Completed: completed, Ready: options.ready},
-		Lease:                      TerminalIndexLease{MinimumMinutes: 120, TargetMinutes: 150, MaximumMinutes: 180, ElapsedMinutes: 150, Status: "within_window"},
+		Lease:                      TerminalIndexLease{MinimumMinutes: minimumMinutes, TargetMinutes: 150, MaximumMinutes: 180, ElapsedMinutes: 150, Status: "within_window"},
 		CompletionObserved:         completed >= 40,
 		CanonicalEvidenceAgreement: true,
 		ReadinessPassed:            options.ready == 0,
