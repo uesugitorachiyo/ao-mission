@@ -28,6 +28,7 @@ Mission consumes Blueprint authorization, Atlas workgraphs and terminal indexes,
 - Start with the strict contract and its consumer. Validate regular-file containment, bounded sizes, duplicate keys, identities, digests, and authority flags before changing mission state.
 - Keep imports idempotent by exact digest and fail closed on drift or semantic contradiction. Preserve the original artifact for audit rather than normalizing away conflicts.
 - Bind Atlas workgraph continuation to the first ready node's validated identity. Reject conflicting or unsafe ready-node identifiers; use the legacy generic handoff only when the first ready node has no identity.
+- Treat an explicit zero-minute lease minimum as useful-work mode: preserve zero, enforce the hard maximum, and never require elapsed-time padding. Omission may preserve an existing historical minimum.
 - Change source fixtures under `examples/` only with their producer/consumer tests. Never edit a result to inflate completion, hide ready nodes, or claim a historical wave succeeded differently.
 - If durable commands, lifecycle ownership, authority, or architecture guidance changes, update this file in the same pull request.
 
