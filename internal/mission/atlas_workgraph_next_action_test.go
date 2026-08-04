@@ -46,6 +46,50 @@ func TestAtlasWorkgraphImportBindsFirstReadyNodeID(t *testing.T) {
 	}
 }
 
+func TestAtlasWorkgraphImportRejectsArtifactPathDigestDrift(t *testing.T) {
+	store := NewStore(t.TempDir())
+	record, err := store.Start("reject Atlas workgraph artifact-path drift")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(store.Root, "workgraph.json")
+	first := `{"contract_version":"ao.atlas.workgraph.v0.1","nodes":[{"id":"first-ready","status":"ready"}]}`
+	if err := os.WriteFile(path, []byte(first), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(store, record.MissionID, "atlas-workgraph", path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(store, record.MissionID, "atlas-workgraph", path); err != nil {
+		t.Fatalf("exact reimport error = %v", err)
+	}
+	before, err := store.Load(record.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(before.ArtifactRefs) != 1 {
+		t.Fatalf("artifact refs after exact reimport = %d, want 1", len(before.ArtifactRefs))
+	}
+
+	second := `{"contract_version":"ao.atlas.workgraph.v0.1","nodes":[{"id":"second-ready","status":"ready"}]}`
+	if err := os.WriteFile(path, []byte(second), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(store, record.MissionID, "atlas-workgraph", path); err == nil || !strings.Contains(err.Error(), "artifact path already bound to a different digest") {
+		t.Fatalf("drift import error = %v", err)
+	}
+	after, err := store.Load(record.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(after.ArtifactRefs) != 1 || after.ArtifactRefs[0] != before.ArtifactRefs[0] {
+		t.Fatalf("drift import mutated artifact refs: before=%+v after=%+v", before.ArtifactRefs, after.ArtifactRefs)
+	}
+	if after.ExactNextAction != "first-ready" {
+		t.Fatalf("drift import changed next action to %q", after.ExactNextAction)
+	}
+}
+
 func TestAtlasWorkgraphImportSkipsReadyNodesWithIncompleteDependencies(t *testing.T) {
 	store := NewStore(t.TempDir())
 	record, err := store.Start("bind only a dependency-ready Atlas node")
