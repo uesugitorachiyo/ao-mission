@@ -94,6 +94,35 @@ ao-mission final reconcile --mission <id> [--correlation-chain <chain.json>]
 By default state is stored under `.ao-mission/`. Use `AO_MISSION_HOME` to choose another state root.
 Every command also accepts `--home <dir>` before the command name for explicit local state routing.
 
+### Content-addressed evidence retention
+
+Imported evidence is durably retained beneath the trusted Mission home at
+`artifacts/sha256/<64 lowercase hex digits>`. Mission writes the validated raw
+bytes before updating the mission record, deduplicates an exact digest, and
+fails closed if an existing digest-addressed object does not contain the exact
+same bytes. A v0.2 artifact manifest exposes that contained object as
+`content_ref` and records its `sha256:` digest.
+
+The artifact `ref` remains the original locator for provenance. It is not the
+retained content location and it does not need to remain readable after the
+import; v0.2 manifest validation reads and verifies the retained object instead.
+The `ao.mission.artifact-ref.v0.1` identity remains compatible inside the v0.2
+manifest. Historical `ao.mission.artifact-manifest.v0.1` manifests remain
+supported through their original source-reference validation and do not
+require `content_ref`; Mission does not reconstruct a v0.2 retained object from
+a legacy source whose bytes are unavailable or have changed.
+
+`AO_MISSION_HOME` is an operator-owned trusted root for Mission state and
+retained evidence. Keep it private and do not use an untrusted or shared
+writable location. Mission rejects symlinked or non-directory retained-path
+components and non-regular retained objects, while hostile same-user
+concurrent replacement of the root remains outside this trust boundary.
+
+Retention, artifact manifests, validation, and import readbacks are durable
+recording and reconciliation surfaces only. They do not execute work, approve
+work, mutate repositories, call providers, publish, release, or advance
+authority; their authority flags remain false.
+
 ### Objective workflow entry
 
 `ao-mission objective start` is the correlation-bound entry path for a complete
