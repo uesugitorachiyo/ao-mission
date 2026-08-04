@@ -26,7 +26,8 @@
           "content_ref": { "type": "string", "pattern": "^artifacts/sha256/[0-9a-f]{64}$" },
           "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
           "kind": { "type": "string" }
-        }
+        },
+        "additionalProperties": false
       }
     },
     "manifest_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
@@ -35,5 +36,6 @@
     "executes_work": { "type": "boolean", "const": false },
     "approves_work": { "type": "boolean", "const": false },
     "generated_at_utc": { "type": "string" }
-  }
+  },
+  "additionalProperties": false
 }

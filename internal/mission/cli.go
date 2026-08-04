@@ -1446,12 +1446,7 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 			if err != nil {
 				return err
 			}
-			body, err := json.MarshalIndent(manifest, "", "  ")
-			if err != nil {
-				return err
-			}
-			body = append(body, '\n')
-			if err := os.WriteFile(*outPath, body, 0o644); err != nil {
+			if err := writeArtifactManifestFile(*outPath, manifest); err != nil {
 				return err
 			}
 			fmt.Fprintf(stdout, "artifact_manifest=%s\nmission=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, manifest.MissionID)
@@ -1486,11 +1481,7 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 			if err != nil {
 				return err
 			}
-			body, err := json.MarshalIndent(manifest, "", "  ")
-			if err != nil {
-				return err
-			}
-			if err := os.WriteFile(*outPath, append(body, '\n'), 0o644); err != nil {
+			if err := writeArtifactManifestFile(*outPath, manifest); err != nil {
 				return err
 			}
 			fmt.Fprintf(stdout, "artifact_manifest_repaired=%s\nmission=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, manifest.MissionID)

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -3309,6 +3310,131 @@ func TestArtifactManifestOutMaterializesLegacyReferenceWhenBytesMatch(t *testing
 	}
 }
 
+func TestArtifactManifestOutputStagesContentBeforeReplacingManifest(t *testing.T) {
+	previous := beforeArtifactManifestStageWrite
+	defer func() { beforeArtifactManifestStageWrite = previous }()
+	beforeArtifactManifestStageWrite = func(string) error {
+		return errors.New("injected staged object write failure")
+	}
+
+	store := NewStore(t.TempDir())
+	record, err := store.Start("stage artifact manifest content before publication")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourcePath := filepath.Join(t.TempDir(), "artifact.json")
+	body := []byte(`{"schema":"ao.mission.route-decision.v0.1"}`)
+	if err := os.WriteFile(sourcePath, body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Update(record.MissionID, func(candidate *Record) error {
+		candidate.ArtifactRefs = []ArtifactRef{{Schema: ArtifactRefSchema, Ref: sourcePath, Digest: digestBytes(body)}}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	outPath := filepath.Join(t.TempDir(), "artifact-manifest.json")
+	previousManifest := []byte("previous manifest bytes\n")
+	if err := os.WriteFile(outPath, previousManifest, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", store.Root, "artifacts", "manifest", "--mission", record.MissionID, "--out", outPath}, &out, &errb); code == 0 || !strings.Contains(errb.String(), "staged object write failure") {
+		t.Fatalf("staged content failure unexpectedly published: code=%d stdout=%s stderr=%s", code, out.String(), errb.String())
+	}
+	got, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, previousManifest) {
+		t.Fatalf("staged content failure replaced manifest: got=%q want=%q", got, previousManifest)
+	}
+	if _, err := os.Stat(filepath.Join(filepath.Dir(outPath), retainedArtifactDirectory)); !os.IsNotExist(err) {
+		t.Fatalf("staged content failure published a bundle object: %v", err)
+	}
+}
+
+func TestArtifactManifestFinalPublishFailurePreservesExistingOutput(t *testing.T) {
+	previous := beforeArtifactManifestPublish
+	defer func() { beforeArtifactManifestPublish = previous }()
+	beforeArtifactManifestPublish = func(string) error {
+		return errors.New("injected final manifest publish failure")
+	}
+
+	store := NewStore(t.TempDir())
+	record, err := store.Start("atomically publish artifact manifest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourcePath := filepath.Join(t.TempDir(), "artifact.json")
+	body := []byte(`{"schema":"ao.mission.route-decision.v0.1"}`)
+	if err := os.WriteFile(sourcePath, body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Update(record.MissionID, func(candidate *Record) error {
+		candidate.ArtifactRefs = []ArtifactRef{{Schema: ArtifactRefSchema, Ref: sourcePath, Digest: digestBytes(body)}}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	outPath := filepath.Join(t.TempDir(), "artifact-manifest.json")
+	previousManifest := []byte("previous manifest bytes\n")
+	if err := os.WriteFile(outPath, previousManifest, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", store.Root, "artifacts", "manifest", "--mission", record.MissionID, "--out", outPath}, &out, &errb); code == 0 || !strings.Contains(errb.String(), "final manifest publish failure") {
+		t.Fatalf("final publication failure unexpectedly succeeded: code=%d stdout=%s stderr=%s", code, out.String(), errb.String())
+	}
+	got, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, previousManifest) {
+		t.Fatalf("final publication failure replaced manifest: got=%q want=%q", got, previousManifest)
+	}
+}
+
+func TestArtifactManifestRepairFinalPublishFailurePreservesExistingOutput(t *testing.T) {
+	previous := beforeArtifactManifestPublish
+	defer func() { beforeArtifactManifestPublish = previous }()
+	beforeArtifactManifestPublish = func(string) error {
+		return errors.New("injected final manifest publish failure")
+	}
+
+	dir := t.TempDir()
+	sourcePath := filepath.Join(dir, "artifact.json")
+	body := []byte(`{"schema":"ao.mission.route-decision.v0.1"}`)
+	if err := os.WriteFile(sourcePath, body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	input := FinalizeArtifactManifest(ArtifactManifest{MissionID: "mission-demo", ArtifactRefs: []ArtifactRef{{Schema: ArtifactRefSchema, Ref: sourcePath, Digest: digestBytes(body)}}})
+	inputPath := filepath.Join(dir, "input.json")
+	inputBody, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(inputPath, inputBody, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outPath := filepath.Join(dir, "out.json")
+	previousManifest := []byte("previous manifest bytes\n")
+	if err := os.WriteFile(outPath, previousManifest, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out, errb bytes.Buffer
+	if code := Run([]string{"artifacts", "repair-manifest", "--path", inputPath, "--out", outPath}, &out, &errb); code == 0 || !strings.Contains(errb.String(), "final manifest publish failure") {
+		t.Fatalf("repair publication failure unexpectedly succeeded: code=%d stdout=%s stderr=%s", code, out.String(), errb.String())
+	}
+	got, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, previousManifest) {
+		t.Fatalf("repair publication failure replaced manifest: got=%q want=%q", got, previousManifest)
+	}
+}
+
 func TestArtifactManifestRepairCommandRejectsChangedHistoricalDigest(t *testing.T) {
 	dir := t.TempDir()
 	artifactPath := filepath.Join(dir, "route.json")
@@ -3825,6 +3951,237 @@ func TestArtifactManifestV02RejectsTamperedRetainedContent(t *testing.T) {
 	}
 	if result, err := ValidateArtifactManifestFile(manifestPath); err == nil || result.Status != "failed" || !strings.Contains(err.Error(), "artifact digest mismatch") {
 		t.Fatalf("tampered retained content was accepted: result=%+v err=%v", result, err)
+	}
+}
+
+func TestArtifactManifestV02RejectsSymlinkedContentDirectories(t *testing.T) {
+	body := []byte("retained content")
+	digest := digestBytes(body)
+	contentRef := artifactManifestContentRef(digest)
+	for name, prepare := range map[string]func(t *testing.T, dir string){
+		"artifacts symlink": func(t *testing.T, dir string) {
+			t.Helper()
+			external := t.TempDir()
+			externalPath := filepath.Join(external, contentRef)
+			if err := os.MkdirAll(filepath.Dir(externalPath), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(externalPath, body, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(filepath.Join(external, "artifacts"), filepath.Join(dir, "artifacts")); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"sha256 symlink": func(t *testing.T, dir string) {
+			t.Helper()
+			external := t.TempDir()
+			externalPath := filepath.Join(external, "sha256", strings.TrimPrefix(digest, "sha256:"))
+			if err := os.MkdirAll(filepath.Dir(externalPath), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(externalPath, body, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Mkdir(filepath.Join(dir, "artifacts"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(filepath.Join(external, "sha256"), filepath.Join(dir, retainedArtifactDirectory)); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"artifacts regular file": func(t *testing.T, dir string) {
+			t.Helper()
+			if err := os.WriteFile(filepath.Join(dir, "artifacts"), []byte("not a directory"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"sha256 regular file": func(t *testing.T, dir string) {
+			t.Helper()
+			if err := os.Mkdir(filepath.Join(dir, "artifacts"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, retainedArtifactDirectory), []byte("not a directory"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			prepare(t, dir)
+			manifest := FinalizeArtifactManifest(ArtifactManifest{
+				Schema:    "ao.mission.artifact-manifest.v0.2",
+				MissionID: "mission-demo",
+				ArtifactRefs: []ArtifactRef{{
+					Schema: ArtifactRefSchema, Ref: "source.json", ContentRef: contentRef, Digest: digest,
+				}},
+			})
+			manifestPath := filepath.Join(dir, "artifact-manifest.json")
+			manifestBody, err := json.Marshal(manifest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(manifestPath, manifestBody, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if result, err := ValidateArtifactManifestFile(manifestPath); err == nil || result.Status != "failed" || !strings.Contains(err.Error(), "retained artifact") {
+				t.Fatalf("unsafe artifact component was accepted: result=%+v err=%v", result, err)
+			}
+		})
+	}
+}
+
+func TestArtifactManifestMaterializationRejectsSymlinkedContentDirectory(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Symlink(t.TempDir(), filepath.Join(dir, "artifacts")); err != nil {
+		t.Fatal(err)
+	}
+	sourcePath := filepath.Join(t.TempDir(), "artifact.json")
+	body := []byte(`{"schema":"ao.mission.route-decision.v0.1"}`)
+	if err := os.WriteFile(sourcePath, body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := MaterializeArtifactManifest(Record{MissionID: "mission-demo", ArtifactRefs: []ArtifactRef{{Schema: ArtifactRefSchema, Ref: sourcePath, Digest: digestBytes(body)}}}, filepath.Join(dir, "artifact-manifest.json"))
+	if err == nil || !strings.Contains(err.Error(), "retained artifact directory") {
+		t.Fatalf("materialization accepted symlinked artifact directory: %v", err)
+	}
+}
+
+func TestArtifactManifestV02ValidationRequiresStrictStructureAndSignature(t *testing.T) {
+	manifest := FinalizeArtifactManifest(ArtifactManifest{Schema: "ao.mission.artifact-manifest.v0.2", MissionID: "", ArtifactRefs: []ArtifactRef{}})
+	baseBody, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var base map[string]any
+	if err := json.Unmarshal(baseBody, &base); err != nil {
+		t.Fatal(err)
+	}
+	for name, mutate := range map[string]func(map[string]any){
+		"missing schema":          func(doc map[string]any) { delete(doc, "schema") },
+		"missing mission id":      func(doc map[string]any) { delete(doc, "mission_id") },
+		"missing artifact refs":   func(doc map[string]any) { delete(doc, "artifact_refs") },
+		"missing manifest digest": func(doc map[string]any) { delete(doc, "manifest_digest") },
+		"missing signature":       func(doc map[string]any) { delete(doc, "signature") },
+		"missing safe flag":       func(doc map[string]any) { delete(doc, "safe_to_execute") },
+		"missing executes flag":   func(doc map[string]any) { delete(doc, "executes_work") },
+		"missing approves flag":   func(doc map[string]any) { delete(doc, "approves_work") },
+		"unknown root":            func(doc map[string]any) { doc["unexpected"] = true },
+		"invalid signature":       func(doc map[string]any) { doc["signature"] = "ao-mission-local-digest:sha256:invalid" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			doc := make(map[string]any, len(base))
+			for key, value := range base {
+				doc[key] = value
+			}
+			mutate(doc)
+			body, err := json.Marshal(doc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(t.TempDir(), "artifact-manifest.json")
+			if err := os.WriteFile(path, body, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if result, err := ValidateArtifactManifestFile(path); err == nil || result.Status != "failed" {
+				t.Fatalf("invalid v0.2 structure was accepted: result=%+v err=%v", result, err)
+			}
+		})
+	}
+}
+
+func TestArtifactManifestV02ValidationRejectsUnknownArtifactRefField(t *testing.T) {
+	dir := t.TempDir()
+	body := []byte("retained content")
+	digest := digestBytes(body)
+	contentRef := artifactManifestContentRef(digest)
+	contentPath := filepath.Join(dir, contentRef)
+	if err := os.MkdirAll(filepath.Dir(contentPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(contentPath, body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	manifest := FinalizeArtifactManifest(ArtifactManifest{Schema: "ao.mission.artifact-manifest.v0.2", MissionID: "mission-demo", ArtifactRefs: []ArtifactRef{{Schema: ArtifactRefSchema, Ref: "source.json", ContentRef: contentRef, Digest: digest}}})
+	manifestBody, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(manifestBody, &doc); err != nil {
+		t.Fatal(err)
+	}
+	doc["artifact_refs"].([]any)[0].(map[string]any)["unexpected"] = true
+	body, err = json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "artifact-manifest.json")
+	if err := os.WriteFile(path, body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if result, err := ValidateArtifactManifestFile(path); err == nil || result.Status != "failed" || !strings.Contains(err.Error(), "unknown field") {
+		t.Fatalf("unknown artifact ref field was accepted: result=%+v err=%v", result, err)
+	}
+}
+
+func TestArtifactManifestV02ValidationRequiresArtifactRefFieldsAndTypes(t *testing.T) {
+	manifest := FinalizeArtifactManifest(ArtifactManifest{Schema: "ao.mission.artifact-manifest.v0.2", MissionID: "mission-demo", ArtifactRefs: []ArtifactRef{}})
+	manifestBody, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var base map[string]any
+	if err := json.Unmarshal(manifestBody, &base); err != nil {
+		t.Fatal(err)
+	}
+	validRef := map[string]any{
+		"schema": ArtifactRefSchema, "ref": "source.json", "content_ref": "artifacts/sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	}
+	for name, mutate := range map[string]func(map[string]any){
+		"missing content ref": func(ref map[string]any) { delete(ref, "content_ref") },
+		"numeric content ref": func(ref map[string]any) { ref["content_ref"] = 42 },
+		"numeric digest":      func(ref map[string]any) { ref["digest"] = 42 },
+	} {
+		t.Run(name, func(t *testing.T) {
+			ref := make(map[string]any, len(validRef))
+			for key, value := range validRef {
+				ref[key] = value
+			}
+			mutate(ref)
+			doc := make(map[string]any, len(base))
+			for key, value := range base {
+				doc[key] = value
+			}
+			doc["artifact_refs"] = []any{ref}
+			body, err := json.Marshal(doc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(t.TempDir(), "artifact-manifest.json")
+			if err := os.WriteFile(path, body, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if result, err := ValidateArtifactManifestFile(path); err == nil || result.Status != "failed" {
+				t.Fatalf("invalid artifact ref was accepted: result=%+v err=%v", result, err)
+			}
+		})
+	}
+}
+
+func TestArtifactManifestV02ValidationRejectsDuplicateAuthorityFlag(t *testing.T) {
+	manifest := FinalizeArtifactManifest(ArtifactManifest{Schema: "ao.mission.artifact-manifest.v0.2", MissionID: "mission-demo", ArtifactRefs: []ArtifactRef{}})
+	body, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body = bytes.Replace(body, []byte(`"safe_to_execute":false`), []byte(`"safe_to_execute":false,"safe_to_execute":false`), 1)
+	path := filepath.Join(t.TempDir(), "artifact-manifest.json")
+	if err := os.WriteFile(path, body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if result, err := ValidateArtifactManifestFile(path); err == nil || result.Status != "failed" || !strings.Contains(err.Error(), "duplicate key") {
+		t.Fatalf("duplicate authority field was accepted: result=%+v err=%v", result, err)
 	}
 }
 
