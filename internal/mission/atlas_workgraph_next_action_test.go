@@ -74,6 +74,37 @@ func TestAtlasWorkgraphImportSkipsReadyNodesWithIncompleteDependencies(t *testin
 	}
 }
 
+func TestAtlasWorkgraphImportRejectsReadyNodesWithoutAnExecutableDependencyPath(t *testing.T) {
+	store := NewStore(t.TempDir())
+	record, err := store.Start("reject a non-executable Atlas workgraph")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(store.Root, "workgraph.json")
+	body := `{
+  "contract_version": "ao.atlas.workgraph.v0.1",
+  "nodes": [
+    {"id":"blocked-prerequisite","status":"blocked"},
+    {"id":"must-not-run","status":"ready","dependencies":["blocked-prerequisite"]}
+  ]
+}`
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = ImportArtifact(store, record.MissionID, "atlas-workgraph", path)
+	if err == nil || !strings.Contains(err.Error(), "no dependency-ready node") {
+		t.Fatalf("error = %v, want dependency-ready rejection", err)
+	}
+	updated, loadErr := store.Load(record.MissionID)
+	if loadErr != nil {
+		t.Fatal(loadErr)
+	}
+	if len(updated.ArtifactRefs) != 0 || updated.Evidence.AtlasWorkgraph != nil {
+		t.Fatalf("rejected workgraph mutated durable state: %+v", updated)
+	}
+}
+
 func TestAtlasWorkgraphImportBindsLegacyNodeIDAlias(t *testing.T) {
 	store := NewStore(t.TempDir())
 	record, err := store.Start("bind a legacy Atlas node_id")
