@@ -9,13 +9,18 @@ import (
 	"strings"
 )
 
+var (
+	openRetainedArtifactFile      = openRetainedArtifactFileNoFollow
+	syncRetainedArtifactDirectory = syncDirectory
+)
+
 func (s Store) retainArtifact(body []byte) (string, string, error) {
 	digest := digestBytes(body)
-	objectPath := filepath.Join(s.Root, "artifacts", "sha256", strings.TrimPrefix(digest, "sha256:"))
-	objectDir := filepath.Dir(objectPath)
-	if err := os.MkdirAll(objectDir, 0o755); err != nil {
-		return "", "", fmt.Errorf("create artifact store: %w", err)
+	objectDir, err := ensureRetainedArtifactDirectory(s.Root)
+	if err != nil {
+		return "", "", err
 	}
+	objectPath := filepath.Join(objectDir, strings.TrimPrefix(digest, "sha256:"))
 
 	if _, err := os.Lstat(objectPath); err == nil {
 		if err := verifyRetainedArtifact(objectPath, body); err != nil {
@@ -54,6 +59,9 @@ func (s Store) retainArtifact(body []byte) (string, string, error) {
 		}
 		return "", "", fmt.Errorf("publish retained artifact: %w", err)
 	}
+	if err := syncRetainedArtifactDirectory(objectDir); err != nil {
+		return "", "", fmt.Errorf("sync retained artifact directory: %w", err)
+	}
 	if err := verifyRetainedArtifact(objectPath, body); err != nil {
 		return "", "", err
 	}
@@ -72,7 +80,7 @@ func verifyRetainedArtifact(path string, expected []byte) error {
 		return fmt.Errorf("retained artifact size mismatch")
 	}
 
-	file, err := os.Open(path)
+	file, err := openRetainedArtifactFile(path)
 	if err != nil {
 		return fmt.Errorf("open retained artifact: %w", err)
 	}
@@ -116,4 +124,37 @@ func verifyRetainedArtifact(path string, expected []byte) error {
 		return fmt.Errorf("retained artifact bytes mismatch")
 	}
 	return nil
+}
+
+func ensureRetainedArtifactDirectory(root string) (string, error) {
+	root = filepath.Clean(root)
+	if err := ensureRetainedArtifactDirectoryComponent(root); err != nil {
+		return "", fmt.Errorf("validate artifact store root: %w", err)
+	}
+	artifactsDir := filepath.Join(root, "artifacts")
+	if err := ensureRetainedArtifactDirectoryComponent(artifactsDir); err != nil {
+		return "", fmt.Errorf("validate artifact store artifacts directory: %w", err)
+	}
+	objectDir := filepath.Join(artifactsDir, "sha256")
+	if err := ensureRetainedArtifactDirectoryComponent(objectDir); err != nil {
+		return "", fmt.Errorf("validate artifact store digest directory: %w", err)
+	}
+	return objectDir, nil
+}
+
+func ensureRetainedArtifactDirectoryComponent(path string) error {
+	info, err := os.Lstat(path)
+	if os.IsNotExist(err) {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			return err
+		}
+		info, err = os.Lstat(path)
+	}
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("path is not a regular non-symlink directory: %s", path)
+	}
+	return validateRetainedArtifactDirectoryPlatform(path)
 }

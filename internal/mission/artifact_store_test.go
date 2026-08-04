@@ -2,6 +2,7 @@ package mission
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -118,6 +119,59 @@ func TestRetainArtifactRejectsSymlinkObject(t *testing.T) {
 	}
 	if !bytes.Equal(got, wantTarget) {
 		t.Fatalf("symlink target changed to %q", got)
+	}
+}
+
+func TestRetainArtifactRejectsParentSymlinkRedirection(t *testing.T) {
+	body := []byte("parent symlink must not redirect retention")
+	for _, name := range []string{"artifacts", "sha256"} {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			outside := t.TempDir()
+			parent := filepath.Join(root, "artifacts")
+			linkPath := parent
+			if name == "sha256" {
+				if err := os.Mkdir(parent, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				linkPath = filepath.Join(parent, name)
+			}
+			if err := os.Symlink(outside, linkPath); err != nil {
+				t.Skipf("symlinks unavailable: %v", err)
+			}
+
+			if _, _, err := NewStore(root).retainArtifact(body); err == nil {
+				t.Fatal("parent symlink was accepted")
+			}
+			digest := digestBytes(body)
+			outsideObject := filepath.Join(outside, strings.TrimPrefix(digest, "sha256:"))
+			if _, err := os.Lstat(outsideObject); !os.IsNotExist(err) {
+				t.Fatalf("outside object was created: err=%v", err)
+			}
+		})
+	}
+}
+
+func TestRetainArtifactPropagatesDirectorySyncFailure(t *testing.T) {
+	previous := syncRetainedArtifactDirectory
+	defer func() { syncRetainedArtifactDirectory = previous }()
+	var syncedPath string
+	syncRetainedArtifactDirectory = func(path string) error {
+		syncedPath = path
+		return errors.New("injected directory sync failure")
+	}
+
+	root := t.TempDir()
+	body := []byte("directory sync must be required")
+	path, _, err := NewStore(root).retainArtifact(body)
+	if err == nil {
+		t.Fatal("retention succeeded after directory sync failure")
+	}
+	if syncedPath != filepath.Join(root, "artifacts", "sha256") {
+		t.Fatalf("synced path=%q", syncedPath)
+	}
+	if path != "" {
+		t.Fatalf("path=%q returned after directory sync failure", path)
 	}
 }
 
