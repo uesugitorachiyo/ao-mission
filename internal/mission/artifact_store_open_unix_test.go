@@ -25,14 +25,15 @@ func TestRetainArtifactRejectsLeafSymlinkInstalledAtOpen(t *testing.T) {
 
 	previous := openRetainedArtifactFile
 	defer func() { openRetainedArtifactFile = previous }()
-	openRetainedArtifactFile = func(path string) (*os.File, error) {
-		if err := os.Remove(path); err != nil {
+	openRetainedArtifactFile = func(root retainedArtifactRoot, path string) (*os.File, error) {
+		absolutePath := filepath.Join(root.Name(), path)
+		if err := os.Remove(absolutePath); err != nil {
 			return nil, err
 		}
-		if err := os.Symlink(target, path); err != nil {
+		if err := os.Symlink(target, absolutePath); err != nil {
 			return nil, err
 		}
-		return openRetainedArtifactFileNoFollow(path)
+		return openRetainedArtifactFileNoFollow(root, path)
 	}
 
 	result := make(chan error, 1)

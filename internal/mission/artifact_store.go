@@ -7,36 +7,75 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 )
+
+const retainedArtifactDirectory = "artifacts/sha256"
+
+type retainedArtifactRoot interface {
+	Name() string
+	Close() error
+	Lstat(string) (os.FileInfo, error)
+	Mkdir(string, os.FileMode) error
+	OpenFile(string, int, os.FileMode) (*os.File, error)
+	Link(string, string) error
+	Remove(string) error
+	WriteFile(string, []byte, os.FileMode) error
+	SyncDirectory(string) error
+}
 
 var (
 	openRetainedArtifactFile      = openRetainedArtifactFileNoFollow
-	syncRetainedArtifactDirectory = syncDirectory
+	syncRetainedArtifactDirectory = func(root retainedArtifactRoot, path string) error {
+		return root.SyncDirectory(path)
+	}
+	beforeRetainedArtifactCreate = func(retainedArtifactRoot, string) error { return nil }
+	beforeRetainedArtifactLink   = func(retainedArtifactRoot, string, string) error { return nil }
+	retainedArtifactTempSequence atomic.Uint64
 )
 
 func (s Store) retainArtifact(body []byte) (string, string, error) {
 	digest := digestBytes(body)
-	objectDir, err := ensureRetainedArtifactDirectory(s.Root)
+	if err := os.MkdirAll(s.Root, 0o755); err != nil {
+		return "", "", fmt.Errorf("create artifact store root: %w", err)
+	}
+	root, err := openRetainedArtifactRoot(s.Root)
 	if err != nil {
+		return "", "", fmt.Errorf("open artifact store root: %w", err)
+	}
+	defer root.Close()
+
+	objectName := filepath.Join(retainedArtifactDirectory, strings.TrimPrefix(digest, "sha256:"))
+	objectPath := filepath.Join(s.Root, objectName)
+	if err := ensureRetainedArtifactDirectory(root); err != nil {
 		return "", "", err
 	}
-	objectPath := filepath.Join(objectDir, strings.TrimPrefix(digest, "sha256:"))
 
-	if _, err := os.Lstat(objectPath); err == nil {
-		if err := verifyRetainedArtifact(objectPath, body); err != nil {
+	if _, err := root.Lstat(objectName); err == nil {
+		if err := verifyRetainedArtifact(root, objectName, body); err != nil {
 			return "", "", err
+		}
+		if err := syncRetainedArtifactDirectory(root, retainedArtifactDirectory); err != nil {
+			return "", "", fmt.Errorf("sync retained artifact directory: %w", err)
 		}
 		return objectPath, digest, nil
 	} else if !os.IsNotExist(err) {
 		return "", "", fmt.Errorf("inspect retained artifact: %w", err)
 	}
 
-	temporary, err := os.CreateTemp(objectDir, ".artifact-")
-	if err != nil {
-		return "", "", fmt.Errorf("create temporary retained artifact: %w", err)
+	if err := beforeRetainedArtifactCreate(root, retainedArtifactDirectory); err != nil {
+		return "", "", fmt.Errorf("prepare retained artifact creation: %w", err)
 	}
-	temporaryPath := temporary.Name()
-	defer os.Remove(temporaryPath)
+	temporary, temporaryName, err := createRetainedArtifactTemporary(root)
+	if err != nil {
+		return "", "", err
+	}
+	temporaryLive := true
+	defer func() {
+		if temporaryLive {
+			_ = root.Remove(temporaryName)
+		}
+	}()
 
 	if _, err := temporary.Write(body); err != nil {
 		_ = temporary.Close()
@@ -50,26 +89,54 @@ func (s Store) retainArtifact(body []byte) (string, string, error) {
 		return "", "", fmt.Errorf("close temporary retained artifact: %w", err)
 	}
 
-	if err := os.Link(temporaryPath, objectPath); err != nil {
-		if _, statErr := os.Lstat(objectPath); statErr == nil {
-			if verifyErr := verifyRetainedArtifact(objectPath, body); verifyErr != nil {
+	if err := beforeRetainedArtifactLink(root, temporaryName, objectName); err != nil {
+		return "", "", fmt.Errorf("prepare retained artifact publication: %w", err)
+	}
+	if err := root.Link(temporaryName, objectName); err != nil {
+		if _, statErr := root.Lstat(objectName); statErr == nil {
+			if verifyErr := verifyRetainedArtifact(root, objectName, body); verifyErr != nil {
 				return "", "", verifyErr
+			}
+			if err := root.Remove(temporaryName); err != nil {
+				return "", "", fmt.Errorf("remove temporary retained artifact: %w", err)
+			}
+			temporaryLive = false
+			if err := syncRetainedArtifactDirectory(root, retainedArtifactDirectory); err != nil {
+				return "", "", fmt.Errorf("sync retained artifact directory: %w", err)
 			}
 			return objectPath, digest, nil
 		}
 		return "", "", fmt.Errorf("publish retained artifact: %w", err)
 	}
-	if err := syncRetainedArtifactDirectory(objectDir); err != nil {
-		return "", "", fmt.Errorf("sync retained artifact directory: %w", err)
+	if err := root.Remove(temporaryName); err != nil {
+		return "", "", fmt.Errorf("remove temporary retained artifact: %w", err)
 	}
-	if err := verifyRetainedArtifact(objectPath, body); err != nil {
+	temporaryLive = false
+	if err := verifyRetainedArtifact(root, objectName, body); err != nil {
 		return "", "", err
+	}
+	if err := syncRetainedArtifactDirectory(root, retainedArtifactDirectory); err != nil {
+		return "", "", fmt.Errorf("sync retained artifact directory: %w", err)
 	}
 	return objectPath, digest, nil
 }
 
-func verifyRetainedArtifact(path string, expected []byte) error {
-	pathInfo, err := os.Lstat(path)
+func createRetainedArtifactTemporary(root retainedArtifactRoot) (*os.File, string, error) {
+	for attempt := 0; attempt < 16; attempt++ {
+		name := filepath.Join(retainedArtifactDirectory, fmt.Sprintf(".artifact-%d-%d", os.Getpid(), retainedArtifactTempSequence.Add(1)))
+		file, err := root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+		if err == nil {
+			return file, name, nil
+		}
+		if !os.IsExist(err) {
+			return nil, "", fmt.Errorf("create temporary retained artifact: %w", err)
+		}
+	}
+	return nil, "", fmt.Errorf("create temporary retained artifact: too many name collisions")
+}
+
+func verifyRetainedArtifact(root retainedArtifactRoot, path string, expected []byte) error {
+	pathInfo, err := root.Lstat(path)
 	if err != nil {
 		return fmt.Errorf("inspect retained artifact: %w", err)
 	}
@@ -80,7 +147,7 @@ func verifyRetainedArtifact(path string, expected []byte) error {
 		return fmt.Errorf("retained artifact size mismatch")
 	}
 
-	file, err := openRetainedArtifactFile(path)
+	file, err := openRetainedArtifactFile(root, path)
 	if err != nil {
 		return fmt.Errorf("open retained artifact: %w", err)
 	}
@@ -113,7 +180,7 @@ func verifyRetainedArtifact(path string, expected []byte) error {
 		return fmt.Errorf("close retained artifact: %w", closeErr)
 	}
 
-	afterInfo, err := os.Lstat(path)
+	afterInfo, err := root.Lstat(path)
 	if err != nil {
 		return fmt.Errorf("reinspect retained artifact: %w", err)
 	}
@@ -126,35 +193,24 @@ func verifyRetainedArtifact(path string, expected []byte) error {
 	return nil
 }
 
-func ensureRetainedArtifactDirectory(root string) (string, error) {
-	root = filepath.Clean(root)
-	if err := ensureRetainedArtifactDirectoryComponent(root); err != nil {
-		return "", fmt.Errorf("validate artifact store root: %w", err)
-	}
-	artifactsDir := filepath.Join(root, "artifacts")
-	if err := ensureRetainedArtifactDirectoryComponent(artifactsDir); err != nil {
-		return "", fmt.Errorf("validate artifact store artifacts directory: %w", err)
-	}
-	objectDir := filepath.Join(artifactsDir, "sha256")
-	if err := ensureRetainedArtifactDirectoryComponent(objectDir); err != nil {
-		return "", fmt.Errorf("validate artifact store digest directory: %w", err)
-	}
-	return objectDir, nil
-}
-
-func ensureRetainedArtifactDirectoryComponent(path string) error {
-	info, err := os.Lstat(path)
-	if os.IsNotExist(err) {
-		if err := os.MkdirAll(path, 0o755); err != nil {
-			return err
+func ensureRetainedArtifactDirectory(root retainedArtifactRoot) error {
+	for _, path := range []string{"artifacts", retainedArtifactDirectory} {
+		info, err := root.Lstat(path)
+		if os.IsNotExist(err) {
+			if err := root.Mkdir(path, 0o755); err != nil && !os.IsExist(err) {
+				return fmt.Errorf("create retained artifact directory %q: %w", path, err)
+			}
+			info, err = root.Lstat(path)
 		}
-		info, err = os.Lstat(path)
+		if err != nil {
+			return fmt.Errorf("inspect retained artifact directory %q: %w", path, err)
+		}
+		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("retained artifact directory %q must be a regular non-symlink directory", path)
+		}
+		if err := validateRetainedArtifactDirectoryPlatform(root, path); err != nil {
+			return fmt.Errorf("validate retained artifact directory %q: %w", path, err)
+		}
 	}
-	if err != nil {
-		return err
-	}
-	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-		return fmt.Errorf("path is not a regular non-symlink directory: %s", path)
-	}
-	return validateRetainedArtifactDirectoryPlatform(path)
+	return nil
 }

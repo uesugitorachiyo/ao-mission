@@ -7,7 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestRetainArtifactFirstCapture(t *testing.T) {
@@ -63,6 +65,111 @@ func TestRetainArtifactExactDeduplication(t *testing.T) {
 	}
 	if !bytes.Equal(got, body) {
 		t.Fatalf("deduplicated bytes=%q want %q", got, body)
+	}
+}
+
+func TestRetainArtifactExactDeduplicationRequiresDirectorySync(t *testing.T) {
+	previous := syncRetainedArtifactDirectory
+	defer func() { syncRetainedArtifactDirectory = previous }()
+	var syncCalls atomic.Int32
+	syncRetainedArtifactDirectory = func(_ retainedArtifactRoot, _ string) error {
+		syncCalls.Add(1)
+		return nil
+	}
+
+	store := NewStore(t.TempDir())
+	body := []byte("deduplication must be durable before success")
+	if _, _, err := store.retainArtifact(body); err != nil {
+		t.Fatal(err)
+	}
+	syncCalls.Store(0)
+	if _, _, err := store.retainArtifact(body); err != nil {
+		t.Fatal(err)
+	}
+	if got := syncCalls.Load(); got != 1 {
+		t.Fatalf("deduplication directory sync calls=%d want 1", got)
+	}
+}
+
+func TestRetainArtifactLinkCollisionExactReuseRequiresDirectorySync(t *testing.T) {
+	previousSync := syncRetainedArtifactDirectory
+	previousLink := beforeRetainedArtifactLink
+	defer func() {
+		syncRetainedArtifactDirectory = previousSync
+		beforeRetainedArtifactLink = previousLink
+	}()
+	var syncCalls atomic.Int32
+	syncRetainedArtifactDirectory = func(_ retainedArtifactRoot, _ string) error {
+		syncCalls.Add(1)
+		return nil
+	}
+	body := []byte("link collision exact reuse must be durable")
+	store := NewStore(t.TempDir())
+	beforeRetainedArtifactLink = func(root retainedArtifactRoot, _, objectPath string) error {
+		return root.WriteFile(objectPath, body, 0o644)
+	}
+
+	path, digest, err := store.retainArtifact(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantPath := filepath.Join(store.Root, "artifacts", "sha256", strings.TrimPrefix(digest, "sha256:"))
+	if path != wantPath {
+		t.Fatalf("path=%q want %q", path, wantPath)
+	}
+	if got := syncCalls.Load(); got != 1 {
+		t.Fatalf("link-collision directory sync calls=%d want 1", got)
+	}
+}
+
+func TestRetainArtifactConcurrentDeduplicationRequiresItsOwnDirectorySync(t *testing.T) {
+	previous := syncRetainedArtifactDirectory
+	defer func() { syncRetainedArtifactDirectory = previous }()
+	var syncCalls atomic.Int32
+	firstSyncEntered := make(chan struct{})
+	secondSyncEntered := make(chan struct{})
+	releaseFirstSync := make(chan struct{})
+	syncRetainedArtifactDirectory = func(_ retainedArtifactRoot, _ string) error {
+		switch syncCalls.Add(1) {
+		case 1:
+			close(firstSyncEntered)
+			<-releaseFirstSync
+		case 2:
+			close(secondSyncEntered)
+		}
+		return nil
+	}
+
+	store := NewStore(t.TempDir())
+	body := []byte("concurrent deduplication must sync before success")
+	results := make(chan error, 2)
+	go func() {
+		_, _, err := store.retainArtifact(body)
+		results <- err
+	}()
+	select {
+	case <-firstSyncEntered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("publishing caller did not reach directory sync")
+	}
+	go func() {
+		_, _, err := store.retainArtifact(body)
+		results <- err
+	}()
+	select {
+	case <-secondSyncEntered:
+	case <-time.After(2 * time.Second):
+		close(releaseFirstSync)
+		t.Fatal("deduplicating caller returned without its directory sync")
+	}
+	close(releaseFirstSync)
+	for i := 0; i < 2; i++ {
+		if err := <-results; err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := syncCalls.Load(); got != 2 {
+		t.Fatalf("directory sync calls=%d want 2", got)
 	}
 }
 
@@ -152,11 +259,53 @@ func TestRetainArtifactRejectsParentSymlinkRedirection(t *testing.T) {
 	}
 }
 
+func TestRetainArtifactRejectsParentSwapBeforeCreation(t *testing.T) {
+	body := []byte("parent replacement must remain inside the configured root")
+	for _, name := range []string{"artifacts", "sha256"} {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			outside := t.TempDir()
+			probe := filepath.Join(root, "symlink-probe")
+			if err := os.Symlink(outside, probe); err != nil {
+				t.Skipf("symlinks unavailable: %v", err)
+			}
+			if err := os.Remove(probe); err != nil {
+				t.Fatal(err)
+			}
+
+			previous := beforeRetainedArtifactCreate
+			defer func() { beforeRetainedArtifactCreate = previous }()
+			beforeRetainedArtifactCreate = func(root retainedArtifactRoot, _ string) error {
+				path := filepath.Join(root.Name(), "artifacts")
+				if name == "sha256" {
+					path = filepath.Join(path, name)
+				}
+				if err := os.Remove(path); err != nil {
+					return err
+				}
+				return os.Symlink(outside, path)
+			}
+
+			if _, _, err := NewStore(root).retainArtifact(body); err == nil {
+				t.Fatal("parent replacement was accepted")
+			}
+			digest := digestBytes(body)
+			outsideObject := filepath.Join(outside, strings.TrimPrefix(digest, "sha256:"))
+			if name == "artifacts" {
+				outsideObject = filepath.Join(outside, "sha256", strings.TrimPrefix(digest, "sha256:"))
+			}
+			if _, err := os.Lstat(outsideObject); !os.IsNotExist(err) {
+				t.Fatalf("outside object was created: err=%v", err)
+			}
+		})
+	}
+}
+
 func TestRetainArtifactPropagatesDirectorySyncFailure(t *testing.T) {
 	previous := syncRetainedArtifactDirectory
 	defer func() { syncRetainedArtifactDirectory = previous }()
 	var syncedPath string
-	syncRetainedArtifactDirectory = func(path string) error {
+	syncRetainedArtifactDirectory = func(_ retainedArtifactRoot, path string) error {
 		syncedPath = path
 		return errors.New("injected directory sync failure")
 	}
@@ -167,7 +316,7 @@ func TestRetainArtifactPropagatesDirectorySyncFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("retention succeeded after directory sync failure")
 	}
-	if syncedPath != filepath.Join(root, "artifacts", "sha256") {
+	if syncedPath != retainedArtifactDirectory {
 		t.Fatalf("synced path=%q", syncedPath)
 	}
 	if path != "" {
