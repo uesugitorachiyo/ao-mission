@@ -52,6 +52,42 @@ func TestImportAtlasWorkgraphReactivatesCompletedMissionWithReadyNodes(t *testin
 	}
 }
 
+func TestImportAtlasWorkgraphClearsSupersededBlockersWhenReady(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(dir)
+	record, err := store.Start("replace a terminal blocker with an executable Atlas wave")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Update(record.MissionID, func(rec *Record) error {
+		rec.Status = "blocked"
+		rec.Blockers = []string{"superseded upstream verification failure"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	workgraphPath := filepath.Join(dir, "replacement-workgraph.json")
+	workgraph := `{"schema":"ao.atlas.workgraph.v0.1","nodes":[{"id":"replacement-ready-node","status":"ready"}]}`
+	if err := os.WriteFile(workgraphPath, []byte(workgraph), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(store, record.MissionID, "atlas-workgraph", workgraphPath); err != nil {
+		t.Fatal(err)
+	}
+
+	updated, err := store.Load(record.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.Blockers) != 0 {
+		t.Fatalf("ready workgraph retained superseded blockers: %+v", updated)
+	}
+	if updated.ReturnGate == nil || updated.ReturnGate.HardBlocker || updated.ReturnGate.FinalResponseAllowed {
+		t.Fatalf("ready workgraph retained terminal blocker in return gate: %+v", updated.ReturnGate)
+	}
+}
+
 func TestEvaluateReturnGateDeniesReadyNodesForStaleDoneRecord(t *testing.T) {
 	record := Record{
 		MissionID:       "mission-stale-done",
