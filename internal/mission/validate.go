@@ -396,7 +396,7 @@ func propertyTypesForContract(schema string) map[string]string {
 	case A2ATaskSchema:
 		return map[string]string{"schema": "string", "task_id": "string", "method": "string", "status": "string", "mutation_authority": "boolean"}
 	case ArtifactRefSchema:
-		return map[string]string{"schema": "string", "ref": "string", "digest": "string", "kind": "string"}
+		return map[string]string{"schema": "string", "ref": "string", "content_ref": "string", "digest": "string", "kind": "string"}
 	default:
 		return commonString
 	}

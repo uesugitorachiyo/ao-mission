@@ -3273,7 +3273,43 @@ func TestArtifactManifestCommandWritesOutFile(t *testing.T) {
 	}
 }
 
-func TestArtifactManifestRepairCommandRecomputesDigests(t *testing.T) {
+func TestArtifactManifestOutMaterializesLegacyReferenceWhenBytesMatch(t *testing.T) {
+	store := NewStore(t.TempDir())
+	record, err := store.Start("materialize a legacy artifact reference")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourcePath := filepath.Join(t.TempDir(), "legacy-artifact.json")
+	body := []byte(`{"schema":"ao.mission.route-decision.v0.1"}`)
+	if err := os.WriteFile(sourcePath, body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Update(record.MissionID, func(candidate *Record) error {
+		candidate.ArtifactRefs = append(candidate.ArtifactRefs, ArtifactRef{
+			Schema: ArtifactRefSchema,
+			Ref:    sourcePath,
+			Digest: digestBytes(body),
+			Kind:   "route_readback",
+		})
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := store.Load(record.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifestPath := filepath.Join(t.TempDir(), "artifact-manifest.json")
+	manifest, err := MaterializeArtifactManifest(updated, manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.Schema != "ao.mission.artifact-manifest.v0.2" || len(manifest.ArtifactRefs) != 1 || manifest.ArtifactRefs[0].ContentRef == "" {
+		t.Fatalf("legacy reference did not materialize as v0.2: %+v", manifest)
+	}
+}
+
+func TestArtifactManifestRepairCommandRejectsChangedHistoricalDigest(t *testing.T) {
 	dir := t.TempDir()
 	artifactPath := filepath.Join(dir, "route.json")
 	if err := os.WriteFile(artifactPath, []byte(`{"schema":"ao.mission.route-decision.v0.1"}`+"\n"), 0o644); err != nil {
@@ -3298,15 +3334,57 @@ func TestArtifactManifestRepairCommandRecomputesDigests(t *testing.T) {
 	}
 	repairedPath := filepath.Join(dir, "artifact-manifest.repaired.json")
 	var out, errb bytes.Buffer
-	if code := Run([]string{"artifacts", "repair-manifest", "--path", manifestPath, "--out", repairedPath}, &out, &errb); code != 0 {
-		t.Fatalf("repair-manifest: %s", errb.String())
+	if code := Run([]string{"artifacts", "repair-manifest", "--path", manifestPath, "--out", repairedPath}, &out, &errb); code == 0 || !strings.Contains(errb.String(), "artifact digest mismatch") {
+		t.Fatalf("repair-manifest recomputed a historical digest: code=%d stdout=%s stderr=%s", code, out.String(), errb.String())
 	}
-	result, err := ValidateArtifactManifestFile(repairedPath)
+	if _, err := os.Stat(repairedPath); !os.IsNotExist(err) {
+		t.Fatalf("failed repair wrote output: %v", err)
+	}
+}
+
+func TestArtifactManifestRepairCommandAddsRetainedContentWithoutChangingDigest(t *testing.T) {
+	dir := t.TempDir()
+	artifactPath := filepath.Join(dir, "route.json")
+	body := []byte(`{"schema":"ao.mission.route-decision.v0.1"}`)
+	if err := os.WriteFile(artifactPath, body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	digest := digestBytes(body)
+	manifest := FinalizeArtifactManifest(ArtifactManifest{
+		MissionID: "mission-demo",
+		ArtifactRefs: []ArtifactRef{{
+			Schema: ArtifactRefSchema,
+			Ref:    artifactPath,
+			Digest: digest,
+			Kind:   "route_readback",
+		}},
+	})
+	manifestPath := filepath.Join(dir, "artifact-manifest.json")
+	manifestBody, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Status != "passed" || result.ArtifactCount != 1 || result.ExecutesWork || result.ApprovesWork {
-		t.Fatalf("bad repaired manifest validation: %+v", result)
+	if err := os.WriteFile(manifestPath, append(manifestBody, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	repairedPath := filepath.Join(dir, "repaired", "artifact-manifest.json")
+	var out, errb bytes.Buffer
+	if code := Run([]string{"artifacts", "repair-manifest", "--path", manifestPath, "--out", repairedPath}, &out, &errb); code != 0 {
+		t.Fatalf("repair-manifest: %s", errb.String())
+	}
+	var repaired ArtifactManifest
+	repairedBody, err := os.ReadFile(repairedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(repairedBody, &repaired); err != nil {
+		t.Fatal(err)
+	}
+	if repaired.Schema != "ao.mission.artifact-manifest.v0.2" || repaired.ArtifactRefs[0].Digest != digest || filepath.IsAbs(repaired.ArtifactRefs[0].ContentRef) {
+		t.Fatalf("repair changed declared digest or did not retain contained content: %+v", repaired)
+	}
+	if result, err := ValidateArtifactManifestFile(repairedPath); err != nil || result.Status != "passed" {
+		t.Fatalf("repaired manifest did not validate: result=%+v err=%v", result, err)
 	}
 }
 
@@ -3706,6 +3784,94 @@ func TestArtifactManifestSelfValidationRejectsTampering(t *testing.T) {
 	result, err = ValidateArtifactManifestFile(manifestPath)
 	if err == nil || result.Status != "failed" || !strings.Contains(err.Error(), "artifact digest mismatch") {
 		t.Fatalf("expected tamper failure, result=%+v err=%v", result, err)
+	}
+}
+
+func TestArtifactManifestV02RejectsTamperedRetainedContent(t *testing.T) {
+	dir := t.TempDir()
+	digest := digestBytes([]byte("original retained content"))
+	contentRef := filepath.ToSlash(filepath.Join(retainedArtifactDirectory, strings.TrimPrefix(digest, "sha256:")))
+	contentPath := filepath.Join(dir, contentRef)
+	if err := os.MkdirAll(filepath.Dir(contentPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(contentPath, []byte("original retained content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	manifest := FinalizeArtifactManifest(ArtifactManifest{
+		Schema:    "ao.mission.artifact-manifest.v0.2",
+		MissionID: "mission-demo",
+		ArtifactRefs: []ArtifactRef{{
+			Schema:     ArtifactRefSchema,
+			Ref:        "/provenance/source.json",
+			ContentRef: contentRef,
+			Digest:     digest,
+			Kind:       "route_readback",
+		}},
+	})
+	manifestPath := filepath.Join(dir, "artifact-manifest.json")
+	manifestBody, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(manifestPath, append(manifestBody, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if result, err := ValidateArtifactManifestFile(manifestPath); err != nil || result.Status != "passed" {
+		t.Fatalf("v0.2 manifest did not validate: result=%+v err=%v", result, err)
+	}
+	if err := os.WriteFile(contentPath, []byte("tampered retained content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if result, err := ValidateArtifactManifestFile(manifestPath); err == nil || result.Status != "failed" || !strings.Contains(err.Error(), "artifact digest mismatch") {
+		t.Fatalf("tampered retained content was accepted: result=%+v err=%v", result, err)
+	}
+}
+
+func TestArtifactManifestV02RequiresArtifactRefSchema(t *testing.T) {
+	dir := t.TempDir()
+	body := []byte("retained content")
+	digest := digestBytes(body)
+	contentRef := artifactManifestContentRef(digest)
+	contentPath := filepath.Join(dir, contentRef)
+	if err := os.MkdirAll(filepath.Dir(contentPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(contentPath, body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	manifest := FinalizeArtifactManifest(ArtifactManifest{
+		Schema:    "ao.mission.artifact-manifest.v0.2",
+		MissionID: "mission-demo",
+		ArtifactRefs: []ArtifactRef{{
+			Schema:     "unexpected-artifact-ref-schema",
+			Ref:        "source.json",
+			ContentRef: contentRef,
+			Digest:     digest,
+		}},
+	})
+	manifestPath := filepath.Join(dir, "artifact-manifest.json")
+	manifestBody, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(manifestPath, manifestBody, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if result, err := ValidateArtifactManifestFile(manifestPath); err == nil || result.Status != "failed" || !strings.Contains(err.Error(), "artifact ref schema") {
+		t.Fatalf("v0.2 manifest accepted an invalid artifact-ref schema: result=%+v err=%v", result, err)
+	}
+}
+
+func TestArtifactManifestV02ContractRequiresStringContentRef(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "artifact-manifest-v0.2.json")
+	body := []byte(`{"schema":"ao.mission.artifact-manifest.v0.2","mission_id":"mission-demo","artifact_refs":[{"schema":"ao.mission.artifact-ref.v0.1","ref":"source.json","content_ref":42,"digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}],"manifest_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","signature":"ao-mission-local-digest:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","safe_to_execute":false,"executes_work":false,"approves_work":false}`)
+	if err := os.WriteFile(path, body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result, err := ValidateContractFile(path)
+	if err == nil || result.Status != "blocked" || !strings.Contains(strings.Join(result.Blockers, "; "), "content_ref must be string") {
+		t.Fatalf("v0.2 content_ref type mismatch was accepted: result=%+v err=%v", result, err)
 	}
 }
 

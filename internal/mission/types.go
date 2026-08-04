@@ -29,10 +29,11 @@ const (
 )
 
 type ArtifactRef struct {
-	Schema string `json:"schema"`
-	Ref    string `json:"ref"`
-	Digest string `json:"digest,omitempty"`
-	Kind   string `json:"kind,omitempty"`
+	Schema     string `json:"schema"`
+	Ref        string `json:"ref"`
+	ContentRef string `json:"content_ref,omitempty"`
+	Digest     string `json:"digest,omitempty"`
+	Kind       string `json:"kind,omitempty"`
 }
 
 type Record struct {
