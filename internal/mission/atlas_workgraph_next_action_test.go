@@ -1,6 +1,8 @@
 package mission
 
 import (
+	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -90,6 +92,66 @@ func TestAtlasWorkgraphImportRejectsArtifactPathDigestDrift(t *testing.T) {
 	}
 }
 
+func TestAtlasWorkgraphImportRetainsContentForDurableManifest(t *testing.T) {
+	store := NewStore(t.TempDir())
+	record, err := store.Start("retain an imported Atlas workgraph")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourcePath := filepath.Join(t.TempDir(), "workgraph.json")
+	body := []byte(`{"contract_version":"ao.atlas.workgraph.v0.1","nodes":[{"id":"retained-ready","status":"ready"}]}`)
+	if err := os.WriteFile(sourcePath, body, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(store, record.MissionID, "atlas-workgraph", sourcePath); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := store.Load(record.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.ArtifactRefs) != 1 || updated.ArtifactRefs[0].Ref != sourcePath || updated.ArtifactRefs[0].ContentRef == "" {
+		t.Fatalf("import did not bind source provenance and retained content: %+v", updated.ArtifactRefs)
+	}
+	retained, err := os.ReadFile(updated.ArtifactRefs[0].ContentRef)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(retained) != string(body) {
+		t.Fatalf("retained content = %q, want %q", retained, body)
+	}
+
+	manifestPath := filepath.Join(t.TempDir(), "artifact-manifest.json")
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", store.Root, "artifacts", "manifest", "--mission", record.MissionID, "--out", manifestPath}, &out, &errb); code != 0 {
+		t.Fatalf("artifact manifest --out: %s", errb.String())
+	}
+	var manifest ArtifactManifest
+	manifestBody, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(manifestBody, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	if manifest.Schema != "ao.mission.artifact-manifest.v0.2" || len(manifest.ArtifactRefs) != 1 || manifest.ArtifactRefs[0].Ref != sourcePath || filepath.IsAbs(manifest.ArtifactRefs[0].ContentRef) {
+		t.Fatalf("durable manifest did not preserve provenance with contained content: %+v", manifest)
+	}
+
+	if err := os.WriteFile(sourcePath, []byte(`{"contract_version":"ao.atlas.workgraph.v0.1","nodes":[{"id":"replacement","status":"ready"}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if result, err := ValidateArtifactManifestFile(manifestPath); err != nil || result.Status != "passed" {
+		t.Fatalf("source replacement invalidated durable manifest: result=%+v err=%v", result, err)
+	}
+	if err := os.Remove(sourcePath); err != nil {
+		t.Fatal(err)
+	}
+	if result, err := ValidateArtifactManifestFile(manifestPath); err != nil || result.Status != "passed" {
+		t.Fatalf("source deletion invalidated durable manifest: result=%+v err=%v", result, err)
+	}
+}
+
 func TestAtlasWorkgraphImportSkipsReadyNodesWithIncompleteDependencies(t *testing.T) {
 	store := NewStore(t.TempDir())
 	record, err := store.Start("bind only a dependency-ready Atlas node")
@@ -146,6 +208,9 @@ func TestAtlasWorkgraphImportRejectsReadyNodesWithoutAnExecutableDependencyPath(
 	}
 	if len(updated.ArtifactRefs) != 0 || updated.Evidence.AtlasWorkgraph != nil {
 		t.Fatalf("rejected workgraph mutated durable state: %+v", updated)
+	}
+	if retained, err := os.ReadDir(filepath.Join(store.Root, retainedArtifactDirectory)); err == nil && len(retained) != 0 {
+		t.Fatalf("rejected workgraph retained content: %+v", retained)
 	}
 }
 

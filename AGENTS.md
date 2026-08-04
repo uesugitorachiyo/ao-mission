@@ -10,13 +10,14 @@ Mission consumes Blueprint authorization, Atlas workgraphs and terminal indexes,
 
 - [README.md](README.md) defines the operator surface and current commands.
 - [docs/sdd/AO-MISSION-V0.1.md](docs/sdd/AO-MISSION-V0.1.md) defines lifecycle ownership and the no-execution boundary.
-- `docs/contracts/*.schema.json` and [docs/contracts/canonical-terminal-index-consumer.md](docs/contracts/canonical-terminal-index-consumer.md) own strict input/readback contracts.
+- `docs/contracts/*.schema.json`, including the v0.1/v0.2 artifact-manifest contracts, and [docs/contracts/canonical-terminal-index-consumer.md](docs/contracts/canonical-terminal-index-consumer.md) own strict input/readback contracts.
 - `internal/mission/` and its tests are authoritative for implemented state transitions, digest checks, and fail-closed imports.
 - [scripts/production-readiness.sh](scripts/production-readiness.sh) and [`.github/workflows/ci.yml`](.github/workflows/ci.yml) define the full local and hosted gates.
 
 ## Ownership And Boundaries
 
 - Preserve exact mission identity, correlation, route, checkpoint, source-head, artifact-digest, and lineage bindings across every stored and returned surface.
+- Retain imported evidence beneath the operator-owned `AO_MISSION_HOME` root at digest-addressed `artifacts/sha256/<digest>` paths. Preserve the original `ref` locator as provenance, bind v0.2 `content_ref` to the retained bytes, and keep the v0.1 source-reference compatibility path intact.
 - Canonical terminal indexes are read-only reconciliation artifacts. Verify their schema, index, source, and state digests independently; never turn missing historical terminal evidence into a live objective or continuation request.
 - Do not revive, reinterpret, regenerate, or extend completed waves under `docs/evidence/` or closure records under `docs/roadmap/`. Add current source-owned behavior and tests outside historical evidence.
 - Keep generated `.ao-mission/` state, binaries, temporary bundles, dashboards, and validation output out of source changes.
@@ -26,7 +27,7 @@ Mission consumes Blueprint authorization, Atlas workgraphs and terminal indexes,
 ## Working Method
 
 - Start with the strict contract and its consumer. Validate regular-file containment, bounded sizes, duplicate keys, identities, digests, and authority flags before changing mission state.
-- Keep imports idempotent by exact digest and fail closed on drift or semantic contradiction. Preserve the original artifact for audit rather than normalizing away conflicts.
+- Keep imports idempotent by exact digest and fail closed on drift or semantic contradiction. Preserve the original locator and retained artifact bytes for audit rather than normalizing away conflicts; legacy v0.1 manifests remain source-reference based.
 - Bind Atlas workgraph continuation to the first ready node's validated identity. Reject conflicting or unsafe ready-node identifiers; use the legacy generic handoff only when the first ready node has no identity.
 - Treat an explicit zero-minute lease minimum as useful-work mode: preserve zero, enforce the hard maximum, and never require elapsed-time padding. Omission may preserve an existing historical minimum.
 - Change source fixtures under `examples/` only with their producer/consumer tests. Never edit a result to inflate completion, hide ready nodes, or claim a historical wave succeeded differently.

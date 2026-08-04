@@ -169,7 +169,11 @@ func importArtifact(
 			return ImportReadback{}, err
 		}
 	}
-	ref := ArtifactRef{Schema: ArtifactRefSchema, Ref: refPath, Digest: digestBytes(body), Kind: kind}
+	contentRef, digest, err := s.retainArtifact(body)
+	if err != nil {
+		return ImportReadback{}, err
+	}
+	ref := ArtifactRef{Schema: ArtifactRefSchema, Ref: refPath, ContentRef: contentRef, Digest: digest, Kind: kind}
 	r, err := s.updateWithCheckpointTransaction(missionID, func(rec *Record) error {
 		if chainReference != nil &&
 			(rec.MissionID != chainReference.MissionID || rec.CorrelationID != chainReference.CorrelationID) {
