@@ -15,6 +15,10 @@ const (
 var moveFileExProc = syscall.NewLazyDLL("kernel32.dll").NewProc("MoveFileExW")
 
 func replaceAtomicFile(source, destination string) error {
+	return moveFileEx(source, destination, missionMoveFileReplaceExisting|missionMoveFileWriteThrough)
+}
+
+func moveFileEx(source, destination string, flags uint32) error {
 	sourcePointer, err := syscall.UTF16PtrFromString(source)
 	if err != nil {
 		return err
@@ -26,7 +30,7 @@ func replaceAtomicFile(source, destination string) error {
 	result, _, callErr := moveFileExProc.Call(
 		uintptr(unsafe.Pointer(sourcePointer)),
 		uintptr(unsafe.Pointer(destinationPointer)),
-		missionMoveFileReplaceExisting|missionMoveFileWriteThrough,
+		uintptr(flags),
 	)
 	if result == 0 {
 		return callErr

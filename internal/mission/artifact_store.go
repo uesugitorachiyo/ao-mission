@@ -25,13 +25,11 @@ type retainedArtifactRoot interface {
 }
 
 var (
-	openRetainedArtifactFile      = openRetainedArtifactFileNoFollow
-	syncRetainedArtifactDirectory = func(root retainedArtifactRoot, path string) error {
-		return root.SyncDirectory(path)
-	}
-	beforeRetainedArtifactCreate = func(retainedArtifactRoot, string) error { return nil }
-	beforeRetainedArtifactLink   = func(retainedArtifactRoot, string, string) error { return nil }
-	retainedArtifactTempSequence atomic.Uint64
+	openRetainedArtifactFile          = openRetainedArtifactFileNoFollow
+	confirmRetainedArtifactDurability = confirmRetainedArtifactDurabilityPlatform
+	beforeRetainedArtifactCreate      = func(retainedArtifactRoot, string) error { return nil }
+	beforeRetainedArtifactPublish     = func(retainedArtifactRoot, string, string) error { return nil }
+	retainedArtifactTempSequence      atomic.Uint64
 )
 
 func (s Store) retainArtifact(body []byte) (string, string, error) {
@@ -55,8 +53,8 @@ func (s Store) retainArtifact(body []byte) (string, string, error) {
 		if err := verifyRetainedArtifact(root, objectName, body); err != nil {
 			return "", "", err
 		}
-		if err := syncRetainedArtifactDirectory(root, retainedArtifactDirectory); err != nil {
-			return "", "", fmt.Errorf("sync retained artifact directory: %w", err)
+		if err := confirmRetainedArtifactDurability(root, retainedArtifactDirectory); err != nil {
+			return "", "", fmt.Errorf("confirm retained artifact durability: %w", err)
 		}
 		return objectPath, digest, nil
 	} else if !os.IsNotExist(err) {
@@ -89,34 +87,15 @@ func (s Store) retainArtifact(body []byte) (string, string, error) {
 		return "", "", fmt.Errorf("close temporary retained artifact: %w", err)
 	}
 
-	if err := beforeRetainedArtifactLink(root, temporaryName, objectName); err != nil {
+	if err := beforeRetainedArtifactPublish(root, temporaryName, objectName); err != nil {
 		return "", "", fmt.Errorf("prepare retained artifact publication: %w", err)
 	}
-	if err := root.Link(temporaryName, objectName); err != nil {
-		if _, statErr := root.Lstat(objectName); statErr == nil {
-			if verifyErr := verifyRetainedArtifact(root, objectName, body); verifyErr != nil {
-				return "", "", verifyErr
-			}
-			if err := root.Remove(temporaryName); err != nil {
-				return "", "", fmt.Errorf("remove temporary retained artifact: %w", err)
-			}
-			temporaryLive = false
-			if err := syncRetainedArtifactDirectory(root, retainedArtifactDirectory); err != nil {
-				return "", "", fmt.Errorf("sync retained artifact directory: %w", err)
-			}
-			return objectPath, digest, nil
-		}
-		return "", "", fmt.Errorf("publish retained artifact: %w", err)
-	}
-	if err := root.Remove(temporaryName); err != nil {
-		return "", "", fmt.Errorf("remove temporary retained artifact: %w", err)
-	}
-	temporaryLive = false
-	if err := verifyRetainedArtifact(root, objectName, body); err != nil {
+	if err := publishRetainedArtifact(root, temporaryName, objectName, body); err != nil {
 		return "", "", err
 	}
-	if err := syncRetainedArtifactDirectory(root, retainedArtifactDirectory); err != nil {
-		return "", "", fmt.Errorf("sync retained artifact directory: %w", err)
+	temporaryLive = false
+	if err := confirmRetainedArtifactDurability(root, retainedArtifactDirectory); err != nil {
+		return "", "", fmt.Errorf("confirm retained artifact durability: %w", err)
 	}
 	return objectPath, digest, nil
 }

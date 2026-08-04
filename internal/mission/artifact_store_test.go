@@ -5,31 +5,12 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 )
-
-func TestRetainArtifactDirectoryDurabilityPolicy(t *testing.T) {
-	err := retainedArtifactDirectoryDurabilityError()
-	switch runtime.GOOS {
-	case "darwin", "linux":
-		if err != nil {
-			t.Fatalf("directory durability unexpectedly unavailable: %v", err)
-		}
-	case "windows":
-		if err == nil {
-			t.Fatal("Windows retention must fail closed without directory durability")
-		}
-	default:
-		if err == nil {
-			t.Fatal("unsupported retention platform must fail closed")
-		}
-	}
-}
 
 func TestRetainArtifactFirstCapture(t *testing.T) {
 	root := t.TempDir()
@@ -87,12 +68,12 @@ func TestRetainArtifactExactDeduplication(t *testing.T) {
 	}
 }
 
-func TestRetainArtifactExactDeduplicationRequiresDirectorySync(t *testing.T) {
-	previous := syncRetainedArtifactDirectory
-	defer func() { syncRetainedArtifactDirectory = previous }()
-	var syncCalls atomic.Int32
-	syncRetainedArtifactDirectory = func(_ retainedArtifactRoot, _ string) error {
-		syncCalls.Add(1)
+func TestRetainArtifactExactDeduplicationRequiresDurabilityConfirmation(t *testing.T) {
+	previous := confirmRetainedArtifactDurability
+	defer func() { confirmRetainedArtifactDurability = previous }()
+	var confirmationCalls atomic.Int32
+	confirmRetainedArtifactDurability = func(_ retainedArtifactRoot, _ string) error {
+		confirmationCalls.Add(1)
 		return nil
 	}
 
@@ -101,30 +82,30 @@ func TestRetainArtifactExactDeduplicationRequiresDirectorySync(t *testing.T) {
 	if _, _, err := store.retainArtifact(body); err != nil {
 		t.Fatal(err)
 	}
-	syncCalls.Store(0)
+	confirmationCalls.Store(0)
 	if _, _, err := store.retainArtifact(body); err != nil {
 		t.Fatal(err)
 	}
-	if got := syncCalls.Load(); got != 1 {
-		t.Fatalf("deduplication directory sync calls=%d want 1", got)
+	if got := confirmationCalls.Load(); got != 1 {
+		t.Fatalf("deduplication durability confirmations=%d want 1", got)
 	}
 }
 
-func TestRetainArtifactLinkCollisionExactReuseRequiresDirectorySync(t *testing.T) {
-	previousSync := syncRetainedArtifactDirectory
-	previousLink := beforeRetainedArtifactLink
+func TestRetainArtifactPublicationCollisionExactReuseRequiresDurabilityConfirmation(t *testing.T) {
+	previousConfirmation := confirmRetainedArtifactDurability
+	previousPublish := beforeRetainedArtifactPublish
 	defer func() {
-		syncRetainedArtifactDirectory = previousSync
-		beforeRetainedArtifactLink = previousLink
+		confirmRetainedArtifactDurability = previousConfirmation
+		beforeRetainedArtifactPublish = previousPublish
 	}()
-	var syncCalls atomic.Int32
-	syncRetainedArtifactDirectory = func(_ retainedArtifactRoot, _ string) error {
-		syncCalls.Add(1)
+	var confirmationCalls atomic.Int32
+	confirmRetainedArtifactDurability = func(_ retainedArtifactRoot, _ string) error {
+		confirmationCalls.Add(1)
 		return nil
 	}
 	body := []byte("link collision exact reuse must be durable")
 	store := NewStore(t.TempDir())
-	beforeRetainedArtifactLink = func(root retainedArtifactRoot, _, objectPath string) error {
+	beforeRetainedArtifactPublish = func(root retainedArtifactRoot, _, objectPath string) error {
 		return root.WriteFile(objectPath, body, 0o644)
 	}
 
@@ -136,25 +117,25 @@ func TestRetainArtifactLinkCollisionExactReuseRequiresDirectorySync(t *testing.T
 	if path != wantPath {
 		t.Fatalf("path=%q want %q", path, wantPath)
 	}
-	if got := syncCalls.Load(); got != 1 {
-		t.Fatalf("link-collision directory sync calls=%d want 1", got)
+	if got := confirmationCalls.Load(); got != 1 {
+		t.Fatalf("publication-collision durability confirmations=%d want 1", got)
 	}
 }
 
-func TestRetainArtifactConcurrentDeduplicationRequiresItsOwnDirectorySync(t *testing.T) {
-	previous := syncRetainedArtifactDirectory
-	defer func() { syncRetainedArtifactDirectory = previous }()
-	var syncCalls atomic.Int32
-	firstSyncEntered := make(chan struct{})
-	secondSyncEntered := make(chan struct{})
-	releaseFirstSync := make(chan struct{})
-	syncRetainedArtifactDirectory = func(_ retainedArtifactRoot, _ string) error {
-		switch syncCalls.Add(1) {
+func TestRetainArtifactConcurrentDeduplicationRequiresItsOwnDurabilityConfirmation(t *testing.T) {
+	previous := confirmRetainedArtifactDurability
+	defer func() { confirmRetainedArtifactDurability = previous }()
+	var confirmationCalls atomic.Int32
+	firstConfirmationEntered := make(chan struct{})
+	secondConfirmationEntered := make(chan struct{})
+	releaseFirstConfirmation := make(chan struct{})
+	confirmRetainedArtifactDurability = func(_ retainedArtifactRoot, _ string) error {
+		switch confirmationCalls.Add(1) {
 		case 1:
-			close(firstSyncEntered)
-			<-releaseFirstSync
+			close(firstConfirmationEntered)
+			<-releaseFirstConfirmation
 		case 2:
-			close(secondSyncEntered)
+			close(secondConfirmationEntered)
 		}
 		return nil
 	}
@@ -167,28 +148,28 @@ func TestRetainArtifactConcurrentDeduplicationRequiresItsOwnDirectorySync(t *tes
 		results <- err
 	}()
 	select {
-	case <-firstSyncEntered:
+	case <-firstConfirmationEntered:
 	case <-time.After(2 * time.Second):
-		t.Fatal("publishing caller did not reach directory sync")
+		t.Fatal("publishing caller did not reach durability confirmation")
 	}
 	go func() {
 		_, _, err := store.retainArtifact(body)
 		results <- err
 	}()
 	select {
-	case <-secondSyncEntered:
+	case <-secondConfirmationEntered:
 	case <-time.After(2 * time.Second):
-		close(releaseFirstSync)
-		t.Fatal("deduplicating caller returned without its directory sync")
+		close(releaseFirstConfirmation)
+		t.Fatal("deduplicating caller returned without its durability confirmation")
 	}
-	close(releaseFirstSync)
+	close(releaseFirstConfirmation)
 	for i := 0; i < 2; i++ {
 		if err := <-results; err != nil {
 			t.Fatal(err)
 		}
 	}
-	if got := syncCalls.Load(); got != 2 {
-		t.Fatalf("directory sync calls=%d want 2", got)
+	if got := confirmationCalls.Load(); got != 2 {
+		t.Fatalf("durability confirmations=%d want 2", got)
 	}
 }
 
@@ -320,26 +301,26 @@ func TestRetainArtifactRejectsParentSwapBeforeCreation(t *testing.T) {
 	}
 }
 
-func TestRetainArtifactPropagatesDirectorySyncFailure(t *testing.T) {
-	previous := syncRetainedArtifactDirectory
-	defer func() { syncRetainedArtifactDirectory = previous }()
-	var syncedPath string
-	syncRetainedArtifactDirectory = func(_ retainedArtifactRoot, path string) error {
-		syncedPath = path
-		return errors.New("injected directory sync failure")
+func TestRetainArtifactPropagatesDurabilityConfirmationFailure(t *testing.T) {
+	previous := confirmRetainedArtifactDurability
+	defer func() { confirmRetainedArtifactDurability = previous }()
+	var confirmedPath string
+	confirmRetainedArtifactDurability = func(_ retainedArtifactRoot, path string) error {
+		confirmedPath = path
+		return errors.New("injected durability confirmation failure")
 	}
 
 	root := t.TempDir()
-	body := []byte("directory sync must be required")
+	body := []byte("durability confirmation must be required")
 	path, _, err := NewStore(root).retainArtifact(body)
 	if err == nil {
-		t.Fatal("retention succeeded after directory sync failure")
+		t.Fatal("retention succeeded after durability confirmation failure")
 	}
-	if syncedPath != retainedArtifactDirectory {
-		t.Fatalf("synced path=%q", syncedPath)
+	if confirmedPath != retainedArtifactDirectory {
+		t.Fatalf("confirmed path=%q", confirmedPath)
 	}
 	if path != "" {
-		t.Fatalf("path=%q returned after directory sync failure", path)
+		t.Fatalf("path=%q returned after durability confirmation failure", path)
 	}
 }
 

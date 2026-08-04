@@ -182,6 +182,23 @@ func validateRetainedArtifactDirectoryPlatform(retainedArtifactRoot, string) err
 	return nil
 }
 
-func retainedArtifactDirectoryDurabilityError() error {
+func publishRetainedArtifact(root retainedArtifactRoot, temporaryName, objectName string, expected []byte) error {
+	if err := root.Link(temporaryName, objectName); err != nil {
+		if _, statErr := root.Lstat(objectName); statErr != nil {
+			return fmt.Errorf("publish retained artifact: %w", err)
+		}
+		if err := verifyRetainedArtifact(root, objectName, expected); err != nil {
+			return err
+		}
+	} else if err := verifyRetainedArtifact(root, objectName, expected); err != nil {
+		return err
+	}
+	if err := root.Remove(temporaryName); err != nil {
+		return fmt.Errorf("remove temporary retained artifact: %w", err)
+	}
 	return nil
+}
+
+func confirmRetainedArtifactDurabilityPlatform(root retainedArtifactRoot, path string) error {
+	return root.SyncDirectory(path)
 }

@@ -11,7 +11,7 @@ import (
 	"syscall"
 )
 
-var errRetainedArtifactWindowsDurabilityUnsupported = errors.New("Windows retained artifact directory durability is unsupported")
+var moveRetainedArtifactWindows = moveFileEx
 
 type retainedArtifactWindowsRoot struct{ name string }
 
@@ -102,14 +102,7 @@ func (r *retainedArtifactWindowsRoot) WriteFile(path string, body []byte, perm o
 }
 
 func (r *retainedArtifactWindowsRoot) SyncDirectory(path string) error {
-	if err := r.validatePath(path); err != nil {
-		return err
-	}
-	return errRetainedArtifactWindowsDurabilityUnsupported
-}
-
-func retainedArtifactDirectoryDurabilityError() error {
-	return errRetainedArtifactWindowsDurabilityUnsupported
+	return r.validatePath(path)
 }
 
 func (r *retainedArtifactWindowsRoot) validatePath(path string) error {
@@ -162,6 +155,37 @@ func openRetainedArtifactFileNoFollow(root retainedArtifactRoot, path string) (*
 }
 
 func validateRetainedArtifactDirectoryPlatform(root retainedArtifactRoot, path string) error {
+	return root.(*retainedArtifactWindowsRoot).validatePath(path)
+}
+
+func publishRetainedArtifact(root retainedArtifactRoot, temporaryName, objectName string, expected []byte) error {
+	windowsRoot := root.(*retainedArtifactWindowsRoot)
+	if err := windowsRoot.validatePath(filepath.Dir(temporaryName)); err != nil {
+		return err
+	}
+	if err := windowsRoot.validatePath(filepath.Dir(objectName)); err != nil {
+		return err
+	}
+	err := moveRetainedArtifactWindows(
+		filepath.Join(root.Name(), temporaryName),
+		filepath.Join(root.Name(), objectName),
+		missionMoveFileWriteThrough,
+	)
+	if err != nil && !errors.Is(err, syscall.ERROR_ALREADY_EXISTS) && !errors.Is(err, syscall.ERROR_FILE_EXISTS) {
+		return fmt.Errorf("publish retained artifact: %w", err)
+	}
+	if err := verifyRetainedArtifact(root, objectName, expected); err != nil {
+		return err
+	}
+	if err != nil {
+		if err := root.Remove(temporaryName); err != nil {
+			return fmt.Errorf("remove temporary retained artifact: %w", err)
+		}
+	}
+	return nil
+}
+
+func confirmRetainedArtifactDurabilityPlatform(root retainedArtifactRoot, path string) error {
 	return root.(*retainedArtifactWindowsRoot).validatePath(path)
 }
 

@@ -45,6 +45,10 @@ func validateRetainedArtifactDirectoryPlatform(retainedArtifactRoot, string) err
 	return errRetainedArtifactUnsupported
 }
 
-func retainedArtifactDirectoryDurabilityError() error {
+func publishRetainedArtifact(retainedArtifactRoot, string, string, []byte) error {
+	return errRetainedArtifactUnsupported
+}
+
+func confirmRetainedArtifactDurabilityPlatform(retainedArtifactRoot, string) error {
 	return errRetainedArtifactUnsupported
 }
