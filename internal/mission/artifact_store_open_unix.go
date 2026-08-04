@@ -181,3 +181,7 @@ func openRetainedArtifactFileNoFollow(root retainedArtifactRoot, path string) (*
 func validateRetainedArtifactDirectoryPlatform(retainedArtifactRoot, string) error {
 	return nil
 }
+
+func retainedArtifactDirectoryDurabilityError() error {
+	return nil
+}

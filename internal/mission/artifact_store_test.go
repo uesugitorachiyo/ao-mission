@@ -5,12 +5,31 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 )
+
+func TestRetainArtifactDirectoryDurabilityPolicy(t *testing.T) {
+	err := retainedArtifactDirectoryDurabilityError()
+	switch runtime.GOOS {
+	case "darwin", "linux":
+		if err != nil {
+			t.Fatalf("directory durability unexpectedly unavailable: %v", err)
+		}
+	case "windows":
+		if err == nil {
+			t.Fatal("Windows retention must fail closed without directory durability")
+		}
+	default:
+		if err == nil {
+			t.Fatal("unsupported retention platform must fail closed")
+		}
+	}
+}
 
 func TestRetainArtifactFirstCapture(t *testing.T) {
 	root := t.TempDir()

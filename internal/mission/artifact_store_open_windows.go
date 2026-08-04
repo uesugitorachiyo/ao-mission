@@ -11,6 +11,8 @@ import (
 	"syscall"
 )
 
+var errRetainedArtifactWindowsDurabilityUnsupported = errors.New("Windows retained artifact directory durability is unsupported")
+
 type retainedArtifactWindowsRoot struct{ name string }
 
 func openRetainedArtifactRoot(name string) (retainedArtifactRoot, error) {
@@ -100,7 +102,14 @@ func (r *retainedArtifactWindowsRoot) WriteFile(path string, body []byte, perm o
 }
 
 func (r *retainedArtifactWindowsRoot) SyncDirectory(path string) error {
-	return r.validatePath(path)
+	if err := r.validatePath(path); err != nil {
+		return err
+	}
+	return errRetainedArtifactWindowsDurabilityUnsupported
+}
+
+func retainedArtifactDirectoryDurabilityError() error {
+	return errRetainedArtifactWindowsDurabilityUnsupported
 }
 
 func (r *retainedArtifactWindowsRoot) validatePath(path string) error {

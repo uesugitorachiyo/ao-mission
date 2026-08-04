@@ -44,3 +44,7 @@ func openRetainedArtifactFileNoFollow(root retainedArtifactRoot, path string) (*
 func validateRetainedArtifactDirectoryPlatform(retainedArtifactRoot, string) error {
 	return errRetainedArtifactUnsupported
 }
+
+func retainedArtifactDirectoryDurabilityError() error {
+	return errRetainedArtifactUnsupported
+}
