@@ -189,6 +189,7 @@ func importArtifact(
 			rec.Evidence.AtlasWorkgraph = &counts
 			if counts.Ready > 0 {
 				rec.Status = "active"
+				rec.Blockers = []string{}
 				rec.Evidence.AtlasRecommendation = nil
 				rec.Evidence.AtlasFinalSynthesis = nil
 				rec.Evidence.FoundryRollup = nil
