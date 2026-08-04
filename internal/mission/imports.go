@@ -175,6 +175,17 @@ func importArtifact(
 			(rec.MissionID != chainReference.MissionID || rec.CorrelationID != chainReference.CorrelationID) {
 			return fmt.Errorf("correlation chain identity changed before import")
 		}
+		for _, existingRef := range rec.ArtifactRefs {
+			if existingRef.Ref != ref.Ref || existingRef.Kind != ref.Kind {
+				continue
+			}
+			if existingRef.Digest != ref.Digest {
+				return fmt.Errorf("artifact path already bound to a different digest")
+			}
+			if correlatedBinding == nil {
+				return nil
+			}
+		}
 		rec.ArtifactRefs = append(rec.ArtifactRefs, ref)
 		switch {
 		case neutral:
