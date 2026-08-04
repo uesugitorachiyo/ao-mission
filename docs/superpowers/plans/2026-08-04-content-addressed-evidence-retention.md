@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Historical evidence is immutable and remains under `/Users/torachiyouesugi/Documents/canary-test`.
+- Historical evidence is immutable and remains under the operator-selected campaign root outside source checkouts.
 - New retained evidence is rooted beneath the configured `AO_MISSION_HOME`.
 - `AO_MISSION_HOME` is a trusted operator-owned root; hostile same-user concurrent replacement of that root is outside scope.
 - No network, provider, credential, release, deployment, publication, or authority expansion.
@@ -96,7 +96,7 @@
 ### Task 5: Bounded Exact-Head Recertification
 
 **Files:**
-- Create only beneath: `/Users/torachiyouesugi/Documents/canary-test/ao-stack-production-recertification-<UTC>/`
+- Create only beneath: `<operator-campaign-root>/ao-stack-production-recertification-<UTC>/`
 
 **Interfaces:**
 - Consumes: merged AO Mission head and preserved prior campaign evidence.

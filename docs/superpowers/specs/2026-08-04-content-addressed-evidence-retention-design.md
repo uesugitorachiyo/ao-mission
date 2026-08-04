@@ -75,8 +75,8 @@ remain required before merge.
 ## Recertification
 
 After merge, a fresh bounded Mission objective will import current exact-head
-evidence into a new campaign directory under
-`/Users/torachiyouesugi/Documents/canary-test`. It will reuse only evidence
+evidence into a new operator-selected campaign directory outside every source
+checkout. It will reuse only evidence
 that independently passes identity, freshness, and digest checks, rerun stale
 gates, perform one restart and one compaction/replay, generate canonical
 terminal views, and independently verify its complete manifest. The previous
