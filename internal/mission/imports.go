@@ -461,37 +461,91 @@ func countWorkgraphNodes(doc map[string]any) NodeCounts {
 
 func firstReadyAtlasWorkgraphNode(doc map[string]any) (string, error) {
 	nodes, _ := doc["nodes"].([]any)
-	firstReady := ""
-	sawReady := false
+	statuses := make(map[string]string, len(nodes))
+	identities := make([]string, len(nodes))
+	for index, node := range nodes {
+		obj, _ := node.(map[string]any)
+		identity, err := atlasWorkgraphNodeIdentity(obj)
+		if err != nil {
+			return "", fmt.Errorf("atlas-workgraph nodes[%d] %w", index, err)
+		}
+		identities[index] = identity
+		if identity != "" {
+			statuses[identity] = stringFromAny(obj["status"])
+		}
+	}
 	for index, node := range nodes {
 		obj, _ := node.(map[string]any)
 		if stringFromAny(obj["status"]) != "ready" {
 			continue
 		}
-		id, idPresent, err := atlasWorkgraphNodeID(obj, "id")
+		dependencies, err := atlasWorkgraphNodeDependencies(obj)
 		if err != nil {
 			return "", fmt.Errorf("atlas-workgraph nodes[%d] %w", index, err)
 		}
-		nodeID, nodeIDPresent, err := atlasWorkgraphNodeID(obj, "node_id")
-		if err != nil {
-			return "", fmt.Errorf("atlas-workgraph nodes[%d] %w", index, err)
+		dependencyReady := true
+		for _, dependency := range dependencies {
+			status, ok := statuses[dependency]
+			if !ok {
+				return "", fmt.Errorf("atlas-workgraph nodes[%d] dependency %q is not a declared node", index, dependency)
+			}
+			if status != "completed" && status != "complete" && status != "done" {
+				dependencyReady = false
+				break
+			}
 		}
-		if idPresent && nodeIDPresent && id != nodeID {
-			return "", fmt.Errorf("atlas-workgraph nodes[%d] has conflicting id and node_id", index)
-		}
-		candidate := id
-		if candidate == "" {
-			candidate = nodeID
-		}
-		if candidate != "" && !atlasWorkgraphNodeIDPattern.MatchString(candidate) {
-			return "", fmt.Errorf("atlas-workgraph nodes[%d] identity must be a bounded ASCII identifier", index)
-		}
-		if !sawReady {
-			firstReady = candidate
-			sawReady = true
+		if dependencyReady {
+			return identities[index], nil
 		}
 	}
-	return firstReady, nil
+	return "", nil
+}
+
+func atlasWorkgraphNodeIdentity(node map[string]any) (string, error) {
+	id, idPresent, err := atlasWorkgraphNodeID(node, "id")
+	if err != nil {
+		return "", err
+	}
+	nodeID, nodeIDPresent, err := atlasWorkgraphNodeID(node, "node_id")
+	if err != nil {
+		return "", err
+	}
+	if idPresent && nodeIDPresent && id != nodeID {
+		return "", fmt.Errorf("has conflicting id and node_id")
+	}
+	candidate := id
+	if candidate == "" {
+		candidate = nodeID
+	}
+	if candidate != "" && !atlasWorkgraphNodeIDPattern.MatchString(candidate) {
+		return "", fmt.Errorf("identity must be a bounded ASCII identifier")
+	}
+	return candidate, nil
+}
+
+func atlasWorkgraphNodeDependencies(node map[string]any) ([]string, error) {
+	value, present := node["dependencies"]
+	if !present {
+		return nil, nil
+	}
+	values, ok := value.([]any)
+	if !ok {
+		return nil, fmt.Errorf("dependencies must be an array")
+	}
+	dependencies := make([]string, 0, len(values))
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		dependency, ok := value.(string)
+		if !ok || !atlasWorkgraphNodeIDPattern.MatchString(dependency) {
+			return nil, fmt.Errorf("dependencies must contain bounded ASCII identifiers")
+		}
+		if _, duplicate := seen[dependency]; duplicate {
+			return nil, fmt.Errorf("dependencies must not contain duplicates")
+		}
+		seen[dependency] = struct{}{}
+		dependencies = append(dependencies, dependency)
+	}
+	return dependencies, nil
 }
 
 func atlasWorkgraphNodeID(node map[string]any, field string) (string, bool, error) {

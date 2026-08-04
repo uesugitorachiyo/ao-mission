@@ -46,6 +46,34 @@ func TestAtlasWorkgraphImportBindsFirstReadyNodeID(t *testing.T) {
 	}
 }
 
+func TestAtlasWorkgraphImportSkipsReadyNodesWithIncompleteDependencies(t *testing.T) {
+	store := NewStore(t.TempDir())
+	record, err := store.Start("bind only a dependency-ready Atlas node")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(store.Root, "workgraph.json")
+	body := `{
+  "contract_version": "ao.atlas.workgraph.v0.1",
+  "nodes": [
+    {"id":"blocked-prerequisite","status":"blocked"},
+    {"id":"must-not-run","status":"ready","dependencies":["blocked-prerequisite"]},
+    {"id":"independent-ready","status":"ready","dependencies":[]}
+  ]
+}`
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	readback, err := ImportArtifact(store, record.MissionID, "atlas-workgraph", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.ExactNextAction != "independent-ready" {
+		t.Fatalf("import readback next action = %q, want independent-ready", readback.ExactNextAction)
+	}
+}
+
 func TestAtlasWorkgraphImportBindsLegacyNodeIDAlias(t *testing.T) {
 	store := NewStore(t.TempDir())
 	record, err := store.Start("bind a legacy Atlas node_id")
