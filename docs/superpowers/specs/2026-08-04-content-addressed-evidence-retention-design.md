@@ -50,13 +50,18 @@ closed and the original manifest remains untouched.
 ## Security Boundaries
 
 - Evidence remains under the operator-selected `AO_MISSION_HOME`.
+- `AO_MISSION_HOME` is the trusted, operator-owned ledger root. A hostile
+  same-user process concurrently replacing that root or its directory entries
+  is outside this contract because it can already rewrite Mission records and
+  checkpoints. Symlinks, reparse points, and non-directory components present
+  when retention begins are still rejected.
 - No network, provider, release, deployment, publication, or authority change
   is introduced.
 - Imported content passes the existing public-safety, duplicate-key, JSON,
   identity, and authority checks before retention.
 - The object path is derived only from a validated SHA-256 digest.
 - Existing objects are opened and checked as regular files without following
-  a replacement symlink.
+  a symlink present at open time.
 - V0.2 hashes byte-exact content. V0.1 retains its legacy CRLF normalization.
 
 ## Verification

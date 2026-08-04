@@ -12,9 +12,10 @@
 
 - Historical evidence is immutable and remains under `/Users/torachiyouesugi/Documents/canary-test`.
 - New retained evidence is rooted beneath the configured `AO_MISSION_HOME`.
+- `AO_MISSION_HOME` is a trusted operator-owned root; hostile same-user concurrent replacement of that root is outside scope.
 - No network, provider, credential, release, deployment, publication, or authority expansion.
 - Existing `ao.mission.artifact-manifest.v0.1` and artifact references without `content_ref` remain valid.
-- Use test-first implementation and fail closed on non-regular objects, symlinks, digest mismatch, or partial writes.
+- Use test-first implementation and fail closed on non-regular objects, symlinks or reparse points present at operation time, digest mismatch, or partial writes.
 
 ---
 
