@@ -463,6 +463,7 @@ func firstReadyAtlasWorkgraphNode(doc map[string]any) (string, error) {
 	nodes, _ := doc["nodes"].([]any)
 	statuses := make(map[string]string, len(nodes))
 	identities := make([]string, len(nodes))
+	sawReadyWithIncompleteDependencies := false
 	for index, node := range nodes {
 		obj, _ := node.(map[string]any)
 		identity, err := atlasWorkgraphNodeIdentity(obj)
@@ -497,6 +498,10 @@ func firstReadyAtlasWorkgraphNode(doc map[string]any) (string, error) {
 		if dependencyReady {
 			return identities[index], nil
 		}
+		sawReadyWithIncompleteDependencies = true
+	}
+	if sawReadyWithIncompleteDependencies {
+		return "", fmt.Errorf("has no dependency-ready node")
 	}
 	return "", nil
 }
