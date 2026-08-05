@@ -39,7 +39,9 @@ func Continue(s Store, missionID string, opts ContinueOptions) (Record, error) {
 				return nil, errors.New("mission is paused")
 			}
 			var eventDecision *EventLoopDecision
-			ensureGoalLease(r, opts)
+			if _, err := ensureGoalLease(r, opts); err != nil {
+				return nil, err
+			}
 			if r.Status != "done" && !hardBlockerExists(*r) {
 				decision := NextActionForRecord(*r)
 				step := ContinuationStep{Schema: StepSchema, MissionID: r.MissionID, CorrelationID: r.CorrelationID, Iteration: len(r.Steps) + 1, Route: decision.Route, Result: "handoff_required", ExactNextAction: decision.ExactNextAction, GeneratedAtUTC: now(s.Clock)}
