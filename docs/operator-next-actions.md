@@ -6,65 +6,28 @@ mission.
 
 ## Current AO Stack Roadmap Action
 
-The post-release DSA hardening workgraph has reached final closure
-reconciliation.
+The current portfolio release-readiness cycle is in repository documentation
+reconciliation. It does not authorize a new release, promotion, provider call,
+or external beta.
 
 Current public release pair:
 
-- AO2 `v0.5.2`
-  - Release: https://github.com/uesugitorachiyo/ao2/releases/tag/v0.5.2
-  - Release target: `732a97950121321b3cfad29d86526df9c0b5fad5`
-  - Current main after release hardening: `a1728338277f076f9122bff2718617193199a623`
-  - Approved asset manifest SHA-256:
-    `8268de6f7ccf2f9a194b9123df7a3845cb4660bc10476f6da1df7a5859f48574`
-- AO2 Control Plane `v0.1.17`
-  - Release: https://github.com/uesugitorachiyo/ao2-control-plane/releases/tag/v0.1.17
-  - Release target: `6336801eedc4a8402d12b306b98603ce0a6fb6b5`
-  - Current main after release notes closure: `2a2c4bfe6a65b2076e1e006639e661e14226e9d6`
+- AO2 [v0.5.8](https://github.com/uesugitorachiyo/ao2/releases/tag/v0.5.8),
+  tag target `a879ae7969a26d13432c7cc402174861b2444c05`.
+- AO2 Control Plane [v0.1.19](https://github.com/uesugitorachiyo/ao2-control-plane/releases/tag/v0.1.19),
+  tag target `5de3541e9007e12d95b125e7f911c02932e21479`.
+- AO Mission [v0.1.1](https://github.com/uesugitorachiyo/ao-mission/releases/tag/v0.1.1).
+- AO Command [v0.1.2](https://github.com/uesugitorachiyo/ao-command/releases/tag/v0.1.2).
+- AO Forge [v0.1.4](https://github.com/uesugitorachiyo/ao-forge/releases/tag/v0.1.4).
+- AO Covenant [v0.1.1](https://github.com/uesugitorachiyo/ao-covenant/releases/tag/v0.1.1).
 
-Post-release public verification is recorded in the excluded evidence root
-`ao-stack-qualification-release-dsa-20260718-20260718T224504Z`.
+The authoritative public release matrix, tags, workflow runs, and digests are
+maintained by [AO Architecture current releases](https://github.com/uesugitorachiyo/ao-architecture/blob/main/docs/current-release.md).
+Use that document before choosing any release-related action.
 
-Release closure evidence:
-
-- `publish-ao2-v052-result.json`: AO2 `v0.5.2` published as the latest stable
-  release; public checksum, provenance, macOS rollback, Windows rollback,
-  release comparison, Workbench export, and Docker Linux x86_64 smoke gates
-  passed.
-- `verify-public-ao2-v052-result.json`: fresh public AO2 download verification
-  passed against approved release assets.
-- `publish-control-plane-v0117-result.json`: AO2 Control Plane `v0.1.17`
-  published as the latest stable release with the annotated tag pointing to the
-  release commit.
-- `verify-public-control-plane-v0117-result.json`: fresh public Control Plane
-  download verification, asset parity, and AO2/Control Plane public pair
-  verification passed; generated at `2026-07-19T14:58:39Z`.
-- `post-public-architecture-current-pair-result.json`: AO Architecture records
-  AO2 `v0.5.2` plus AO2 Control Plane `v0.1.17` as the current public pair;
-  local verification and GitHub Verify passed; generated at
-  `2026-07-19T15:06:05Z`.
-
-Ubuntu/Linux native verification was not available in this Codex application
-run. AO2 Linux verification therefore used the authorized Docker Linux x86_64
-substitute, `AO2_LINUX_X86_64_SMOKE_MODE=docker`, matching the operator
-clarification for this handoff.
-
-Final closure evidence:
-
-- `stable-release-qualification.json`: frozen-head qualification, retained
-  Windows topology, three-OS verification, and release immutability passed.
-- `repository-decisions.json`: all fourteen repositories are recorded with
-  evaluated decisions, PRs, merge commits, and no-change evidence.
-- `boundary-confirmation.json`: promotion, external beta, and provider pilot
-  remain denied or unrequested. RSI remains denied. The only published pair
-  recorded here is AO2 `v0.5.2` with AO2 Control Plane `v0.1.17`.
-- `final-report.md`: terminal report for the AO Stack qualification, release,
-  and DSA hardening run.
-
-Next action: plan the next bounded AO Stack maintenance pass from the final
-report's recommended action. Do not start another release train, external beta,
-promotion, provider pilot, live self-modification, or RSI work from this
-Mission closure.
+Next action: finish the bounded documentation reconciliation. Do not start a
+new release train, external beta, promotion, provider pilot, live
+self-modification, or RSI work from this readback.
 
 The earlier bounded-autonomy and product validation cycle remains recorded
 below as historical closure context.
