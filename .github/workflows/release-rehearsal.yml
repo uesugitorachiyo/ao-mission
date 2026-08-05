@@ -272,15 +272,17 @@ jobs:
         name: Bind committed release notes
         shell: bash
         env:
+          RELEASE_VERSION: ${{ inputs.version }}
           SOURCE_SHA: ${{ inputs.source_sha }}
         run: |
           set -euo pipefail
-          release_notes_path=docs/release/V0.1.0-RELEASE-NOTES.md
+          release_notes_path="docs/release/V${RELEASE_VERSION}-RELEASE-NOTES.md"
           release_notes_blob=target/release-rehearsal/binding/release-notes.md
           git cat-file blob "${SOURCE_SHA}:${release_notes_path}" > "$release_notes_blob"
           [ -s "$release_notes_blob" ]
           [ "$(wc -c < "$release_notes_blob")" -le 32768 ]
-          head -n 1 "$release_notes_blob" | grep -Fx '# AO Mission v0.1.0 Release Notes'
+          expected_heading="# AO Mission v${RELEASE_VERSION} Release Notes"
+          head -n 1 "$release_notes_blob" | grep -Fx "$expected_heading"
           release_notes_sha256=$(sha256sum < "$release_notes_blob" | awk '{print $1}')
           echo "release_notes_path=$release_notes_path" >> "$GITHUB_OUTPUT"
           echo "release_notes_sha256=$release_notes_sha256" >> "$GITHUB_OUTPUT"
