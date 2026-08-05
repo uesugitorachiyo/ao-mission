@@ -736,7 +736,7 @@ jobs:
               for key, expected in expected_provenance.items():
                   if provenance[key] != expected:
                       fail(f"candidate provenance {key} mismatch for {spec['target_label']}")
-              go_version_pattern = rf"go version go1\.22(?:\.\d+)? {re.escape(spec['goos'])}/{re.escape(spec['goarch'])}"
+              go_version_pattern = rf"go version go1\.26\.4 {re.escape(spec['goos'])}/{re.escape(spec['goarch'])}"
               if not isinstance(provenance["go_version"], str) or not re.fullmatch(go_version_pattern, provenance["go_version"]):
                   fail(f"candidate Go version or target identity mismatch for {spec['target_label']}")
               if provenance["workflow_ref"] != bound["WORKFLOW_REF"]:
@@ -912,10 +912,14 @@ jobs:
           [ "$actual_manifest_digest" = "$APPROVED_MANIFEST_DIGEST" ]
 
       - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
         with:
-          go-version-file: go.mod
+          go-version: '1.26.4'
           cache: false
+
+      - name: Verify Go toolchain
+        shell: bash
+        run: '[ "$(go env GOVERSION)" = "go1.26.4" ]'
 
       - name: Build, package, and smoke the native candidate
         shell: bash

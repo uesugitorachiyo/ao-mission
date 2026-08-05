@@ -32,6 +32,9 @@ func TestNativeArtifactWorkflowContract(t *testing.T) {
 		`if [ "$smoke_exit" -ne 1 ]; then`,
 		`grep -F "error: usage: ao-mission" "$artifact_dir/smoke.txt"`,
 		"contents: read",
+		"uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+		"go-version: '1.26.4'",
+		`[ "$(go env GOVERSION)" = "go1.26.4" ]`,
 		"ref: 4c501b4f1e55cb9b926709e19d496edf41984fb1",
 	} {
 		if !strings.Contains(workflow, want) {
@@ -73,5 +76,21 @@ func TestNativeArtifactWorkflowContract(t *testing.T) {
 		!hasExactLine(workflow[builder:verifier], `--workspace-root . \`) ||
 		!hasExactLine(workflow[verifier:], `--workspace-root "$supply_chain_dir" \`) {
 		t.Fatal("supply-chain policy ref, binary input, and workspace roots must match the approved contract")
+	}
+	for _, path := range []string{"ci.yml", "release-rehearsal.yml"} {
+		data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		workflow := string(data)
+		for _, want := range []string{
+			"uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+			"go-version: '1.26.4'",
+			`[ "$(go env GOVERSION)" = "go1.26.4" ]`,
+		} {
+			if !strings.Contains(workflow, want) {
+				t.Fatalf("%s missing explicit Go toolchain contract %q", path, want)
+			}
+		}
 	}
 }
