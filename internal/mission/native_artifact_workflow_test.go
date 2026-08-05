@@ -28,12 +28,22 @@ func TestNativeArtifactWorkflowContract(t *testing.T) {
 		"NOTICE",
 		"./cmd/ao-mission",
 		"no-args-usage",
+		`"$artifact_dir/$binary" --version > "$artifact_dir/version.txt"`,
+		`if [ "$smoke_exit" -ne 1 ]; then`,
+		`grep -F "error: usage: ao-mission" "$artifact_dir/smoke.txt"`,
 		"contents: read",
 		"ref: 4c501b4f1e55cb9b926709e19d496edf41984fb1",
 	} {
 		if !strings.Contains(workflow, want) {
 			t.Fatalf("native artifact workflow missing %q", want)
 		}
+	}
+	module, err := os.ReadFile(filepath.Join("..", "..", "go.mod"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(module), "toolchain go1.26.4") {
+		t.Fatal("native artifact workflow requires the pinned Go 1.26.4 toolchain")
 	}
 	for _, forbidden := range []string{"contents: write", "gh release", "actions/create-release", "softprops/action-gh-release"} {
 		if strings.Contains(workflow, forbidden) {
