@@ -984,14 +984,14 @@ func writeCandidateFixture(
 		"version-output.txt":             []byte(versionOutput + "\n"),
 		"functional-smoke-evidence.json": marshalJSON(t, map[string]any{"command": "validate contract --path examples/valid/mission-record.json", "provider_calls": false, "status": "passed"}),
 		"functional-smoke-output.json":   marshalJSON(t, validFunctionalSmokeOutput()),
-		"sbom.json":                      marshalJSON(t, map[string]any{"GoVersion": "1.22", "Path": "github.com/uesugitorachiyo/ao-mission"}),
+		"sbom.json":                      marshalJSON(t, map[string]any{"GoVersion": "1.26.4", "Path": "github.com/uesugitorachiyo/ao-mission"}),
 	}
 	provenance := map[string]any{
 		"approved_manifest_digest": environment["APPROVED_MANIFEST_DIGEST"],
 		"archive":                  target.archive,
 		"binary_format":            target.binaryFormat,
 		"binary_sha256":            sha256Hex(binaryBytes),
-		"go_version":               "go version go1.22.12 " + target.goos + "/" + target.goarch,
+		"go_version":               "go version go1.26.4 " + target.goos + "/" + target.goarch,
 		"goarch":                   target.goarch,
 		"goos":                     target.goos,
 		"machine":                  target.machine,
