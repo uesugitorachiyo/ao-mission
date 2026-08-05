@@ -148,11 +148,13 @@ func SuperviseIssueRepair(s Store, missionID string, request IssueRepairSupervis
 				return errors.New("issue repair supervisor must begin with run_started")
 			}
 			state = newIssueRepairSupervisorState(s, request)
-			ensureGoalLease(record, ContinueOptions{
+			if _, err := ensureGoalLease(record, ContinueOptions{
 				MinNodes:         1,
 				MaxIterations:    request.EventBudget,
 				CheckpointPolicy: "after_each_issue_repair_event",
-			})
+			}); err != nil {
+				return err
+			}
 		} else {
 			state = *current
 			if request.ExpectedCheckpointDigest != state.Checkpoint.CheckpointDigest {

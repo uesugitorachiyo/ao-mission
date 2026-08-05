@@ -15,7 +15,7 @@ const (
 	defaultCheckpointPolicy = "after_each_node_or_timed_interval"
 )
 
-func ensureGoalLease(r *Record, opts ContinueOptions) GoalLease {
+func ensureGoalLease(r *Record, opts ContinueOptions) (GoalLease, error) {
 	stamp := now(nil)
 	minNodes := opts.MinNodes
 	if minNodes <= 0 {
@@ -53,11 +53,16 @@ func ensureGoalLease(r *Record, opts ContinueOptions) GoalLease {
 			CreatedAtUTC:     stamp,
 			UpdatedAtUTC:     stamp,
 		}
-		return *r.GoalLease
+		return *r.GoalLease, nil
 	}
 	r.GoalLease.Schema = GoalLeaseSchema
 	if r.GoalLease.MinNodes <= 0 {
 		r.GoalLease.MinNodes = minNodes
+	} else if opts.MinNodes > 0 && opts.MinNodes < r.GoalLease.MinNodes {
+		if r.Evidence.AtlasWorkgraph == nil || r.Evidence.AtlasWorkgraph.Total != opts.MinNodes {
+			return GoalLease{}, fmt.Errorf("min-nodes reduction must equal imported Atlas workgraph total: requested=%d", opts.MinNodes)
+		}
+		r.GoalLease.MinNodes = opts.MinNodes
 	}
 	if opts.MinMinutesSet || opts.MinMinutes > 0 {
 		r.GoalLease.MinMinutes = minMinutes
@@ -77,7 +82,7 @@ func ensureGoalLease(r *Record, opts ContinueOptions) GoalLease {
 		r.GoalLease.CheckpointPolicy = checkpointPolicy
 	}
 	r.GoalLease.UpdatedAtUTC = stamp
-	return *r.GoalLease
+	return *r.GoalLease, nil
 }
 
 func EvaluateReturnGate(r Record) ReturnGate {

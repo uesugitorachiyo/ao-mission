@@ -69,6 +69,62 @@ func TestCLIContinueRejectsNegativeMinimumMinutes(t *testing.T) {
 	}
 }
 
+func TestContinueLowersExistingMinimumToExactImportedWorkgraphTotal(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(dir)
+	record, err := store.Start("close an exact nine-node workgraph")
+	if err != nil {
+		t.Fatal(err)
+	}
+	record.GoalLease = &GoalLease{
+		Schema:           GoalLeaseSchema,
+		MinNodes:         10,
+		MinMinutes:       0,
+		MaxMinutes:       180,
+		MaxIterations:    10,
+		ReturnOnlyWhen:   defaultReturnOnlyWhen,
+		CheckpointPolicy: defaultCheckpointPolicy,
+	}
+	record.Evidence.AtlasWorkgraph = &NodeCounts{Total: 9, Completed: 9}
+	if err := store.Save(record); err != nil {
+		t.Fatal(err)
+	}
+
+	continued, err := Continue(store, record.MissionID, ContinueOptions{MinNodes: 9})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if continued.GoalLease == nil || continued.GoalLease.MinNodes != 9 {
+		t.Fatalf("exact imported workgraph total did not lower lease: %+v", continued.GoalLease)
+	}
+}
+
+func TestContinueRejectsLowerMinimumWithoutExactImportedWorkgraphTotal(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(dir)
+	record, err := store.Start("reject unbound lease reduction")
+	if err != nil {
+		t.Fatal(err)
+	}
+	record.GoalLease = &GoalLease{
+		Schema:           GoalLeaseSchema,
+		MinNodes:         10,
+		MinMinutes:       0,
+		MaxMinutes:       180,
+		MaxIterations:    10,
+		ReturnOnlyWhen:   defaultReturnOnlyWhen,
+		CheckpointPolicy: defaultCheckpointPolicy,
+	}
+	record.Evidence.AtlasWorkgraph = &NodeCounts{Total: 9, Completed: 9}
+	if err := store.Save(record); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := Continue(store, record.MissionID, ContinueOptions{MinNodes: 8}); err == nil || !strings.Contains(err.Error(), "must equal imported Atlas workgraph total") {
+		t.Fatalf("unsafe lease reduction unexpectedly succeeded: %v", err)
+	}
+}
+
 func TestContinueRejectsNegativeMinimumMinutes(t *testing.T) {
 	dir := t.TempDir()
 	store := NewStore(dir)
