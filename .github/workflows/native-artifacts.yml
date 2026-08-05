@@ -45,14 +45,16 @@ jobs:
           binary="ao-mission${{ matrix.binary_suffix }}"
           mkdir -p "$artifact_dir"
           go build -trimpath -o "$artifact_dir/$binary" ./cmd/ao-mission
+          "$artifact_dir/$binary" --version > "$artifact_dir/version.txt"
           set +e
           "$artifact_dir/$binary" > "$artifact_dir/smoke.txt" 2>&1
           smoke_exit=$?
           set -e
-          if [ "$smoke_exit" -eq 0 ]; then
-            echo "expected usage smoke to return non-zero for no-argument invocation" >&2
+          if [ "$smoke_exit" -ne 1 ]; then
+            echo "expected usage smoke to return exit 1 for no-argument invocation, got $smoke_exit" >&2
             exit 1
           fi
+          grep -F "error: usage: ao-mission" "$artifact_dir/smoke.txt"
           cp LICENSE "$artifact_dir/"
           if [ -f NOTICE ]; then
             cp NOTICE "$artifact_dir/"
