@@ -141,14 +141,14 @@ func TestReleaseRehearsalWorkflowStructure(t *testing.T) {
 }
 
 func TestReleaseNotesAreCommittedAndBoundToExactHead(t *testing.T) {
-	notesPath := filepath.Join("..", "..", "docs", "release", "V0.1.0-RELEASE-NOTES.md")
+	notesPath := filepath.Join("..", "..", "docs", "release", "V0.1.1-RELEASE-NOTES.md")
 	notes, err := os.ReadFile(notesPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"# AO Mission v0.1.0 Release Notes",
-		"initial stable release",
+		"# AO Mission v0.1.1 Release Notes",
+		"durable mission supervision",
 		"Linux x86_64",
 		"macOS aarch64",
 		"Windows x86_64",
@@ -163,7 +163,8 @@ func TestReleaseNotesAreCommittedAndBoundToExactHead(t *testing.T) {
 	workflow := readReleaseWorkflow(t)
 	for _, want := range []string{
 		"release_notes_path: ${{ steps.release-notes.outputs.release_notes_path }}",
-		"release_notes_path=docs/release/V0.1.0-RELEASE-NOTES.md",
+		`release_notes_path="docs/release/V${RELEASE_VERSION}-RELEASE-NOTES.md"`,
+		`expected_heading="# AO Mission v${RELEASE_VERSION} Release Notes"`,
 		`git cat-file blob "${SOURCE_SHA}:${release_notes_path}" > "$release_notes_blob"`,
 		`release_notes_sha256=$(sha256sum < "$release_notes_blob" | awk '{print $1}')`,
 		`git cat-file blob "${SOURCE_SHA}:${RELEASE_NOTES_PATH}" > "$approved_release_notes"`,
