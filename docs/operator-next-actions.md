@@ -12,11 +12,11 @@ or external beta.
 
 Current public release pair:
 
-- AO2 [v0.5.8](https://github.com/uesugitorachiyo/ao2/releases/tag/v0.5.8),
-  tag target `a879ae7969a26d13432c7cc402174861b2444c05`.
+- AO2 [v0.5.9](https://github.com/uesugitorachiyo/ao2/releases/tag/v0.5.9),
+  tag target `fec09515dfe4e550eeaddc7da497b1fe912012b4`.
 - AO2 Control Plane [v0.1.19](https://github.com/uesugitorachiyo/ao2-control-plane/releases/tag/v0.1.19),
   tag target `5de3541e9007e12d95b125e7f911c02932e21479`.
-- AO Mission [v0.1.1](https://github.com/uesugitorachiyo/ao-mission/releases/tag/v0.1.1).
+- AO Mission [v0.1.2](https://github.com/uesugitorachiyo/ao-mission/releases/tag/v0.1.2).
 - AO Command [v0.1.2](https://github.com/uesugitorachiyo/ao-command/releases/tag/v0.1.2).
 - AO Forge [v0.1.4](https://github.com/uesugitorachiyo/ao-forge/releases/tag/v0.1.4).
 - AO Covenant [v0.1.1](https://github.com/uesugitorachiyo/ao-covenant/releases/tag/v0.1.1).
