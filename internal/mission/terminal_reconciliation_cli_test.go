@@ -75,6 +75,7 @@ func TestGenericMissionViewsProjectValidatedTerminalState(t *testing.T) {
 	if _, err := store.Update(record.MissionID, func(candidate *Record) error {
 		candidate.CurrentPhase = "lifecycle-canary"
 		candidate.ExactNextAction = "continue lifecycle canary"
+		candidate.GoalLease = &GoalLease{Schema: GoalLeaseSchema, MaxIterations: 1, CheckpointPolicy: "after_each_node_or_timed_interval"}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -114,6 +115,18 @@ func TestGenericMissionViewsProjectValidatedTerminalState(t *testing.T) {
 	}
 	if persisted.Status != "active" || persisted.CurrentPhase != "lifecycle-canary" {
 		t.Fatalf("read-only terminal projection mutated Mission: %+v", persisted)
+	}
+	projected, err := projectRecordWithTerminalState(persisted, statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if projected.Reconciliation == nil || projected.Reconciliation.Status != "reconciled" ||
+		projected.Reconciliation.AtlasReadyNodes != 0 || projected.Reconciliation.ExactNextAction != "none" {
+		t.Fatalf("route reconciliation contradicts terminal state: %+v", projected.Reconciliation)
+	}
+	if projected.GoalLease == nil || projected.GoalLease.MaxIterations != 1 ||
+		projected.GoalLease.CheckpointPolicy != "after_each_node_or_timed_interval" {
+		t.Fatalf("terminal projection replaced the Mission lease policy: %+v", projected.GoalLease)
 	}
 }
 

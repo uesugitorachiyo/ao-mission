@@ -247,11 +247,13 @@ func projectRecordWithTerminalState(record Record, statePath string) (Record, er
 		FinalResponseAllowed: readback.FinalResponseAllowed,
 		ExactNextAction:      readback.ExactNextAction,
 	}
-	record.GoalLease = &GoalLease{
-		Schema: GoalLeaseSchema, MinNodes: readback.Counts.Minimum,
-		MinMinutes: readback.Lease.MinimumMinutes, MaxMinutes: readback.Lease.MaximumMinutes,
-		ReturnOnlyWhen: readback.ReturnGateStatus, CheckpointPolicy: "terminal_index_read_only",
-		CreatedAtUTC: readback.GeneratedAtUTC, UpdatedAtUTC: readback.GeneratedAtUTC,
+	if record.GoalLease != nil {
+		lease := *record.GoalLease
+		lease.MinNodes = readback.Counts.Minimum
+		lease.MinMinutes = readback.Lease.MinimumMinutes
+		lease.MaxMinutes = readback.Lease.MaximumMinutes
+		lease.UpdatedAtUTC = readback.GeneratedAtUTC
+		record.GoalLease = &lease
 	}
 	if readback.FinalResponseAllowed {
 		record.Status = "done"
@@ -264,6 +266,18 @@ func projectRecordWithTerminalState(record Record, statePath string) (Record, er
 		HardBlocker:     readback.Counts.Blocked > 0 || readback.Counts.Failed > 0,
 		ExactNextAction: readback.ExactNextAction, GeneratedAtUTC: readback.GeneratedAtUTC,
 	}
+	reconciliation := RouteReconciliation{
+		Schema: "ao.mission.route-reconciliation.v0.3", MissionID: record.MissionID,
+		CorrelationID: record.CorrelationID, CurrentRoute: record.CurrentRoute,
+	}
+	if record.Reconciliation != nil {
+		reconciliation = *record.Reconciliation
+	}
+	reconciliation.Status = readback.Status
+	reconciliation.AtlasReadyNodes = readback.Counts.Ready
+	reconciliation.ExactNextAction = readback.ExactNextAction
+	reconciliation.GeneratedAtUTC = readback.GeneratedAtUTC
+	record.Reconciliation = &reconciliation
 	return record, nil
 }
 
