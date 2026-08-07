@@ -95,6 +95,8 @@ type TerminalIndexImportReadback struct {
 	StateDigest                string              `json:"state_digest"`
 	GeneratedAtUTC             string              `json:"generated_at_utc"`
 	Status                     string              `json:"status"`
+	TerminalProjectionStatus   string              `json:"terminal_projection_status,omitempty"`
+	TerminalProjectionReadOnly bool                `json:"terminal_projection_read_only,omitempty"`
 	Counts                     TerminalIndexCounts `json:"counts"`
 	Lease                      TerminalIndexLease  `json:"lease"`
 	CompletionObserved         bool                `json:"completion_observed"`
@@ -159,6 +161,8 @@ func ImportTerminalIndex(root, indexPath, statePath string) (TerminalIndexImport
 		IndexDigest:                index.Digest,
 		GeneratedAtUTC:             index.GeneratedAtUTC,
 		Status:                     terminalImportStatus(index),
+		TerminalProjectionStatus:   terminalOperatorStatus(index.FinalResponseAllowed, index.Counts),
+		TerminalProjectionReadOnly: true,
 		Counts:                     index.Counts,
 		Lease:                      index.Lease,
 		CompletionObserved:         index.CompletionObserved,
@@ -206,6 +210,11 @@ func LoadTerminalIndexImport(path string) (TerminalIndexImportReadback, error) {
 	if readback.StateDigest != digestBytes(body) {
 		return readback, errors.New("terminal index import state digest mismatch")
 	}
+	if readback.TerminalProjectionStatus == "" && !readback.TerminalProjectionReadOnly {
+		readback.TerminalProjectionStatus = terminalOperatorStatus(readback.FinalResponseAllowed, readback.Counts)
+		readback.TerminalProjectionReadOnly = true
+		signTerminalIndexImport(&readback)
+	}
 	if err := validateTerminalIndexImportReadback(readback); err != nil {
 		return readback, err
 	}
@@ -231,6 +240,16 @@ func projectRecordWithTerminalState(record Record, statePath string) (Record, er
 	if terminalTime.Before(recordTime) {
 		return Record{}, errors.New("terminal index import state is stale")
 	}
+	sourceStatus := record.Status
+	terminalStatus := terminalOperatorStatus(readback.FinalResponseAllowed, readback.Counts)
+	effectiveStatus := terminalStatus
+	if terminalStatus == "active" && sourceStatus != "active" {
+		effectiveStatus = sourceStatus
+	}
+	record.SourceRecordStatus = sourceStatus
+	record.TerminalProjectionStatus = terminalStatus
+	record.TerminalProjectionReadOnly = true
+	record.EffectiveOperatorStatus = effectiveStatus
 	record.CurrentPhase = readback.Status
 	record.ExactNextAction = readback.ExactNextAction
 	record.Evidence.AtlasWorkgraph = &NodeCounts{
@@ -255,9 +274,7 @@ func projectRecordWithTerminalState(record Record, statePath string) (Record, er
 		lease.UpdatedAtUTC = readback.GeneratedAtUTC
 		record.GoalLease = &lease
 	}
-	if readback.FinalResponseAllowed {
-		record.Status = "done"
-	}
+	record.Status = effectiveStatus
 	record.ReturnGate = &ReturnGate{
 		Schema: ReturnGateSchema, MissionID: record.MissionID,
 		Status: readback.ReturnGateStatus, FinalResponseAllowed: readback.FinalResponseAllowed,
@@ -281,6 +298,16 @@ func projectRecordWithTerminalState(record Record, statePath string) (Record, er
 	return record, nil
 }
 
+func terminalOperatorStatus(finalResponseAllowed bool, counts TerminalIndexCounts) string {
+	if finalResponseAllowed {
+		return "done"
+	}
+	if counts.Blocked > 0 || counts.Failed > 0 {
+		return "blocked"
+	}
+	return "active"
+}
+
 func validateTerminalIndexImportReadback(readback TerminalIndexImportReadback) error {
 	if strings.TrimSpace(readback.MissionID) == "" || !validSHA256Digest(readback.IndexDigest) ||
 		!validSHA256Digest(readback.StateDigest) {
@@ -289,6 +316,10 @@ func validateTerminalIndexImportReadback(readback TerminalIndexImportReadback) e
 	if readback.Status != "reconciled" && readback.Status != "reconciled_fail_closed" &&
 		readback.Status != "no_canonical_terminal" {
 		return errors.New("terminal index import state status is invalid")
+	}
+	if readback.TerminalProjectionStatus != terminalOperatorStatus(readback.FinalResponseAllowed, readback.Counts) ||
+		!readback.TerminalProjectionReadOnly {
+		return errors.New("terminal index import state projection is invalid")
 	}
 	if _, err := time.Parse(time.RFC3339, readback.GeneratedAtUTC); err != nil {
 		return errors.New("terminal index import state timestamp is invalid")

@@ -44,6 +44,10 @@ type Record struct {
 	ObjectiveDigest            string                      `json:"objective_digest"`
 	ObjectiveRedacted          bool                        `json:"objective_redacted,omitempty"`
 	Status                     string                      `json:"status"`
+	SourceRecordStatus         string                      `json:"source_record_status,omitempty"`
+	TerminalProjectionStatus   string                      `json:"terminal_projection_status,omitempty"`
+	TerminalProjectionReadOnly bool                        `json:"terminal_projection_read_only,omitempty"`
+	EffectiveOperatorStatus    string                      `json:"effective_operator_status,omitempty"`
 	CreatedAtUTC               string                      `json:"created_at_utc"`
 	UpdatedAtUTC               string                      `json:"updated_at_utc"`
 	CurrentRoute               string                      `json:"current_route"`
@@ -69,7 +73,9 @@ func (record *Record) UnmarshalJSON(data []byte) error {
 	if err := decodeStrictJSONObject(data, &decoded, "Mission record", map[string]string{
 		"schema": "string", "mission_id": "string", "correlation_id": "string",
 		"objective": "string", "objective_digest": "string", "objective_redacted": "boolean",
-		"status": "string", "created_at_utc": "string", "updated_at_utc": "string",
+		"status": "string", "source_record_status": "string", "terminal_projection_status": "string",
+		"terminal_projection_read_only": "boolean", "effective_operator_status": "string",
+		"created_at_utc": "string", "updated_at_utc": "string",
 		"current_route": "string", "current_phase": "string", "blockers": "array",
 		"exact_next_action": "string", "artifact_refs": "array", "steps": "array",
 		"route_history": "array", "evidence": "object", "goal_lease": "object",
@@ -762,25 +768,29 @@ type TimelineCompactionReadback struct {
 }
 
 type CommandStatus struct {
-	Schema                    string                             `json:"schema"`
-	MissionID                 string                             `json:"mission_id"`
-	CorrelationID             string                             `json:"correlation_id,omitempty"`
-	Status                    string                             `json:"status"`
-	CurrentRoute              string                             `json:"current_route"`
-	CurrentPhase              string                             `json:"current_phase"`
-	ExactNextAction           string                             `json:"exact_next_action"`
-	GoalLease                 *GoalLease                         `json:"goal_lease,omitempty"`
-	CheckpointCount           int                                `json:"checkpoint_count"`
-	CheckpointFreshnessStatus string                             `json:"checkpoint_freshness_status"`
-	ReturnGateStatus          string                             `json:"return_gate_status"`
-	ReadOnly                  bool                               `json:"read_only"`
-	SafeToExecute             bool                               `json:"safe_to_execute"`
-	ExecutesWork              bool                               `json:"executes_work"`
-	ApprovesWork              bool                               `json:"approves_work"`
-	MutatesRepositories       bool                               `json:"mutates_repositories"`
-	AtlasRecommendation       *AtlasRecommendationReadbackCounts `json:"atlas_recommendation,omitempty"`
-	Blockers                  []string                           `json:"blockers"`
-	GeneratedAtUTC            string                             `json:"generated_at_utc"`
+	Schema                     string                             `json:"schema"`
+	MissionID                  string                             `json:"mission_id"`
+	CorrelationID              string                             `json:"correlation_id,omitempty"`
+	Status                     string                             `json:"status"`
+	SourceRecordStatus         string                             `json:"source_record_status,omitempty"`
+	TerminalProjectionStatus   string                             `json:"terminal_projection_status,omitempty"`
+	TerminalProjectionReadOnly bool                               `json:"terminal_projection_read_only,omitempty"`
+	EffectiveOperatorStatus    string                             `json:"effective_operator_status,omitempty"`
+	CurrentRoute               string                             `json:"current_route"`
+	CurrentPhase               string                             `json:"current_phase"`
+	ExactNextAction            string                             `json:"exact_next_action"`
+	GoalLease                  *GoalLease                         `json:"goal_lease,omitempty"`
+	CheckpointCount            int                                `json:"checkpoint_count"`
+	CheckpointFreshnessStatus  string                             `json:"checkpoint_freshness_status"`
+	ReturnGateStatus           string                             `json:"return_gate_status"`
+	ReadOnly                   bool                               `json:"read_only"`
+	SafeToExecute              bool                               `json:"safe_to_execute"`
+	ExecutesWork               bool                               `json:"executes_work"`
+	ApprovesWork               bool                               `json:"approves_work"`
+	MutatesRepositories        bool                               `json:"mutates_repositories"`
+	AtlasRecommendation        *AtlasRecommendationReadbackCounts `json:"atlas_recommendation,omitempty"`
+	Blockers                   []string                           `json:"blockers"`
+	GeneratedAtUTC             string                             `json:"generated_at_utc"`
 }
 
 type MissionFinalReconciliationPacket struct {
@@ -1198,29 +1208,33 @@ type GatewayReplayBundleReadback struct {
 }
 
 type MissionDashboardReadback struct {
-	Schema              string         `json:"schema"`
-	Status              string         `json:"status"`
-	MissionID           string         `json:"mission_id"`
-	CorrelationID       string         `json:"correlation_id,omitempty"`
-	MissionStatus       string         `json:"mission_status"`
-	CurrentPhase        string         `json:"current_phase"`
-	CurrentRoute        string         `json:"current_route"`
-	LatestRoute         string         `json:"latest_route"`
-	TotalNodes          int            `json:"total_nodes"`
-	CompletedNodes      int            `json:"completed_nodes"`
-	ReadyNodes          int            `json:"ready_nodes"`
-	BlockedNodes        int            `json:"blocked_nodes"`
-	FailedNodes         int            `json:"failed_nodes"`
-	EventCount          int            `json:"event_count"`
-	EventIndexDigest    string         `json:"event_index_digest"`
-	Compact             bool           `json:"compact"`
-	RecentEvents        []MissionEvent `json:"recent_events"`
-	SafeToExecute       bool           `json:"safe_to_execute"`
-	ExecutesWork        bool           `json:"executes_work"`
-	ApprovesWork        bool           `json:"approves_work"`
-	MutatesRepositories bool           `json:"mutates_repositories"`
-	ExactNextAction     string         `json:"exact_next_action"`
-	GeneratedAtUTC      string         `json:"generated_at_utc"`
+	Schema                     string         `json:"schema"`
+	Status                     string         `json:"status"`
+	MissionID                  string         `json:"mission_id"`
+	CorrelationID              string         `json:"correlation_id,omitempty"`
+	MissionStatus              string         `json:"mission_status"`
+	SourceRecordStatus         string         `json:"source_record_status,omitempty"`
+	TerminalProjectionStatus   string         `json:"terminal_projection_status,omitempty"`
+	TerminalProjectionReadOnly bool           `json:"terminal_projection_read_only,omitempty"`
+	EffectiveOperatorStatus    string         `json:"effective_operator_status,omitempty"`
+	CurrentPhase               string         `json:"current_phase"`
+	CurrentRoute               string         `json:"current_route"`
+	LatestRoute                string         `json:"latest_route"`
+	TotalNodes                 int            `json:"total_nodes"`
+	CompletedNodes             int            `json:"completed_nodes"`
+	ReadyNodes                 int            `json:"ready_nodes"`
+	BlockedNodes               int            `json:"blocked_nodes"`
+	FailedNodes                int            `json:"failed_nodes"`
+	EventCount                 int            `json:"event_count"`
+	EventIndexDigest           string         `json:"event_index_digest"`
+	Compact                    bool           `json:"compact"`
+	RecentEvents               []MissionEvent `json:"recent_events"`
+	SafeToExecute              bool           `json:"safe_to_execute"`
+	ExecutesWork               bool           `json:"executes_work"`
+	ApprovesWork               bool           `json:"approves_work"`
+	MutatesRepositories        bool           `json:"mutates_repositories"`
+	ExactNextAction            string         `json:"exact_next_action"`
+	GeneratedAtUTC             string         `json:"generated_at_utc"`
 }
 
 type MissionVerificationBundleOptions struct {
