@@ -141,14 +141,14 @@ func TestReleaseRehearsalWorkflowStructure(t *testing.T) {
 }
 
 func TestReleaseNotesAreCommittedAndBoundToExactHead(t *testing.T) {
-	notesPath := filepath.Join("..", "..", "docs", "release", "V0.1.1-RELEASE-NOTES.md")
+	notesPath := filepath.Join("..", "..", "docs", "release", "V0.1.2-RELEASE-NOTES.md")
 	notes, err := os.ReadFile(notesPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"# AO Mission v0.1.1 Release Notes",
-		"durable mission supervision",
+		"# AO Mission v0.1.2 Release Notes",
+		"terminal projection semantics",
 		"Linux x86_64",
 		"macOS aarch64",
 		"Windows x86_64",
