@@ -253,6 +253,10 @@ func validateObjectiveWorkflowSemantics(doc map[string]any) []string {
 }
 
 func validateRecordWorkflowContract(record Record) error {
+	if record.SourceRecordStatus != "" || record.TerminalProjectionStatus != "" ||
+		record.TerminalProjectionReadOnly || record.EffectiveOperatorStatus != "" {
+		return fmt.Errorf("durable Mission record must not contain terminal projection fields")
+	}
 	contract := record.WorkflowContract
 	if contract == nil {
 		return validateRecordCorrelationState(record)

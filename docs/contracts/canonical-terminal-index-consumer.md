@@ -25,6 +25,18 @@ projecting terminal truth. The projection is read-only: it does not rewrite the
 Mission record or imported Atlas workgraph. Without `--terminal-state`, all
 four commands retain their existing behavior.
 
+Those generic projections expose the durable `source_record_status`, canonical
+`terminal_projection_status`, `terminal_projection_read_only=true`, and the
+resulting `effective_operator_status`. A terminal projection may therefore make
+the effective operator status `done` while the stored source record remains
+`active`, without implying execution, approval, mutation, or authority.
+
+Terminal-index inspect, checkpoint, event-index, and command-readback surfaces
+carry the terminal projection status and read-only flag directly. Legacy import
+states remain readable: Mission verifies their original state digest before
+deriving the new projection fields in memory and never rewrites the retained
+state file.
+
 `index_digest` binds the canonical Atlas terminal-index payload. It must be
 identical across Mission's `inspect`, `checkpoint`, `event-index`, and
 `command-readback` views. The authority-relevant canonical payload must also

@@ -33,6 +33,9 @@ func TestTerminalIndexCLIExposesDurableReadbackSurfaces(t *testing.T) {
 		if readback.Surface != surface || readback.IndexDigest == "" || !readback.FinalResponseAllowed {
 			t.Fatalf("%s readback changed reconciliation: %+v", surface, readback)
 		}
+		if readback.TerminalProjectionStatus != "done" || !readback.TerminalProjectionReadOnly {
+			t.Fatalf("%s readback hides terminal projection semantics: %+v", surface, readback)
+		}
 		unsigned := readback
 		unsigned.StateDigest = ""
 		body, err := json.Marshal(unsigned)
@@ -97,6 +100,56 @@ func TestImportTerminalIndexAcceptsValidEvidenceAndIsIdempotent(t *testing.T) {
 	}
 	if _, err := LoadTerminalIndexImport(statePath); err == nil || !strings.Contains(err.Error(), "state digest mismatch") {
 		t.Fatalf("error = %v, want durable state digest rejection", err)
+	}
+}
+
+func TestLoadTerminalIndexImportMigratesSerializedLegacyState(t *testing.T) {
+	const legacy = `{
+  "schema": "ao.mission.terminal-index-import.v1",
+  "surface": "import",
+  "mission_id": "mission-adec9975c8b052bf",
+  "index_digest": "sha256:7e4e58a685bce28fe22c4b68e7ff906f739becddb455d5d19bf84e9c754ab122",
+  "state_digest": "sha256:554b2532fedc34fb35cc2a17faba9c83450c2c36e46beda104421d1bd3e45f29",
+  "generated_at_utc": "2026-08-07T14:21:49Z",
+  "status": "reconciled",
+  "counts": {"total": 4, "minimum": 4, "completed": 4, "ready": 0, "blocked": 0, "failed": 0},
+  "lease": {"minimum_minutes": 0, "target_minutes": 120, "maximum_minutes": 180, "elapsed_minutes": 73, "status": "within_window"},
+  "completion_observed": true,
+  "timing_compliant": true,
+  "canonical_evidence_agreement": true,
+  "readiness_passed": true,
+  "return_gate_status": "final_response_allowed",
+  "final_response_allowed": true,
+  "conflict_codes": [],
+  "exact_next_action": "none",
+  "read_only": true,
+  "safe_to_execute": false,
+  "executes_work": false,
+  "approves_work": false,
+  "mutates_repositories": false,
+  "calls_providers": false,
+  "publishes": false,
+  "releases": false,
+  "deploys": false,
+  "advances_authority": false
+}`
+	path := filepath.Join(t.TempDir(), "legacy-state.json")
+	if err := os.WriteFile(path, []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	readback, err := LoadTerminalIndexImport(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.TerminalProjectionStatus != "done" || !readback.TerminalProjectionReadOnly {
+		t.Fatalf("legacy state was not projected in memory: %+v", readback)
+	}
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(body), "terminal_projection_status") {
+		t.Fatalf("legacy state was rewritten: %s", body)
 	}
 }
 

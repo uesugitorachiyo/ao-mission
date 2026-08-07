@@ -9,6 +9,33 @@ import (
 	"testing"
 )
 
+func TestOperatorReadbackSchemasDeclareTerminalProjectionFields(t *testing.T) {
+	for _, name := range []string{"command-status-v0.1.schema.json", "dashboard-readback-v0.1.schema.json"} {
+		body, err := os.ReadFile(filepath.Join("..", "..", "docs", "contracts", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var schema struct {
+			Properties map[string]struct {
+				Type string `json:"type"`
+			} `json:"properties"`
+		}
+		if err := json.Unmarshal(body, &schema); err != nil {
+			t.Fatal(err)
+		}
+		for field, want := range map[string]string{
+			"source_record_status":          "string",
+			"terminal_projection_status":    "string",
+			"terminal_projection_read_only": "boolean",
+			"effective_operator_status":     "string",
+		} {
+			if got := schema.Properties[field].Type; got != want {
+				t.Errorf("%s property %s type = %q, want %q", name, field, got, want)
+			}
+		}
+	}
+}
+
 func TestCheckpointCreateAppendsOneIdempotentReadOnlyCheckpoint(t *testing.T) {
 	home := t.TempDir()
 	store := NewStore(home)
@@ -98,7 +125,11 @@ func TestGenericMissionViewsProjectValidatedTerminalState(t *testing.T) {
 				t.Fatalf("code=%d stderr=%s", code, stderr.String())
 			}
 			text := stdout.String()
-			for _, want := range []string{`"status": "done"`, `"current_phase": "reconciled"`, `"exact_next_action": "none"`} {
+			for _, want := range []string{
+				`"status": "done"`, `"current_phase": "reconciled"`, `"exact_next_action": "none"`,
+				`"source_record_status": "active"`, `"terminal_projection_status": "done"`,
+				`"terminal_projection_read_only": true`, `"effective_operator_status": "done"`,
+			} {
 				if !strings.Contains(text, want) {
 					t.Fatalf("view does not project %s: %s", want, text)
 				}
@@ -116,6 +147,13 @@ func TestGenericMissionViewsProjectValidatedTerminalState(t *testing.T) {
 	if persisted.Status != "active" || persisted.CurrentPhase != "lifecycle-canary" {
 		t.Fatalf("read-only terminal projection mutated Mission: %+v", persisted)
 	}
+	persistedJSON, err := json.Marshal(persisted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(persistedJSON), "terminal_projection_status") {
+		t.Fatalf("persisted Mission contains read-only projection fields: %s", persistedJSON)
+	}
 	projected, err := projectRecordWithTerminalState(persisted, statePath)
 	if err != nil {
 		t.Fatal(err)
@@ -127,6 +165,115 @@ func TestGenericMissionViewsProjectValidatedTerminalState(t *testing.T) {
 	if projected.GoalLease == nil || projected.GoalLease.MaxIterations != 1 ||
 		projected.GoalLease.CheckpointPolicy != "after_each_node_or_timed_interval" {
 		t.Fatalf("terminal projection replaced the Mission lease policy: %+v", projected.GoalLease)
+	}
+}
+
+func TestTerminalProjectionDistinguishesSourceAndEffectiveStatuses(t *testing.T) {
+	tests := []struct {
+		name           string
+		sourceStatus   string
+		edit           func(*TerminalIndexImportReadback)
+		terminalStatus string
+		effective      string
+	}{
+		{
+			name: "active source plus nonterminal projection", sourceStatus: "active",
+			edit: func(state *TerminalIndexImportReadback) {
+				state.Status = "reconciled_fail_closed"
+				state.Counts.Completed = 6
+				state.Counts.Ready = 1
+				state.CompletionObserved = false
+				state.ReadinessPassed = false
+				state.ReturnGateStatus = "early_return_denied"
+				state.FinalResponseAllowed = false
+				state.ExactNextAction = "continue node 7"
+			},
+			terminalStatus: "active", effective: "active",
+		},
+		{
+			name: "done source plus done projection", sourceStatus: "done",
+			edit: func(*TerminalIndexImportReadback) {}, terminalStatus: "done", effective: "done",
+		},
+		{
+			name: "done source plus nonterminal projection", sourceStatus: "done",
+			edit: func(state *TerminalIndexImportReadback) {
+				state.Status = "reconciled_fail_closed"
+				state.Counts.Completed = 6
+				state.Counts.Ready = 1
+				state.CompletionObserved = false
+				state.ReadinessPassed = false
+				state.ReturnGateStatus = "early_return_denied"
+				state.FinalResponseAllowed = false
+				state.ExactNextAction = "continue node 7"
+			},
+			terminalStatus: "active", effective: "done",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			home := t.TempDir()
+			store := NewStore(home)
+			record, err := store.Start(test.name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if test.sourceStatus == "done" {
+				record, err = store.Update(record.MissionID, func(candidate *Record) error {
+					candidate.Status = "done"
+					return nil
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			statePath := writeTerminalProjectionState(t, store, record.MissionID, test.edit)
+			var stdout, stderr bytes.Buffer
+			if code := Run([]string{"--home", home, "status", "--mission", record.MissionID, "--terminal-state", statePath, "--json"}, &stdout, &stderr); code != 0 {
+				t.Fatalf("code=%d stderr=%s", code, stderr.String())
+			}
+			for _, want := range []string{
+				`"source_record_status": "` + test.sourceStatus + `"`,
+				`"terminal_projection_status": "` + test.terminalStatus + `"`,
+				`"terminal_projection_read_only": true`,
+				`"effective_operator_status": "` + test.effective + `"`,
+			} {
+				if !strings.Contains(stdout.String(), want) {
+					t.Fatalf("projection missing %s: %s", want, stdout.String())
+				}
+			}
+		})
+	}
+}
+
+func TestDurableMissionRejectsTerminalProjectionFields(t *testing.T) {
+	for _, operation := range []string{"save", "load"} {
+		t.Run(operation, func(t *testing.T) {
+			store := NewStore(t.TempDir())
+			record, err := store.Start("keep terminal projection out of durable state")
+			if err != nil {
+				t.Fatal(err)
+			}
+			record.SourceRecordStatus = "active"
+			record.TerminalProjectionStatus = "done"
+			record.TerminalProjectionReadOnly = true
+			record.EffectiveOperatorStatus = "done"
+			if operation == "save" {
+				if err := store.Save(record); err == nil || !strings.Contains(err.Error(), "projection") {
+					t.Fatalf("Save error = %v, want projection rejection", err)
+				}
+				return
+			}
+			body, err := json.MarshalIndent(record, "", "  ")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(store.path(record.MissionID), append(body, '\n'), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := store.Load(record.MissionID); err == nil || !strings.Contains(err.Error(), "projection") {
+				t.Fatalf("Load error = %v, want projection rejection", err)
+			}
+		})
 	}
 }
 

@@ -117,6 +117,9 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 				return printJSON(stdout, r)
 			}
 			fmt.Fprintf(stdout, "mission=%s\nstatus=%s\nphase=%s\nroute=%s\nnext=%s\n", r.MissionID, r.Status, r.CurrentPhase, r.CurrentRoute, r.ExactNextAction)
+			if r.TerminalProjectionReadOnly {
+				fmt.Fprintf(stdout, "source_status=%s\nterminal_status=%s\nterminal_read_only=true\neffective_status=%s\n", r.SourceRecordStatus, r.TerminalProjectionStatus, r.EffectiveOperatorStatus)
+			}
 			return nil
 		case "metrics":
 			fs := flag.NewFlagSet("mission metrics", flag.ContinueOnError)
@@ -618,6 +621,9 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 				return printJSON(stdout, readback)
 			}
 			fmt.Fprintf(stdout, "mission_dashboard=%s\nmission=%s\nstatus=%s\nlatest_route=%s\nsafe_to_execute=false\nexecutes_work=false\napproves_work=false\n", *outPath, readback.MissionID, readback.Status, readback.LatestRoute)
+			if readback.TerminalProjectionReadOnly {
+				fmt.Fprintf(stdout, "source_status=%s\nterminal_status=%s\nterminal_read_only=true\neffective_status=%s\n", readback.SourceRecordStatus, readback.TerminalProjectionStatus, readback.EffectiveOperatorStatus)
+			}
 			return nil
 		case "verification-bundle":
 			fs := flag.NewFlagSet("mission verification-bundle", flag.ContinueOnError)
@@ -688,6 +694,9 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 			return printJSON(stdout, r)
 		}
 		fmt.Fprintf(stdout, "mission=%s\nstatus=%s\nroute=%s\nnext=%s\n", r.MissionID, r.Status, r.CurrentRoute, r.ExactNextAction)
+		if r.TerminalProjectionReadOnly {
+			fmt.Fprintf(stdout, "source_status=%s\nterminal_status=%s\nterminal_read_only=true\neffective_status=%s\n", r.SourceRecordStatus, r.TerminalProjectionStatus, r.EffectiveOperatorStatus)
+		}
 		return nil
 	case "next":
 		fs := flag.NewFlagSet("next", flag.ContinueOnError)
@@ -1448,6 +1457,9 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 				return printJSON(stdout, status)
 			}
 			fmt.Fprintf(stdout, "mission=%s\nstatus=%s\nread_only=%t\nexecutes_work=%t\ncheckpoint_freshness=%s\ncheckpoints=%d\nreturn_gate=%s\nnext=%s\n", status.MissionID, status.Status, status.ReadOnly, status.ExecutesWork, status.CheckpointFreshnessStatus, status.CheckpointCount, status.ReturnGateStatus, status.ExactNextAction)
+			if status.TerminalProjectionReadOnly {
+				fmt.Fprintf(stdout, "source_status=%s\nterminal_status=%s\nterminal_read_only=true\neffective_status=%s\n", status.SourceRecordStatus, status.TerminalProjectionStatus, status.EffectiveOperatorStatus)
+			}
 			if status.GoalLease != nil {
 				fmt.Fprintf(stdout, "goal_lease=min_nodes:%d min_minutes:%d max_minutes:%d checkpoint_policy:%s\n", status.GoalLease.MinNodes, status.GoalLease.MinMinutes, status.GoalLease.MaxMinutes, status.GoalLease.CheckpointPolicy)
 			}
