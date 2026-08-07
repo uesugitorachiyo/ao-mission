@@ -17,6 +17,14 @@ rejected before the state file changes. Inspect, checkpoint, event-index, and
 Command-compatible views all read the same persisted reconciliation record.
 The import never schedules work or changes an AO Mission record.
 
+The generic `status`, `mission inspect`, `mission dashboard`, and `command
+status` views accept an optional `--terminal-state` path. They validate the
+persisted import state, exact Mission identity, freshness against the Mission
+record, terminal counts, return gate, and denied safety boundaries before
+projecting terminal truth. The projection is read-only: it does not rewrite the
+Mission record or imported Atlas workgraph. Without `--terminal-state`, all
+four commands retain their existing behavior.
+
 `index_digest` binds the canonical Atlas terminal-index payload. It must be
 identical across Mission's `inspect`, `checkpoint`, `event-index`, and
 `command-readback` views. The authority-relevant canonical payload must also
@@ -41,6 +49,11 @@ ao-mission terminal-index inspect --state /path/to/read-only-import-state.json
 ao-mission terminal-index checkpoint --state /path/to/read-only-import-state.json
 ao-mission terminal-index event-index --state /path/to/read-only-import-state.json
 ao-mission terminal-index command-readback --state /path/to/read-only-import-state.json
+
+ao-mission status --mission <id> --terminal-state /path/to/read-only-import-state.json --json
+ao-mission mission inspect --mission <id> --terminal-state /path/to/read-only-import-state.json --json
+ao-mission mission dashboard --mission <id> --terminal-state /path/to/read-only-import-state.json --json
+ao-mission command status --mission <id> --terminal-state /path/to/read-only-import-state.json --json
 ```
 
 Historical Mission evidence can be indexed additively with `terminal-index

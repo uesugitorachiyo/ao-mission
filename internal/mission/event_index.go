@@ -739,6 +739,10 @@ func BuildMissionDashboardReadback(s Store, missionID string, compact bool) (Mis
 	if err != nil {
 		return MissionDashboardReadback{}, err
 	}
+	return buildMissionDashboardReadback(s, record, compact)
+}
+
+func buildMissionDashboardReadback(s Store, record Record, compact bool) (MissionDashboardReadback, error) {
 	index, err := buildMissionEventIndexFromRecords(s, []Record{record}, storeListStats{StoreFileReads: 1})
 	if err != nil {
 		return MissionDashboardReadback{}, err
@@ -751,7 +755,7 @@ func BuildMissionDashboardReadback(s Store, missionID string, compact bool) (Mis
 	if n := len(record.RouteHistory); n > 0 && strings.TrimSpace(record.RouteHistory[n-1].Route) != "" {
 		latestRoute = record.RouteHistory[n-1].Route
 	}
-	return MissionDashboardReadback{
+	readback := MissionDashboardReadback{
 		Schema:              "ao.mission.dashboard-readback.v0.1",
 		Status:              "ready",
 		MissionID:           record.MissionID,
@@ -770,7 +774,18 @@ func BuildMissionDashboardReadback(s Store, missionID string, compact bool) (Mis
 		MutatesRepositories: false,
 		ExactNextAction:     record.ExactNextAction,
 		GeneratedAtUTC:      now(s.Clock),
-	}, nil
+	}
+	if counts := record.Evidence.AtlasWorkgraph; counts != nil {
+		readback.TotalNodes = counts.Total
+		readback.CompletedNodes = counts.Completed
+		readback.ReadyNodes = counts.Ready
+		readback.BlockedNodes = counts.Blocked
+		readback.FailedNodes = counts.Failed
+	}
+	if record.Status == "done" && record.CurrentPhase == "reconciled" {
+		readback.Status = record.Status
+	}
+	return readback, nil
 }
 
 func missionEventsForRecord(record Record) []MissionEvent {

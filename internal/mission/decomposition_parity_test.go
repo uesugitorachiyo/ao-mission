@@ -252,7 +252,7 @@ func TestCLIFamilyDispatchErrorParity(t *testing.T) {
 		{
 			name: "continuation",
 			args: []string{"checkpoint"},
-			want: "error: checkpoint requires inspect\n",
+			want: "error: checkpoint requires create or inspect\n",
 		},
 		{
 			name: "correlation",

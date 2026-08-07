@@ -100,11 +100,16 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 		case "inspect":
 			fs := flag.NewFlagSet("mission inspect", flag.ContinueOnError)
 			id := fs.String("mission", "", "")
+			terminalState := fs.String("terminal-state", "", "")
 			jsonOut := fs.Bool("json", false, "")
 			if err := fs.Parse(args[2:]); err != nil {
 				return err
 			}
 			r, err := s.Load(*id)
+			if err != nil {
+				return err
+			}
+			r, err = projectRecordWithTerminalState(r, *terminalState)
 			if err != nil {
 				return err
 			}
@@ -579,6 +584,7 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 			fs := flag.NewFlagSet("mission dashboard", flag.ContinueOnError)
 			id := fs.String("mission", "", "")
 			compact := fs.Bool("compact", false, "")
+			terminalState := fs.String("terminal-state", "", "")
 			jsonOut := fs.Bool("json", false, "")
 			outPath := fs.String("out", "", "")
 			if err := fs.Parse(args[2:]); err != nil {
@@ -587,7 +593,15 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 			if strings.TrimSpace(*id) == "" {
 				return errors.New("mission dashboard requires --mission")
 			}
-			readback, err := BuildMissionDashboardReadback(s, *id, *compact)
+			record, err := s.Load(*id)
+			if err != nil {
+				return err
+			}
+			record, err = projectRecordWithTerminalState(record, *terminalState)
+			if err != nil {
+				return err
+			}
+			readback, err := buildMissionDashboardReadback(s, record, *compact)
 			if err != nil {
 				return err
 			}
@@ -657,11 +671,16 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 	case "status":
 		fs := flag.NewFlagSet("status", flag.ContinueOnError)
 		id := fs.String("mission", "", "")
+		terminalState := fs.String("terminal-state", "", "")
 		jsonOut := fs.Bool("json", false, "")
 		if err := fs.Parse(args[1:]); err != nil {
 			return err
 		}
 		r, err := s.Load(*id)
+		if err != nil {
+			return err
+		}
+		r, err = projectRecordWithTerminalState(r, *terminalState)
 		if err != nil {
 			return err
 		}
@@ -725,19 +744,25 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 		}
 		return printJSON(stdout, r)
 	case "checkpoint":
-		if len(args) < 2 || args[1] != "inspect" {
-			return errors.New("checkpoint requires inspect")
+		if len(args) < 2 || (args[1] != "inspect" && args[1] != "create") {
+			return errors.New("checkpoint requires create or inspect")
 		}
-		fs := flag.NewFlagSet("checkpoint inspect", flag.ContinueOnError)
+		fs := flag.NewFlagSet("checkpoint "+args[1], flag.ContinueOnError)
 		id := fs.String("mission", "", "")
 		jsonOut := fs.Bool("json", false, "")
 		if err := fs.Parse(args[2:]); err != nil {
 			return err
 		}
 		if strings.TrimSpace(*id) == "" {
-			return errors.New("checkpoint inspect requires --mission")
+			return errors.New("checkpoint " + args[1] + " requires --mission")
 		}
-		bundle, err := s.LoadCheckpointBundle(*id)
+		var bundle MissionCheckpointBundle
+		var err error
+		if args[1] == "create" {
+			bundle, err = CreateMissionCheckpoint(s, *id)
+		} else {
+			bundle, err = s.LoadCheckpointBundle(*id)
+		}
 		if err != nil {
 			return err
 		}
@@ -1405,11 +1430,16 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 		if len(args) >= 2 && args[1] == "status" {
 			fs := flag.NewFlagSet("command status", flag.ContinueOnError)
 			id := fs.String("mission", "", "")
+			terminalState := fs.String("terminal-state", "", "")
 			jsonOut := fs.Bool("json", false, "")
 			if err := fs.Parse(args[2:]); err != nil {
 				return err
 			}
 			r, err := s.Load(*id)
+			if err != nil {
+				return err
+			}
+			r, err = projectRecordWithTerminalState(r, *terminalState)
 			if err != nil {
 				return err
 			}
