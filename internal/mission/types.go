@@ -1206,6 +1206,11 @@ type MissionDashboardReadback struct {
 	CurrentPhase        string         `json:"current_phase"`
 	CurrentRoute        string         `json:"current_route"`
 	LatestRoute         string         `json:"latest_route"`
+	TotalNodes          int            `json:"total_nodes"`
+	CompletedNodes      int            `json:"completed_nodes"`
+	ReadyNodes          int            `json:"ready_nodes"`
+	BlockedNodes        int            `json:"blocked_nodes"`
+	FailedNodes         int            `json:"failed_nodes"`
 	EventCount          int            `json:"event_count"`
 	EventIndexDigest    string         `json:"event_index_digest"`
 	Compact             bool           `json:"compact"`

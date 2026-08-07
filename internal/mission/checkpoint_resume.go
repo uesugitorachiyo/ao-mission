@@ -25,6 +25,30 @@ func appendMissionCheckpoint(r *Record, step ContinuationStep) MissionCheckpoint
 	return checkpoint
 }
 
+func CreateMissionCheckpoint(s Store, missionID string) (MissionCheckpointBundle, error) {
+	record, err := s.Update(missionID, func(record *Record) error {
+		if count := len(record.Checkpoints); count > 0 {
+			latest := record.Checkpoints[count-1]
+			if latest.Result == "checkpoint_created" && latest.Route == record.CurrentRoute &&
+				latest.Phase == record.CurrentPhase && latest.ExactNextAction == record.ExactNextAction {
+				return nil
+			}
+		}
+		appendMissionCheckpoint(record, ContinuationStep{
+			Iteration:       len(record.Steps),
+			Route:           record.CurrentRoute,
+			Result:          "checkpoint_created",
+			ExactNextAction: record.ExactNextAction,
+			GeneratedAtUTC:  now(s.Clock),
+		})
+		return nil
+	})
+	if err != nil {
+		return MissionCheckpointBundle{}, err
+	}
+	return BuildCheckpointBundle(record), nil
+}
+
 func BuildCheckpointBundle(r Record) MissionCheckpointBundle {
 	var latest *MissionCheckpoint
 	if n := len(r.Checkpoints); n > 0 {

@@ -206,10 +206,104 @@ func LoadTerminalIndexImport(path string) (TerminalIndexImportReadback, error) {
 	if readback.StateDigest != digestBytes(body) {
 		return readback, errors.New("terminal index import state digest mismatch")
 	}
-	if readback.FinalResponseAllowed && (!readback.ReadinessPassed || readback.ReturnGateStatus != "final_response_allowed") {
-		return readback, errors.New("terminal index import state return gate is contradictory")
+	if err := validateTerminalIndexImportReadback(readback); err != nil {
+		return readback, err
 	}
 	return readback, nil
+}
+
+func projectRecordWithTerminalState(record Record, statePath string) (Record, error) {
+	if strings.TrimSpace(statePath) == "" {
+		return record, nil
+	}
+	readback, err := LoadTerminalIndexImport(statePath)
+	if err != nil {
+		return Record{}, err
+	}
+	if readback.Surface != "import" || readback.MissionID != record.MissionID {
+		return Record{}, errors.New("terminal index import state mission identity mismatch")
+	}
+	recordTime, err := time.Parse(time.RFC3339, record.UpdatedAtUTC)
+	if err != nil {
+		return Record{}, errors.New("Mission update timestamp is invalid")
+	}
+	terminalTime, _ := time.Parse(time.RFC3339, readback.GeneratedAtUTC)
+	if terminalTime.Before(recordTime) {
+		return Record{}, errors.New("terminal index import state is stale")
+	}
+	record.CurrentPhase = readback.Status
+	record.ExactNextAction = readback.ExactNextAction
+	record.Evidence.AtlasWorkgraph = &NodeCounts{
+		Total: readback.Counts.Total, Ready: readback.Counts.Ready,
+		Blocked: readback.Counts.Blocked, Completed: readback.Counts.Completed,
+		Failed: readback.Counts.Failed,
+	}
+	record.Evidence.AtlasRecommendation = &AtlasRecommendationReadbackCounts{
+		Status: readback.Status, TotalNodes: readback.Counts.Total,
+		CompletedNodes: readback.Counts.Completed, ReadyNodes: readback.Counts.Ready,
+		CheckpointCount: len(record.Checkpoints), ElapsedMinutes: readback.Lease.ElapsedMinutes,
+		MinMinutesMet: readback.TimingCompliant, LeaseTimeStatus: readback.Lease.Status,
+		ReturnGateStatus:     readback.ReturnGateStatus,
+		FinalResponseAllowed: readback.FinalResponseAllowed,
+		ExactNextAction:      readback.ExactNextAction,
+	}
+	record.GoalLease = &GoalLease{
+		Schema: GoalLeaseSchema, MinNodes: readback.Counts.Minimum,
+		MinMinutes: readback.Lease.MinimumMinutes, MaxMinutes: readback.Lease.MaximumMinutes,
+		ReturnOnlyWhen: readback.ReturnGateStatus, CheckpointPolicy: "terminal_index_read_only",
+		CreatedAtUTC: readback.GeneratedAtUTC, UpdatedAtUTC: readback.GeneratedAtUTC,
+	}
+	if readback.FinalResponseAllowed {
+		record.Status = "done"
+	}
+	record.ReturnGate = &ReturnGate{
+		Schema: ReturnGateSchema, MissionID: record.MissionID,
+		Status: readback.ReturnGateStatus, FinalResponseAllowed: readback.FinalResponseAllowed,
+		Reason: "validated canonical terminal index", CompletedNodes: readback.Counts.Completed,
+		MinNodes: readback.Counts.Minimum, ReadyNodesRemaining: readback.Counts.Ready,
+		HardBlocker:     readback.Counts.Blocked > 0 || readback.Counts.Failed > 0,
+		ExactNextAction: readback.ExactNextAction, GeneratedAtUTC: readback.GeneratedAtUTC,
+	}
+	return record, nil
+}
+
+func validateTerminalIndexImportReadback(readback TerminalIndexImportReadback) error {
+	if strings.TrimSpace(readback.MissionID) == "" || !validSHA256Digest(readback.IndexDigest) ||
+		!validSHA256Digest(readback.StateDigest) {
+		return errors.New("terminal index import state identity is invalid")
+	}
+	if readback.Status != "reconciled" && readback.Status != "reconciled_fail_closed" &&
+		readback.Status != "no_canonical_terminal" {
+		return errors.New("terminal index import state status is invalid")
+	}
+	if _, err := time.Parse(time.RFC3339, readback.GeneratedAtUTC); err != nil {
+		return errors.New("terminal index import state timestamp is invalid")
+	}
+	if !readback.ReadOnly || readback.SafeToExecute || readback.ExecutesWork ||
+		readback.ApprovesWork || readback.MutatesRepositories || readback.CallsProviders ||
+		readback.Publishes || readback.Releases || readback.Deploys || readback.AdvancesAuthority {
+		return errors.New("terminal index import state safety boundary is invalid")
+	}
+	counts := readback.Counts
+	if counts.Total < 0 || counts.Minimum < 0 || counts.Completed < 0 || counts.Ready < 0 ||
+		counts.Blocked < 0 || counts.Failed < 0 || counts.Minimum > counts.Total ||
+		counts.Completed+counts.Ready+counts.Blocked+counts.Failed != counts.Total {
+		return errors.New("terminal index import state counts are contradictory")
+	}
+	lease := readback.Lease
+	if lease.MinimumMinutes < 0 || lease.TargetMinutes < lease.MinimumMinutes ||
+		lease.MaximumMinutes < lease.TargetMinutes || lease.ElapsedMinutes < 0 ||
+		(lease.Status != "within_window" && lease.Status != "minimum_not_met" && lease.Status != "maximum_exceeded") {
+		return errors.New("terminal index import state lease is contradictory")
+	}
+	if readback.FinalResponseAllowed && (!readback.ReadinessPassed ||
+		readback.ReturnGateStatus != "final_response_allowed" || !readback.CompletionObserved ||
+		!readback.TimingCompliant || !readback.CanonicalEvidenceAgreement ||
+		counts.Completed != counts.Total || counts.Ready != 0 || counts.Blocked != 0 || counts.Failed != 0 ||
+		len(readback.ConflictCodes) != 0) {
+		return errors.New("terminal index import state return gate is contradictory")
+	}
+	return nil
 }
 
 // ValidateTerminalSurfaceAgreement proves that Mission's four exported views
