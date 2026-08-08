@@ -29,6 +29,7 @@ Mission consumes Blueprint authorization, Atlas workgraphs and terminal indexes,
 
 - Start with the strict contract and its consumer. Validate regular-file containment, bounded sizes, duplicate keys, identities, digests, and authority flags before changing mission state.
 - Keep imports idempotent by exact digest and fail closed on drift or semantic contradiction. Preserve the original locator and retained artifact bytes for audit rather than normalizing away conflicts; legacy v0.1 manifests remain source-reference based.
+- Keep the Python repair product gate read-only. It may validate sealed repair evidence and derive distinct technical, governed-qualification, and release decisions, but it must never execute a repair, approve work, mutate a repository, or turn a passing decision into authority.
 - Bind Atlas workgraph continuation to the first ready node's validated identity. Reject conflicting or unsafe ready-node identifiers; use the legacy generic handoff only when the first ready node has no identity.
 - Treat an explicit zero-minute lease minimum as useful-work mode: preserve zero, enforce the hard maximum, and never require elapsed-time padding. Omission may preserve an existing historical minimum.
 - An explicit `--min-nodes` reduction is allowed only when it exactly matches the retained imported Atlas workgraph total; reject any unbound or arbitrary lower lease value.

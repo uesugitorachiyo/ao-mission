@@ -27,6 +27,7 @@ ao-mission init
 ao-mission start "<objective>"
 ao-mission objective start --objective "<objective>" [--correlation-id <id>]
 ao-mission issue-repair supervise --mission <id> --request <request.json> [--json]
+ao-mission issue-repair product-gate --root <sealed-root> --manifest <manifest.json> --json
 ao-mission mission list [--status <status>] [--route <route>] [--json]
 ao-mission mission inspect --mission <id> [--terminal-state <state.json>] [--json]
 ao-mission mission history --mission <id> [--json]
@@ -93,6 +94,8 @@ ao-mission import ledger-compaction-readback --mission <id> --path <json>
 ao-mission final rollup --mission <id>
 ao-mission final reconcile --mission <id> [--correlation-chain <chain.json>]
 ```
+
+`issue-repair product-gate` validates one fresh, digest-bound Python repair qualification record and derives separate technical, governed-qualification, and release decisions. It is read-only: it does not execute a repair, approve work, mutate a repository, or grant release authority. See [the Python repair product-gate contract](docs/contracts/python-repair-product-gate.md).
 
 By default state is stored under `.ao-mission/`. Use `AO_MISSION_HOME` to choose another state root.
 Every command also accepts `--home <dir>` before the command name for explicit local state routing.

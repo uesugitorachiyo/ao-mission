@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 )
 
 const issueRepairRequestLimit = 64 * 1024
@@ -16,8 +17,14 @@ func registerIssueRepairCLICommands(registry cliCommandRegistry) {
 }
 
 func runIssueRepairCLICommand(s Store, args []string, stdout io.Writer) error {
-	if len(args) < 2 || args[1] != "supervise" {
-		return errors.New("issue-repair requires supervise")
+	if len(args) < 2 {
+		return errors.New("issue-repair requires supervise or product-gate")
+	}
+	if args[1] == "product-gate" {
+		return runPythonRepairProductGateCLICommand(args[2:], stdout)
+	}
+	if args[1] != "supervise" {
+		return errors.New("issue-repair requires supervise or product-gate")
 	}
 	flags := flag.NewFlagSet("issue-repair supervise", flag.ContinueOnError)
 	missionID := flags.String("mission", "", "")
@@ -60,5 +67,31 @@ func runIssueRepairCLICommand(s Store, args []string, stdout io.Writer) error {
 		return err
 	}
 	fmt.Fprintf(stdout, "issue_repair_supervisor=%s\n", encoded)
+	return nil
+}
+
+func runPythonRepairProductGateCLICommand(args []string, stdout io.Writer) error {
+	flags := flag.NewFlagSet("issue-repair product-gate", flag.ContinueOnError)
+	root := flags.String("root", "", "")
+	manifest := flags.String("manifest", "", "")
+	jsonOut := flags.Bool("json", false, "")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 || strings.TrimSpace(*root) == "" || strings.TrimSpace(*manifest) == "" {
+		return errors.New("issue-repair product-gate requires --root and --manifest")
+	}
+	result, err := EvaluatePythonRepairProductGate(*root, *manifest, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	if *jsonOut {
+		return printJSON(stdout, result)
+	}
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(stdout, "python_repair_product_gate=%s\n", encoded)
 	return nil
 }
