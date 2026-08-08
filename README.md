@@ -1,5 +1,7 @@
 # AO Mission
 
+[![Latest release](https://img.shields.io/github/v/release/uesugitorachiyo/ao-mission?label=latest%20release)](https://github.com/uesugitorachiyo/ao-mission/releases/tag/v0.1.3)
+
 AO Mission is the operator entry point for starting, tracking, routing, and
 resuming AO work. It stores durable mission state, records route and checkpoint
 history, accepts intent from local CLI and gateway adapters, and imports
