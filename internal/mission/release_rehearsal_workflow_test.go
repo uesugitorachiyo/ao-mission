@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 )
 
 type workflowShape struct {
@@ -137,6 +138,149 @@ func TestReleaseRehearsalWorkflowStructure(t *testing.T) {
 	}
 	if actionCount < 10 {
 		t.Fatalf("parsed only %d action uses, want all workflow actions", actionCount)
+	}
+}
+
+func TestReleaseFinalizationImportsExactRehearsalArtifacts(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "release-finalize.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	workflow := string(data)
+	for _, want := range []string{
+		"producer_run_id:",
+		"expected_source_sha:",
+		"expected_version:",
+		"expected_tag:",
+		"expected_manifest_digest:",
+		"dry_run:",
+		"live_confirmation:",
+		"actions: read",
+		"contents: read",
+		"run-id: ${{ inputs.producer_run_id }}",
+		"ao-mission-release-rehearsal-plan-",
+		"ao-mission-release-candidate-*",
+		"ao-mission-approved-release-manifest-",
+		"# imported-release-validator-begin",
+		"environment: ao-mission-release",
+	} {
+		if !strings.Contains(workflow, want) {
+			t.Fatalf("release finalization workflow missing %q", want)
+		}
+	}
+	for _, forbidden := range []string{"go build", "native-candidates:", "assemble-promotion-plan:"} {
+		if strings.Contains(workflow, forbidden) {
+			t.Fatalf("release finalization workflow rebuilds or reassembles sealed inputs via %q", forbidden)
+		}
+	}
+}
+
+func TestImportedReleaseValidatorRejectsDriftAndUnsafeEvidence(t *testing.T) {
+	workflow, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "release-finalize.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	validator := extractPythonBlock(t, string(workflow), "imported-release-validator")
+	for _, tc := range []struct {
+		name   string
+		mutate func(t *testing.T, fixture *importedReleaseFixture)
+		valid  bool
+	}{
+		{name: "valid", valid: true},
+		{name: "altered manifest digest", mutate: func(t *testing.T, fixture *importedReleaseFixture) {
+			fixture.environment["EXPECTED_MANIFEST_DIGEST"] = strings.Repeat("0", 64)
+		}},
+		{name: "wrong source", mutate: func(t *testing.T, fixture *importedReleaseFixture) {
+			fixture.environment["EXPECTED_SOURCE_SHA"] = strings.Repeat("f", 40)
+		}},
+		{name: "wrong version", mutate: func(t *testing.T, fixture *importedReleaseFixture) {
+			fixture.environment["EXPECTED_VERSION"] = "0.1.1"
+			fixture.environment["EXPECTED_TAG"] = "v0.1.1"
+		}},
+		{name: "stale producer", mutate: func(t *testing.T, fixture *importedReleaseFixture) {
+			fixture.writeRun(t, time.Now().Add(-15*24*time.Hour))
+		}},
+		{name: "altered archive", mutate: func(t *testing.T, fixture *importedReleaseFixture) {
+			archives, _ := filepath.Glob(filepath.Join(fixture.root, "candidates", "*", "*.gz"))
+			if len(archives) == 0 {
+				t.Fatal("fixture archive missing")
+			}
+			if err := os.WriteFile(archives[0], []byte("altered"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "missing verifier", mutate: func(t *testing.T, fixture *importedReleaseFixture) {
+			if err := os.Remove(filepath.Join(fixture.root, "strict-release-verifier.py")); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "symlink", mutate: func(t *testing.T, fixture *importedReleaseFixture) {
+			if err := os.Symlink(fixture.manifestPath, filepath.Join(fixture.root, "unsafe-link")); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "oversized", mutate: func(t *testing.T, fixture *importedReleaseFixture) {
+			path := filepath.Join(fixture.root, "oversized")
+			if err := os.WriteFile(path, nil, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Truncate(path, 129<<20); err != nil {
+				t.Fatal(err)
+			}
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fixture := newImportedReleaseFixture(t)
+			if tc.mutate != nil {
+				tc.mutate(t, &fixture)
+			}
+			_, err := runPythonBlock(t, validator, []string{fixture.root, fixture.output, fixture.runPath}, fixture.environment)
+			if (err == nil) != tc.valid {
+				t.Fatalf("validator error=%v, valid=%t", err, tc.valid)
+			}
+		})
+	}
+}
+
+type importedReleaseFixture struct {
+	root         string
+	output       string
+	runPath      string
+	manifestPath string
+	environment  map[string]string
+}
+
+func newImportedReleaseFixture(t *testing.T) importedReleaseFixture {
+	t.Helper()
+	verifier := extractPythonBlock(t, readReleaseWorkflow(t), "strict-release-verifier")
+	base := writeReleaseVerifierFixture(t, verifier, nil)
+	root := filepath.Dir(base.manifestPath)
+	if err := os.WriteFile(filepath.Join(root, "strict-release-verifier.py"), []byte(verifier), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fixture := importedReleaseFixture{
+		root: root, output: filepath.Join(t.TempDir(), "validated"),
+		runPath: filepath.Join(root, "producer-run.json"), manifestPath: base.manifestPath,
+		environment: map[string]string{
+			"EXPECTED_MANIFEST_DIGEST": base.environment["APPROVED_MANIFEST_DIGEST"],
+			"EXPECTED_SOURCE_SHA":      base.environment["SOURCE_SHA"],
+			"EXPECTED_TAG":             base.environment["RELEASE_TAG"],
+			"EXPECTED_VERSION":         base.environment["RELEASE_VERSION"],
+			"PRODUCER_RUN_ID":          "1234", "DRY_RUN": "true",
+		},
+	}
+	if err := os.MkdirAll(fixture.output, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	fixture.writeRun(t, time.Now())
+	return fixture
+}
+
+func (fixture importedReleaseFixture) writeRun(t *testing.T, created time.Time) {
+	t.Helper()
+	body := marshalJSON(t, map[string]any{"created_at": created.UTC().Format(time.RFC3339)})
+	if err := os.WriteFile(fixture.runPath, body, 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
 
