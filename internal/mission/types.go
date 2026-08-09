@@ -739,6 +739,7 @@ type LedgerCompactionCounts struct {
 type LedgerCompactionReadback struct {
 	Schema              string `json:"schema"`
 	MissionID           string `json:"mission_id"`
+	CorrelationID       string `json:"correlation_id,omitempty"`
 	Status              string `json:"status"`
 	RouteHistoryBefore  int    `json:"route_history_before"`
 	RouteHistoryAfter   int    `json:"route_history_after"`
@@ -754,6 +755,7 @@ type LedgerCompactionReadback struct {
 type TimelineCompactionReadback struct {
 	Schema              string `json:"schema"`
 	MissionID           string `json:"mission_id"`
+	CorrelationID       string `json:"correlation_id,omitempty"`
 	Status              string `json:"status"`
 	RouteHistoryBefore  int    `json:"route_history_before"`
 	RouteHistoryAfter   int    `json:"route_history_after"`

@@ -3704,6 +3704,39 @@ func TestMissionTimelineCompactionEmitsDigestBoundReadback(t *testing.T) {
 	}
 }
 
+func TestMissionTimelineCompactionRoundTripsForCorrelatedMission(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	contract, err := s.StartObjective(
+		"round-trip correlated compaction evidence",
+		ObjectiveStartOptions{CorrelationID: "corr-compaction-roundtrip"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	readback, err := CompactMissionTimeline(s, contract.MissionID, LedgerCompactionOptions{
+		KeepRouteHistory: 1,
+		KeepSteps:        1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.CorrelationID != contract.CorrelationID {
+		t.Fatalf("compaction correlation_id = %q, want %q", readback.CorrelationID, contract.CorrelationID)
+	}
+	body, err := json.Marshal(readback)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "timeline-compaction-readback.json")
+	if err := os.WriteFile(path, body, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportArtifact(s, contract.MissionID, "ledger-compaction-readback", path); err != nil {
+		t.Fatalf("import emitted compaction readback: %v", err)
+	}
+}
+
 func TestMissionCompactCLIEmitsReadback(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)
