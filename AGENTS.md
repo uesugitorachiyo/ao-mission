@@ -17,6 +17,7 @@ Mission consumes Blueprint authorization, Atlas workgraphs and terminal indexes,
 ## Ownership And Boundaries
 
 - Preserve exact mission identity, correlation, route, checkpoint, source-head, artifact-digest, and lineage bindings across every stored and returned surface.
+- Preserve `correlation_id` in compaction readbacks for correlated Missions so producer output remains directly importable; retain omission for uncorrelated legacy records.
 - Retain imported evidence beneath the operator-owned `AO_MISSION_HOME` root at digest-addressed `artifacts/sha256/<digest>` paths. Preserve the original `ref` locator as provenance, bind v0.2 `content_ref` to the retained bytes, and keep the v0.1 source-reference compatibility path intact.
 - Canonical terminal indexes are read-only reconciliation artifacts. Verify their schema, index, source, and state digests independently; never turn missing historical terminal evidence into a live objective or continuation request.
 - Keep durable source status distinct from read-only terminal projection status on every operator surface. A projected effective status may be terminal while the stored Mission record remains unchanged; expose both facts and never treat projection as mutation or authority.

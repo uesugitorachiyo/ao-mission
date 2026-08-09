@@ -20,6 +20,7 @@
   "properties": {
     "schema": { "type": "string", "const": "ao.mission.timeline-compaction-readback.v0.1" },
     "mission_id": { "type": "string" },
+    "correlation_id": { "type": "string", "minLength": 1 },
     "status": { "type": "string" },
     "route_history_before": { "type": "integer" },
     "route_history_after": { "type": "integer" },
