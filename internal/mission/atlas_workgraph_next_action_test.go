@@ -48,6 +48,59 @@ func TestAtlasWorkgraphImportBindsFirstReadyNodeID(t *testing.T) {
 	}
 }
 
+func TestAtlasWorkgraphImportAllowsClosureWhenAllNodesAreComplete(t *testing.T) {
+	store := NewStore(t.TempDir())
+	record, err := store.Start("close a completed Atlas workgraph")
+	if err != nil {
+		t.Fatal(err)
+	}
+	record.GoalLease = &GoalLease{
+		Schema:           GoalLeaseSchema,
+		MinNodes:         8,
+		MinMinutes:       0,
+		MaxMinutes:       180,
+		MaxIterations:    8,
+		ReturnOnlyWhen:   defaultReturnOnlyWhen,
+		CheckpointPolicy: defaultCheckpointPolicy,
+	}
+	if err := store.Save(record); err != nil {
+		t.Fatal(err)
+	}
+
+	path := filepath.Join(store.Root, "workgraph.json")
+	body := `{"contract_version":"ao.atlas.workgraph.v0.1","nodes":[
+  {"id":"node-1","status":"completed"},
+  {"id":"node-2","status":"completed"},
+  {"id":"node-3","status":"completed"},
+  {"id":"node-4","status":"completed"},
+  {"id":"node-5","status":"completed"},
+  {"id":"node-6","status":"completed"},
+  {"id":"node-7","status":"completed"},
+  {"id":"node-8","status":"completed"}
+]}`
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	readback, err := ImportArtifact(store, record.MissionID, "atlas-workgraph", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readback.ExactNextAction != "" {
+		t.Fatalf("completed workgraph import next action = %q, want none", readback.ExactNextAction)
+	}
+	updated, err := store.Load(record.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.ExactNextAction != "" {
+		t.Fatalf("completed workgraph durable next action = %q, want none", updated.ExactNextAction)
+	}
+	if updated.ReturnGate == nil || !updated.ReturnGate.FinalResponseAllowed || updated.ReturnGate.Status != "return_allowed" {
+		t.Fatalf("completed workgraph return gate = %+v, want closure allowed", updated.ReturnGate)
+	}
+}
+
 func TestAtlasWorkgraphImportRejectsArtifactPathDigestDrift(t *testing.T) {
 	store := NewStore(t.TempDir())
 	record, err := store.Start("reject Atlas workgraph artifact-path drift")

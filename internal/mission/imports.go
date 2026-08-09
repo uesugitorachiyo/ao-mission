@@ -212,7 +212,7 @@ func importArtifact(
 			rec.CurrentRoute = "ao-foundry"
 			rec.CurrentPhase = "atlas_workgraph_ready"
 			rec.ExactNextAction = atlasWorkgraphNextAction
-			if rec.ExactNextAction == "" {
+			if rec.ExactNextAction == "" && counts.Ready > 0 {
 				rec.ExactNextAction = "send first safe Atlas node to AO Foundry"
 			}
 			AppendRouteHistory(rec, routeFromRecord(*rec, "Atlas workgraph imported"))
