@@ -285,14 +285,15 @@ func (fixture importedReleaseFixture) writeRun(t *testing.T, created time.Time) 
 }
 
 func TestReleaseNotesAreCommittedAndBoundToExactHead(t *testing.T) {
-	notesPath := filepath.Join("..", "..", "docs", "release", "V0.1.3-RELEASE-NOTES.md")
+	notesPath := filepath.Join("..", "..", "docs", "release", "V0.1.4-RELEASE-NOTES.md")
 	notes, err := os.ReadFile(notesPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"# AO Mission v0.1.3 Release Notes",
-		"Python repair product gate",
+		"# AO Mission v0.1.4 Release Notes",
+		"immutable release finalization",
+		"correlation-bound compaction readbacks",
 		"Linux x86_64",
 		"macOS aarch64",
 		"Windows x86_64",
