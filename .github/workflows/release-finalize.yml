@@ -1,0 +1,241 @@
+name: Release finalize
+
+on:
+  workflow_dispatch:
+    inputs:
+      producer_run_id:
+        description: Successful release-rehearsal run containing the sealed candidates.
+        required: true
+        type: string
+      expected_source_sha:
+        description: Exact producer source commit.
+        required: true
+        type: string
+      expected_version:
+        description: Exact release version without the v prefix.
+        required: true
+        type: string
+      expected_tag:
+        description: Exact release tag.
+        required: true
+        type: string
+      expected_manifest_digest:
+        description: SHA-256 of the approved release manifest.
+        required: true
+        type: string
+      dry_run:
+        description: Validate imported candidates without public mutation.
+        required: true
+        default: true
+        type: boolean
+      live_confirmation:
+        description: Exact confirmation required for a separately authorized publication.
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  validate-imported-release:
+    name: Validate exact rehearsal candidates
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Verify producer run identity
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRODUCER_RUN_ID: ${{ inputs.producer_run_id }}
+          SOURCE_SHA: ${{ inputs.expected_source_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$PRODUCER_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${PRODUCER_RUN_ID}" > producer-run.json
+          jq -e --arg repository "$GITHUB_REPOSITORY" --arg sha "$SOURCE_SHA" '
+            .head_repository.full_name == $repository and
+            .head_sha == $sha and
+            .event == "workflow_dispatch" and
+            .status == "completed" and
+            .conclusion == "success" and
+            (.path | endswith(".github/workflows/release-rehearsal.yml"))
+          ' producer-run.json >/dev/null
+
+      - name: Download exact producer plan
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ao-mission-release-rehearsal-plan-${{ inputs.expected_source_sha }}
+          path: imported/plan
+          run-id: ${{ inputs.producer_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Download exact producer candidates
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: ao-mission-release-candidate-*-${{ inputs.expected_source_sha }}
+          path: imported/candidates
+          run-id: ${{ inputs.producer_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Download exact approved manifest
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ao-mission-approved-release-manifest-${{ inputs.expected_source_sha }}
+          path: imported/manifest
+          run-id: ${{ inputs.producer_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Independently validate imported bytes
+        shell: bash
+        env:
+          EXPECTED_MANIFEST_DIGEST: ${{ inputs.expected_manifest_digest }}
+          EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+          EXPECTED_TAG: ${{ inputs.expected_tag }}
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          PRODUCER_RUN_ID: ${{ inputs.producer_run_id }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          mkdir -p validated
+          python3 - imported validated producer-run.json <<'PY'
+          # imported-release-validator-begin
+          import hashlib
+          import json
+          import os
+          import re
+          import shutil
+          import sys
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          root = Path(sys.argv[1])
+          out = Path(sys.argv[2])
+          run = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
+          expected_sha = os.environ["EXPECTED_SOURCE_SHA"]
+          expected_version = os.environ["EXPECTED_VERSION"]
+          expected_tag = os.environ["EXPECTED_TAG"]
+          expected_manifest = os.environ["EXPECTED_MANIFEST_DIGEST"]
+          producer_run_id = os.environ["PRODUCER_RUN_ID"]
+          if not re.fullmatch(r"[0-9a-f]{40}", expected_sha):
+              raise SystemExit("expected source SHA is invalid")
+          if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:[-.][0-9A-Za-z.-]+)?", expected_version):
+              raise SystemExit("expected version is invalid")
+          if expected_tag != f"v{expected_version}" or not re.fullmatch(r"[0-9a-f]{64}", expected_manifest):
+              raise SystemExit("expected tag or manifest digest is invalid")
+          created_at = datetime.fromisoformat(run["created_at"].replace("Z", "+00:00"))
+          age_seconds = (datetime.now(timezone.utc) - created_at).total_seconds()
+          if age_seconds < 0 or age_seconds > 14 * 24 * 60 * 60:
+              raise SystemExit("producer run is outside the 14-day freshness window")
+          files = [path for path in root.rglob("*") if path.is_file()]
+          if not files or len(files) > 128 or sum(path.stat().st_size for path in files) > 128 * 1024 * 1024:
+              raise SystemExit("imported artifact inventory is outside bounds")
+          if any(path.is_symlink() for path in root.rglob("*")):
+              raise SystemExit("imported artifact inventory contains a symlink")
+
+          def one(name):
+              matches = [path for path in files if path.name == name]
+              if len(matches) != 1:
+                  raise SystemExit(f"expected exactly one {name}")
+              return matches[0]
+
+          def digest(path):
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          manifest_path = one("approved-release-manifest.json")
+          plan_path = one("immutable-promotion-plan.json")
+          checksum_path = one("immutable-promotion-plan.sha256")
+          verifier_path = one("strict-release-verifier.py")
+          if digest(manifest_path) != expected_manifest:
+              raise SystemExit("approved manifest digest mismatch")
+          plan_digest = digest(plan_path)
+          checksum_fields = checksum_path.read_text(encoding="utf-8").strip().split()
+          if checksum_fields != [plan_digest, "immutable-promotion-plan.json"]:
+              raise SystemExit("promotion plan checksum mismatch")
+          def strict_object(pairs):
+              value = {}
+              for key, item in pairs:
+                  if key in value:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  value[key] = item
+              return value
+
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"), object_pairs_hook=strict_object)
+          if (manifest.get("source_sha"), manifest.get("version"), manifest.get("tag")) != (expected_sha, expected_version, expected_tag):
+              raise SystemExit("approved manifest identity mismatch")
+          plan = json.loads(plan_path.read_text(encoding="utf-8"), object_pairs_hook=strict_object)
+          if (plan.get("source_sha"), plan.get("version"), plan.get("tag"), plan.get("approved_manifest_digest"), plan.get("immutable")) != (expected_sha, expected_version, expected_tag, expected_manifest, True):
+              raise SystemExit("promotion plan identity mismatch")
+          if digest(verifier_path) != plan.get("verifier_sha256"):
+              raise SystemExit("strict verifier digest mismatch")
+          candidates = plan.get("candidates")
+          if not isinstance(candidates, list) or {item.get("target_label") for item in candidates} != {"linux-x86_64", "macos-aarch64", "windows-x86_64"}:
+              raise SystemExit("promotion plan candidate inventory mismatch")
+          for item in candidates:
+              archive = one(item["archive"])
+              if digest(archive) != item.get("archive_sha256"):
+                  raise SystemExit(f"candidate archive digest mismatch: {item['target_label']}")
+          for path in [manifest_path, plan_path, checksum_path, verifier_path]:
+              shutil.copy2(path, out / path.name)
+          for item in candidates:
+              shutil.copy2(one(item["archive"]), out / item["archive"])
+          summary = {
+              "approved_manifest_digest": expected_manifest,
+              "candidate_count": 3,
+              "dry_run": os.environ.get("DRY_RUN", "true").lower() == "true",
+              "producer_run_id": producer_run_id,
+              "promotion_plan_sha256": plan_digest,
+              "publication_attempted": False,
+              "schema_version": "ao.mission.imported-release-validation.v0.1",
+              "source_sha": expected_sha,
+              "status": "passed",
+              "tag": expected_tag,
+              "version": expected_version,
+          }
+          (out / "import-validation.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          # imported-release-validator-end
+          PY
+          python3 validated/strict-release-verifier.py plan \
+            --manifest validated/approved-release-manifest.json \
+            --candidates validated \
+            --plan validated/immutable-promotion-plan.json \
+            --plan-checksum validated/immutable-promotion-plan.sha256
+
+      - name: Upload validated immutable import
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ao-mission-validated-release-import-${{ inputs.producer_run_id }}
+          path: validated
+          retention-days: 14
+
+  publish-release:
+    name: Publish exact imported release
+    needs: validate-imported-release
+    if: ${{ inputs.dry_run == false && inputs.live_confirmation == format('publish-imported-ao-mission-{0}-{1}-{2}-{3}-{4}', inputs.producer_run_id, inputs.expected_version, inputs.expected_tag, inputs.expected_source_sha, inputs.expected_manifest_digest) }}
+    runs-on: ubuntu-latest
+    environment: ao-mission-release
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Download validated immutable import
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ao-mission-validated-release-import-${{ inputs.producer_run_id }}
+          path: validated
+      - name: Publish only exact imported archives
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ inputs.expected_source_sha }}
+          TAG: ${{ inputs.expected_tag }}
+          VERSION: ${{ inputs.expected_version }}
+        run: |
+          set -euo pipefail
+          mapfile -t archives < <(find validated -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) | sort)
+          [ "${#archives[@]}" -eq 3 ]
+          gh release create "$TAG" --target "$SOURCE_SHA" --title "AO Mission $VERSION" "${archives[@]}"
