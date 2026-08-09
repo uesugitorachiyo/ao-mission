@@ -179,10 +179,19 @@ jobs:
               archive = one(item["archive"])
               if digest(archive) != item.get("archive_sha256"):
                   raise SystemExit(f"candidate archive digest mismatch: {item['target_label']}")
+          summaries = [json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=strict_object) for path in files if path.name == "candidate-summary.json"]
+          provenances = [json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=strict_object) for path in files if path.name == "provenance.json"]
+          if len(summaries) != 3 or len(provenances) != 3:
+              raise SystemExit("candidate summary or provenance inventory mismatch")
+          version_source_paths = {item.get("version_evidence", {}).get("version_source") for item in summaries}
+          version_source_digests = {item.get("version_evidence", {}).get("version_source_sha256") for item in summaries}
+          workflow_refs = {item.get("workflow_ref") for item in provenances}
+          if len(version_source_paths) != 1 or len(version_source_digests) != 1 or len(workflow_refs) != 1 or None in version_source_paths | version_source_digests | workflow_refs:
+              raise SystemExit("candidate verifier bindings disagree")
           for path in [manifest_path, plan_path, checksum_path, verifier_path]:
               shutil.copy2(path, out / path.name)
-          for item in candidates:
-              shutil.copy2(one(item["archive"]), out / item["archive"])
+          for summary_path in [path for path in files if path.name == "candidate-summary.json"]:
+              shutil.copytree(summary_path.parent, out / summary_path.parent.name)
           summary = {
               "approved_manifest_digest": expected_manifest,
               "candidate_count": 3,
@@ -194,11 +203,26 @@ jobs:
               "source_sha": expected_sha,
               "status": "passed",
               "tag": expected_tag,
+              "release_notes_sha256": plan.get("release_notes_sha256"),
+              "verifier_sha256": plan.get("verifier_sha256"),
               "version": expected_version,
+              "version_source_path": next(iter(version_source_paths)),
+              "version_source_sha256": next(iter(version_source_digests)),
+              "workflow_ref": next(iter(workflow_refs)),
           }
           (out / "import-validation.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
           # imported-release-validator-end
           PY
+          export APPROVED_MANIFEST_DIGEST="$EXPECTED_MANIFEST_DIGEST"
+          export RELEASE_TAG="$EXPECTED_TAG"
+          export RELEASE_VERSION="$EXPECTED_VERSION"
+          export SOURCE_SHA="$EXPECTED_SOURCE_SHA"
+          RELEASE_NOTES_SHA256=$(jq -er .release_notes_sha256 validated/import-validation.json)
+          VERIFIER_SHA256=$(jq -er .verifier_sha256 validated/import-validation.json)
+          VERSION_SOURCE_PATH=$(jq -er .version_source_path validated/import-validation.json)
+          VERSION_SOURCE_SHA256=$(jq -er .version_source_sha256 validated/import-validation.json)
+          WORKFLOW_REF=$(jq -er .workflow_ref validated/import-validation.json)
+          export RELEASE_NOTES_SHA256 VERIFIER_SHA256 VERSION_SOURCE_PATH VERSION_SOURCE_SHA256 WORKFLOW_REF
           python3 validated/strict-release-verifier.py plan \
             --manifest validated/approved-release-manifest.json \
             --candidates validated \
