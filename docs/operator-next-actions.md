@@ -6,17 +6,17 @@ mission.
 
 ## Current AO Stack Roadmap Action
 
-The current portfolio release-readiness cycle is in repository documentation
-reconciliation. It does not authorize a new release, promotion, provider call,
+The current portfolio cycle is validating the release boundary and public
+installability. It does not authorize a new release, promotion, provider call,
 or external beta.
 
 Current public release pair:
 
-- AO2 [v0.5.9](https://github.com/uesugitorachiyo/ao2/releases/tag/v0.5.9),
-  tag target `fec09515dfe4e550eeaddc7da497b1fe912012b4`.
+- AO2 [v0.5.10](https://github.com/uesugitorachiyo/ao2/releases/tag/v0.5.10),
+  tag target `9f4f8a8cf596127a982627b4af25c90a9a842095`.
 - AO2 Control Plane [v0.1.19](https://github.com/uesugitorachiyo/ao2-control-plane/releases/tag/v0.1.19),
   tag target `5de3541e9007e12d95b125e7f911c02932e21479`.
-- AO Mission [v0.1.2](https://github.com/uesugitorachiyo/ao-mission/releases/tag/v0.1.2).
+- AO Mission [v0.1.3](https://github.com/uesugitorachiyo/ao-mission/releases/tag/v0.1.3).
 - AO Command [v0.1.2](https://github.com/uesugitorachiyo/ao-command/releases/tag/v0.1.2).
 - AO Forge [v0.1.4](https://github.com/uesugitorachiyo/ao-forge/releases/tag/v0.1.4).
 - AO Covenant [v0.1.1](https://github.com/uesugitorachiyo/ao-covenant/releases/tag/v0.1.1).
@@ -25,9 +25,12 @@ The authoritative public release matrix, tags, workflow runs, and digests are
 maintained by [AO Architecture current releases](https://github.com/uesugitorachiyo/ao-architecture/blob/main/docs/current-release.md).
 Use that document before choosing any release-related action.
 
-Next action: finish the bounded documentation reconciliation. Do not start a
-new release train, external beta, promotion, provider pilot, live
-self-modification, or RSI work from this readback.
+AO2 v0.5.11, AO Mission v0.1.4, and AO Atlas v0.2.0 are tested candidates,
+not public releases. Their readiness records do not authorize publication.
+
+Next action: continue the bounded release-boundary and installability cycle.
+Do not start a new release train, external beta, promotion, provider pilot,
+live self-modification, or RSI work from this readback.
 
 The earlier bounded-autonomy and product validation cycle remains recorded
 below as historical closure context.
