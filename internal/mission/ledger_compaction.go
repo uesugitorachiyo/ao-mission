@@ -33,6 +33,7 @@ func CompactMissionLedger(s Store, missionID string, opts LedgerCompactionOption
 		return LedgerCompactionReadback{
 			Schema:              "ao.mission.ledger-compaction-readback.v0.1",
 			MissionID:           rec.MissionID,
+			CorrelationID:       rec.CorrelationID,
 			Status:              "dry_run",
 			RouteHistoryBefore:  beforeRoutes,
 			RouteHistoryAfter:   afterRoutes,
@@ -66,6 +67,7 @@ func CompactMissionLedger(s Store, missionID string, opts LedgerCompactionOption
 		readback = LedgerCompactionReadback{
 			Schema:              "ao.mission.ledger-compaction-readback.v0.1",
 			MissionID:           r.MissionID,
+			CorrelationID:       r.CorrelationID,
 			Status:              "compacted",
 			RouteHistoryBefore:  counts.RouteHistoryBefore,
 			RouteHistoryAfter:   counts.RouteHistoryAfter,
@@ -114,6 +116,7 @@ func CompactMissionTimeline(s Store, missionID string, opts LedgerCompactionOpti
 	return TimelineCompactionReadback{
 		Schema:              "ao.mission.timeline-compaction-readback.v0.1",
 		MissionID:           ledger.MissionID,
+		CorrelationID:       rec.CorrelationID,
 		Status:              ledger.Status,
 		RouteHistoryBefore:  ledger.RouteHistoryBefore,
 		RouteHistoryAfter:   ledger.RouteHistoryAfter,
