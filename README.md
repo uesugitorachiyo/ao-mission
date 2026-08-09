@@ -99,6 +99,10 @@ ao-mission final reconcile --mission <id> [--correlation-chain <chain.json>]
 
 `issue-repair product-gate` validates one fresh, digest-bound Python repair qualification record and derives separate technical, governed-qualification, and release decisions. It is read-only: it does not execute a repair, approve work, mutate a repository, or grant release authority. See [the Python repair product-gate contract](docs/contracts/python-repair-product-gate.md).
 
+Compaction readbacks preserve `correlation_id` when the Mission record is
+correlated, so the producer output can be imported unchanged. Uncorrelated
+legacy records continue to omit that optional field.
+
 By default state is stored under `.ao-mission/`. Use `AO_MISSION_HOME` to choose another state root.
 Every command also accepts `--home <dir>` before the command name for explicit local state routing.
 
