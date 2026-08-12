@@ -340,7 +340,7 @@ values = [
 if os.environ.get("FAKE_MODE") == "digest-drift" and n == 1: print("0" * 64)
 else: print(values[min(n, len(values) - 1)])
 `
-	run := func(t *testing.T, mode string) ([]byte, error) {
+	run := func(t *testing.T, mode string) ([]byte, bool, error) {
 		t.Helper()
 		dir := t.TempDir()
 		bin := filepath.Join(dir, "bin")
@@ -373,14 +373,19 @@ else: print(values[min(n, len(values) - 1)])
 			"SOURCE_SHA=cee287597024b5a1e990c6e272518236bc9e32fa", "EXPECTED_MANIFEST_DIGEST=ec21a5639a582d3f8c520053bc5b72974a1b333e26b8f09696fe6cb695873d22",
 		)
 		output, err := command.CombinedOutput()
+		_, captureErr := os.Stat(capture)
+		patched := captureErr == nil
 		if err != nil {
-			return output, err
+			return output, patched, err
 		}
-		return mustReadFile(t, capture), nil
+		return mustReadFile(t, capture), patched, nil
 	}
-	request, err := run(t, "valid")
+	request, patched, err := run(t, "valid")
 	if err != nil {
 		t.Fatalf("valid repair failed: %v", err)
+	}
+	if !patched {
+		t.Fatal("valid repair did not PATCH the release body")
 	}
 	var payload map[string]any
 	if err := json.Unmarshal(request, &payload); err != nil {
@@ -391,8 +396,10 @@ else: print(values[min(n, len(values) - 1)])
 	}
 	for _, mode := range []string{"wrong-id", "wrong-tag", "wrong-source", "wrong-title", "draft", "prerelease", "nonempty", "repeat", "extra-asset", "wrong-asset-id", "wrong-tag-source", "digest-drift"} {
 		t.Run(mode, func(t *testing.T) {
-			if _, err := run(t, mode); err == nil {
+			if _, patched, err := run(t, mode); err == nil {
 				t.Fatalf("unsafe repair mode %q succeeded", mode)
+			} else if patched {
+				t.Fatalf("unsafe repair mode %q mutated the release before failing", mode)
 			}
 		})
 	}
