@@ -168,11 +168,15 @@ func TestReleaseFinalizationImportsExactRehearsalArtifacts(t *testing.T) {
 		`if digest(notes_path) != plan.get("release_notes_sha256")`,
 		`shutil.copy2(notes_path, out / notes_path.name)`,
 		`repair-empty-ao-mission-release-notes-`,
-		`gh release view "$TAG" --repo "$GITHUB_REPOSITORY"`,
-		`.body == ""`,
-		`gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir current-assets`,
+		`authorized_release_id=369467111`,
+		`authorized_source_sha=cee287597024b5a1e990c6e272518236bc9e32fa`,
+		`[ "$PRODUCER_RUN_ID" = 31630121755 ]`,
+		`(.body == null or .body == "")`,
+		`releases/assets/${asset_id}`,
 		`candidate archive digest mismatch`,
-		`gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$notes"`,
+		`gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${authorized_release_id}"`,
+		`repair-readbacks/post-release.json`,
+		`ao-mission-release-finalize-${{ inputs.expected_tag }}`,
 	} {
 		if !strings.Contains(workflow, want) {
 			t.Fatalf("release finalization workflow missing %q", want)
@@ -193,7 +197,7 @@ func TestReleaseFinalizationImportsExactRehearsalArtifacts(t *testing.T) {
 	if !strings.Contains(workflow, wantPublisher) {
 		t.Fatalf("release finalization publisher is not bound to the explicit repository: want %q", wantPublisher)
 	}
-	for _, forbidden := range []string{"gh release delete", "git tag -f", "git push --force", "gh release upload", "gh release delete-asset"} {
+	for _, forbidden := range []string{"gh release delete", "gh release edit", "git tag -f", "git push --force", "gh release upload", "gh release delete-asset"} {
 		if strings.Contains(workflow, forbidden) {
 			t.Fatalf("release-notes repair contains forbidden release mutation %q", forbidden)
 		}
