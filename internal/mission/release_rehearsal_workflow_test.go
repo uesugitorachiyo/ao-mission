@@ -173,6 +173,12 @@ func TestReleaseFinalizationImportsExactRehearsalArtifacts(t *testing.T) {
 			t.Fatalf("release finalization workflow rebuilds or reassembles sealed inputs via %q", forbidden)
 		}
 	}
+	if !strings.Contains(workflow, "find validated -type f") {
+		t.Fatal("release finalization workflow does not recursively discover validated candidate archives")
+	}
+	if strings.Contains(workflow, "find validated -maxdepth 1 -type f") {
+		t.Fatal("release finalization workflow searches only the validated top level")
+	}
 }
 
 func TestImportedReleaseValidatorRejectsDriftAndUnsafeEvidence(t *testing.T) {
