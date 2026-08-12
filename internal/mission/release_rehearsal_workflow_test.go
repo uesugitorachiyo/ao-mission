@@ -154,6 +154,7 @@ func TestReleaseFinalizationImportsExactRehearsalArtifacts(t *testing.T) {
 		"expected_tag:",
 		"expected_manifest_digest:",
 		"dry_run:",
+		"repair_empty_release_notes:",
 		"live_confirmation:",
 		"actions: read",
 		"contents: read",
@@ -163,6 +164,15 @@ func TestReleaseFinalizationImportsExactRehearsalArtifacts(t *testing.T) {
 		"ao-mission-approved-release-manifest-",
 		"# imported-release-validator-begin",
 		"environment: ao-mission-release",
+		`notes_path = one("release-notes.md")`,
+		`if digest(notes_path) != plan.get("release_notes_sha256")`,
+		`shutil.copy2(notes_path, out / notes_path.name)`,
+		`repair-empty-ao-mission-release-notes-`,
+		`gh release view "$TAG" --repo "$GITHUB_REPOSITORY"`,
+		`.body == ""`,
+		`gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir current-assets`,
+		`candidate archive digest mismatch`,
+		`gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$notes"`,
 	} {
 		if !strings.Contains(workflow, want) {
 			t.Fatalf("release finalization workflow missing %q", want)
@@ -179,9 +189,14 @@ func TestReleaseFinalizationImportsExactRehearsalArtifacts(t *testing.T) {
 	if strings.Contains(workflow, "find validated -maxdepth 1 -type f") {
 		t.Fatal("release finalization workflow searches only the validated top level")
 	}
-	wantPublisher := `gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" --title "AO Mission $VERSION" "${archives[@]}"`
+	wantPublisher := `gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" --title "AO Mission $VERSION" --notes-file "$notes" "${archives[@]}"`
 	if !strings.Contains(workflow, wantPublisher) {
 		t.Fatalf("release finalization publisher is not bound to the explicit repository: want %q", wantPublisher)
+	}
+	for _, forbidden := range []string{"gh release delete", "git tag -f", "git push --force", "gh release upload", "gh release delete-asset"} {
+		if strings.Contains(workflow, forbidden) {
+			t.Fatalf("release-notes repair contains forbidden release mutation %q", forbidden)
+		}
 	}
 }
 
@@ -216,6 +231,11 @@ func TestImportedReleaseValidatorRejectsDriftAndUnsafeEvidence(t *testing.T) {
 				t.Fatal("fixture archive missing")
 			}
 			if err := os.WriteFile(archives[0], []byte("altered"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "altered release notes", mutate: func(t *testing.T, fixture *importedReleaseFixture) {
+			if err := os.WriteFile(filepath.Join(fixture.root, "release-notes.md"), []byte("altered notes"), 0o600); err != nil {
 				t.Fatal(err)
 			}
 		}},
@@ -266,6 +286,9 @@ func newImportedReleaseFixture(t *testing.T) importedReleaseFixture {
 	base := writeReleaseVerifierFixture(t, verifier, nil)
 	root := filepath.Dir(base.manifestPath)
 	if err := os.WriteFile(filepath.Join(root, "strict-release-verifier.py"), []byte(verifier), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "release-notes.md"), []byte("approved notes"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	fixture := importedReleaseFixture{

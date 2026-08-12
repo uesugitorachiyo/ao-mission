@@ -28,6 +28,11 @@ on:
         required: true
         default: true
         type: boolean
+      repair_empty_release_notes:
+        description: Repair only an existing exact release whose body is empty.
+        required: true
+        default: false
+        type: boolean
       live_confirmation:
         description: Exact confirmation required for a separately authorized publication.
         required: false
@@ -150,6 +155,7 @@ jobs:
           plan_path = one("immutable-promotion-plan.json")
           checksum_path = one("immutable-promotion-plan.sha256")
           verifier_path = one("strict-release-verifier.py")
+          notes_path = one("release-notes.md")
           if digest(manifest_path) != expected_manifest:
               raise SystemExit("approved manifest digest mismatch")
           plan_digest = digest(plan_path)
@@ -170,6 +176,8 @@ jobs:
           plan = json.loads(plan_path.read_text(encoding="utf-8"), object_pairs_hook=strict_object)
           if (plan.get("source_sha"), plan.get("version"), plan.get("tag"), plan.get("approved_manifest_digest"), plan.get("immutable")) != (expected_sha, expected_version, expected_tag, expected_manifest, True):
               raise SystemExit("promotion plan identity mismatch")
+          if digest(notes_path) != plan.get("release_notes_sha256"):
+              raise SystemExit("release notes digest mismatch")
           if digest(verifier_path) != plan.get("verifier_sha256"):
               raise SystemExit("strict verifier digest mismatch")
           candidates = plan.get("candidates")
@@ -190,6 +198,7 @@ jobs:
               raise SystemExit("candidate verifier bindings disagree")
           for path in [manifest_path, plan_path, checksum_path, verifier_path]:
               shutil.copy2(path, out / path.name)
+          shutil.copy2(notes_path, out / notes_path.name)
           for summary_path in [path for path in files if path.name == "candidate-summary.json"]:
               shutil.copytree(summary_path.parent, out / summary_path.parent.name)
           summary = {
@@ -239,7 +248,7 @@ jobs:
   publish-release:
     name: Publish exact imported release
     needs: validate-imported-release
-    if: ${{ inputs.dry_run == false && inputs.live_confirmation == format('publish-imported-ao-mission-{0}-{1}-{2}-{3}-{4}', inputs.producer_run_id, inputs.expected_version, inputs.expected_tag, inputs.expected_source_sha, inputs.expected_manifest_digest) }}
+    if: ${{ inputs.dry_run == false && ((inputs.repair_empty_release_notes == false && inputs.live_confirmation == format('publish-imported-ao-mission-{0}-{1}-{2}-{3}-{4}', inputs.producer_run_id, inputs.expected_version, inputs.expected_tag, inputs.expected_source_sha, inputs.expected_manifest_digest)) || (inputs.repair_empty_release_notes == true && inputs.live_confirmation == format('repair-empty-ao-mission-release-notes-{0}-{1}-{2}-{3}-{4}', inputs.producer_run_id, inputs.expected_version, inputs.expected_tag, inputs.expected_source_sha, inputs.expected_manifest_digest))) }}
     runs-on: ubuntu-latest
     environment: ao-mission-release
     permissions:
@@ -258,8 +267,39 @@ jobs:
           SOURCE_SHA: ${{ inputs.expected_source_sha }}
           TAG: ${{ inputs.expected_tag }}
           VERSION: ${{ inputs.expected_version }}
+          REPAIR_EMPTY_RELEASE_NOTES: ${{ inputs.repair_empty_release_notes }}
         run: |
           set -euo pipefail
           mapfile -t archives < <(find validated -type f \( -name '*.tar.gz' -o -name '*.zip' \) | sort)
           [ "${#archives[@]}" -eq 3 ]
-          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" --title "AO Mission $VERSION" "${archives[@]}"
+          notes=validated/release-notes.md
+          plan=validated/immutable-promotion-plan.json
+          [ -f "$notes" ] && [ ! -L "$notes" ]
+          if [ "$REPAIR_EMPTY_RELEASE_NOTES" = "true" ]; then
+            gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --json tagName,name,isDraft,isPrerelease,body,assets > current-release.json
+            expected_assets=$(jq -c '[.candidates[].archive] | sort' "$plan")
+            jq -e --arg tag "$TAG" --arg title "AO Mission $VERSION" --argjson assets "$expected_assets" '
+              .tagName == $tag and
+              .name == $title and
+              (.isDraft | not) and
+              (.isPrerelease | not) and
+              .body == "" and
+              ([.assets[].name] | sort) == $assets
+            ' current-release.json >/dev/null
+            gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}" > current-tag.json
+            jq -e --arg sha "$SOURCE_SHA" '.object.type == "commit" and .object.sha == $sha' current-tag.json >/dev/null
+            mkdir current-assets
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir current-assets
+            [ "$(find current-assets -type f | wc -l | tr -d ' ')" -eq 3 ]
+            [ -z "$(find current-assets -type l -print -quit)" ]
+            while IFS=$'\t' read -r archive expected_digest; do
+              candidate="current-assets/$archive"
+              [ -f "$candidate" ] && [ ! -L "$candidate" ]
+              actual_digest=$(sha256sum < "$candidate" | awk '{print $1}')
+              [ "$actual_digest" = "$expected_digest" ] || { echo "candidate archive digest mismatch: $archive" >&2; exit 1; }
+            done < <(jq -r '.candidates[] | [.archive, .archive_sha256] | @tsv' "$plan")
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$notes"
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" --title "AO Mission $VERSION" --notes-file "$notes" "${archives[@]}"
+          fi
