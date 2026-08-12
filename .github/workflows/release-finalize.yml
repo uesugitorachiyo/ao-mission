@@ -293,13 +293,7 @@ jobs:
             [ "$EXPECTED_MANIFEST_DIGEST" = "$authorized_manifest_digest" ]
             [ "$(sha256sum < "$notes" | awk '{print $1}')" = "$authorized_notes_digest" ]
             mkdir repair-readbacks current-assets
-            cat > authorized-assets.json <<'JSON'
-            [
-              {"id":511958192,"name":"ao-mission-0.1.4-linux-x86_64.tar.gz","size":6638215,"digest":"sha256:041d4b4ab076601bf6fe15335cb70a5d9f87301beb239e8e106b3ee4fd12f800"},
-              {"id":511958193,"name":"ao-mission-0.1.4-macos-aarch64.tar.gz","size":6329247,"digest":"sha256:d8b418e42b57306862c75fc10e5c347109c13c144a18e240d2a2edba29c1a34e"},
-              {"id":511958191,"name":"ao-mission-0.1.4-windows-x86_64.zip","size":6543779,"digest":"sha256:027ceba61e7b1d3655cce63a1ce4269824d7a5e3acf65fef5fabb0b539c53221"}
-            ]
-            JSON
+            printf '%s\n' '[{"id":511958192,"name":"ao-mission-0.1.4-linux-x86_64.tar.gz","size":6638215,"digest":"sha256:041d4b4ab076601bf6fe15335cb70a5d9f87301beb239e8e106b3ee4fd12f800"},{"id":511958193,"name":"ao-mission-0.1.4-macos-aarch64.tar.gz","size":6329247,"digest":"sha256:d8b418e42b57306862c75fc10e5c347109c13c144a18e240d2a2edba29c1a34e"},{"id":511958191,"name":"ao-mission-0.1.4-windows-x86_64.zip","size":6543779,"digest":"sha256:027ceba61e7b1d3655cce63a1ce4269824d7a5e3acf65fef5fabb0b539c53221"}]' > authorized-assets.json
             expected_assets=$(jq -c 'sort_by(.name)' authorized-assets.json)
             plan_assets=$(jq -c '[.candidates[] | {name:.archive,digest:("sha256:" + .archive_sha256)}] | sort_by(.name)' "$plan")
             jq -e --argjson plan "$plan_assets" '[.[] | {name,digest}] | sort_by(.name) == $plan' authorized-assets.json >/dev/null
