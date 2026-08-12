@@ -12,11 +12,17 @@ or external beta.
 
 Current public release pair:
 
-- AO2 [v0.5.10](https://github.com/uesugitorachiyo/ao2/releases/tag/v0.5.10),
-  tag target `9f4f8a8cf596127a982627b4af25c90a9a842095`.
+- AO2 [v0.5.11](https://github.com/uesugitorachiyo/ao2/releases/tag/v0.5.11),
+  tag target `8307795b3434af920f6cef088e56ca8fcc76775b`.
 - AO2 Control Plane [v0.1.19](https://github.com/uesugitorachiyo/ao2-control-plane/releases/tag/v0.1.19),
   tag target `5de3541e9007e12d95b125e7f911c02932e21479`.
-- AO Mission [v0.1.3](https://github.com/uesugitorachiyo/ao-mission/releases/tag/v0.1.3).
+- AO Mission [v0.1.4](https://github.com/uesugitorachiyo/ao-mission/releases/tag/v0.1.4),
+  tag target `cee287597024b5a1e990c6e272518236bc9e32fa`. Release
+  [run 31630701637](https://github.com/uesugitorachiyo/ao-mission/actions/runs/31630701637)
+  and release-notes repair
+  [run 31639664541](https://github.com/uesugitorachiyo/ao-mission/actions/runs/31639664541)
+  completed with sealed notes SHA-256
+  `9a84817e6d75b197c72a3219f7f851cb31935da679688bb14e8560eea0bf1022`.
 - AO Command [v0.1.2](https://github.com/uesugitorachiyo/ao-command/releases/tag/v0.1.2).
 - AO Forge [v0.1.4](https://github.com/uesugitorachiyo/ao-forge/releases/tag/v0.1.4).
 - AO Covenant [v0.1.1](https://github.com/uesugitorachiyo/ao-covenant/releases/tag/v0.1.1).
@@ -25,8 +31,8 @@ The authoritative public release matrix, tags, workflow runs, and digests are
 maintained by [AO Architecture current releases](https://github.com/uesugitorachiyo/ao-architecture/blob/main/docs/current-release.md).
 Use that document before choosing any release-related action.
 
-AO2 v0.5.11, AO Mission v0.1.4, and AO Atlas v0.2.0 are tested candidates,
-not public releases. Their readiness records do not authorize publication.
+AO Atlas v0.2.0 remains a tested candidate, not a public release. Its readiness
+records do not authorize publication.
 
 Next action: continue the bounded release-boundary and installability cycle.
 Do not start a new release train, external beta, promotion, provider pilot,
