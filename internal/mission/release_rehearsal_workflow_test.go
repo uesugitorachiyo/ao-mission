@@ -277,6 +277,9 @@ func TestImportedReleaseValidatorRejectsDriftAndUnsafeEvidence(t *testing.T) {
 }
 
 func TestReleaseNotesRepairFailsClosedAndPatchesOnlyBody(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("publisher runs on ubuntu-latest; POSIX fake-command harness is not portable to Windows")
+	}
 	repair := extractPythonBlock(t, string(mustReadFile(t, filepath.Join("..", "..", ".github", "workflows", "release-finalize.yml"))), "release-notes-repair")
 	notes := mustReadFile(t, filepath.Join("..", "..", "docs", "release", "V0.1.4-RELEASE-NOTES.md"))
 	assets := []map[string]any{
