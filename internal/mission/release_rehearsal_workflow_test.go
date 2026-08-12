@@ -154,6 +154,7 @@ func TestReleaseFinalizationImportsExactRehearsalArtifacts(t *testing.T) {
 		"expected_tag:",
 		"expected_manifest_digest:",
 		"dry_run:",
+		"repair_empty_release_notes:",
 		"live_confirmation:",
 		"actions: read",
 		"contents: read",
@@ -163,6 +164,19 @@ func TestReleaseFinalizationImportsExactRehearsalArtifacts(t *testing.T) {
 		"ao-mission-approved-release-manifest-",
 		"# imported-release-validator-begin",
 		"environment: ao-mission-release",
+		`notes_path = one("release-notes.md")`,
+		`if digest(notes_path) != plan.get("release_notes_sha256")`,
+		`shutil.copy2(notes_path, out / notes_path.name)`,
+		`repair-empty-ao-mission-release-notes-`,
+		`authorized_release_id=369467111`,
+		`authorized_source_sha=cee287597024b5a1e990c6e272518236bc9e32fa`,
+		`[ "$PRODUCER_RUN_ID" = 31630121755 ]`,
+		`(.body == null or .body == "")`,
+		`releases/assets/${asset_id}`,
+		`candidate archive digest mismatch`,
+		`gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${authorized_release_id}"`,
+		`repair-readbacks/post-release.json`,
+		`ao-mission-release-finalize-${{ inputs.expected_tag }}`,
 	} {
 		if !strings.Contains(workflow, want) {
 			t.Fatalf("release finalization workflow missing %q", want)
@@ -179,9 +193,14 @@ func TestReleaseFinalizationImportsExactRehearsalArtifacts(t *testing.T) {
 	if strings.Contains(workflow, "find validated -maxdepth 1 -type f") {
 		t.Fatal("release finalization workflow searches only the validated top level")
 	}
-	wantPublisher := `gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" --title "AO Mission $VERSION" "${archives[@]}"`
+	wantPublisher := `gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" --title "AO Mission $VERSION" --notes-file "$notes" "${archives[@]}"`
 	if !strings.Contains(workflow, wantPublisher) {
 		t.Fatalf("release finalization publisher is not bound to the explicit repository: want %q", wantPublisher)
+	}
+	for _, forbidden := range []string{"gh release delete", "gh release edit", "git tag -f", "git push --force", "gh release upload", "gh release delete-asset"} {
+		if strings.Contains(workflow, forbidden) {
+			t.Fatalf("release-notes repair contains forbidden release mutation %q", forbidden)
+		}
 	}
 }
 
@@ -219,6 +238,11 @@ func TestImportedReleaseValidatorRejectsDriftAndUnsafeEvidence(t *testing.T) {
 				t.Fatal(err)
 			}
 		}},
+		{name: "altered release notes", mutate: func(t *testing.T, fixture *importedReleaseFixture) {
+			if err := os.WriteFile(filepath.Join(fixture.root, "release-notes.md"), []byte("altered notes"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}},
 		{name: "missing verifier", mutate: func(t *testing.T, fixture *importedReleaseFixture) {
 			if err := os.Remove(filepath.Join(fixture.root, "strict-release-verifier.py")); err != nil {
 				t.Fatal(err)
@@ -252,6 +276,138 @@ func TestImportedReleaseValidatorRejectsDriftAndUnsafeEvidence(t *testing.T) {
 	}
 }
 
+func TestReleaseNotesRepairFailsClosedAndPatchesOnlyBody(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("publisher runs on ubuntu-latest; POSIX fake-command harness is not portable to Windows")
+	}
+	repair := extractPythonBlock(t, string(mustReadFile(t, filepath.Join("..", "..", ".github", "workflows", "release-finalize.yml"))), "release-notes-repair")
+	notes := mustReadFile(t, filepath.Join("..", "..", "docs", "release", "V0.1.4-RELEASE-NOTES.md"))
+	assets := []map[string]any{
+		{"id": 511958192, "name": "ao-mission-0.1.4-linux-x86_64.tar.gz", "size": 6638215, "digest": "sha256:041d4b4ab076601bf6fe15335cb70a5d9f87301beb239e8e106b3ee4fd12f800"},
+		{"id": 511958193, "name": "ao-mission-0.1.4-macos-aarch64.tar.gz", "size": 6329247, "digest": "sha256:d8b418e42b57306862c75fc10e5c347109c13c144a18e240d2a2edba29c1a34e"},
+		{"id": 511958191, "name": "ao-mission-0.1.4-windows-x86_64.zip", "size": 6543779, "digest": "sha256:027ceba61e7b1d3655cce63a1ce4269824d7a5e3acf65fef5fabb0b539c53221"},
+	}
+	plan := map[string]any{"candidates": []any{
+		map[string]any{"archive": assets[0]["name"], "archive_sha256": strings.TrimPrefix(assets[0]["digest"].(string), "sha256:")},
+		map[string]any{"archive": assets[1]["name"], "archive_sha256": strings.TrimPrefix(assets[1]["digest"].(string), "sha256:")},
+		map[string]any{"archive": assets[2]["name"], "archive_sha256": strings.TrimPrefix(assets[2]["digest"].(string), "sha256:")},
+	}}
+	fakeGH := `#!/usr/bin/env python3
+import json, os, pathlib, sys
+args = sys.argv[1:]
+mode = os.environ.get("FAKE_MODE", "valid")
+state = pathlib.Path(os.environ["FAKE_STATE"])
+capture = pathlib.Path(os.environ["FAKE_CAPTURE"])
+assets = json.loads(os.environ["FAKE_ASSETS"])
+body = state.read_text() if state.exists() else None
+release = {"id":369467111,"tag_name":"v0.1.4","target_commitish":"cee287597024b5a1e990c6e272518236bc9e32fa","name":"AO Mission 0.1.4","draft":False,"prerelease":False,"body":body,"assets":assets}
+if mode == "wrong-id": release["id"] = 1
+elif mode == "wrong-tag": release["tag_name"] = "v0.1.3"
+elif mode == "wrong-source": release["target_commitish"] = "f" * 40
+elif mode == "wrong-title": release["name"] = "wrong"
+elif mode == "draft": release["draft"] = True
+elif mode == "prerelease": release["prerelease"] = True
+elif mode in ("nonempty", "repeat"): release["body"] = "already populated"
+elif mode == "extra-asset": release["assets"] = assets + [{"id":1,"name":"extra","size":1,"digest":"sha256:00"}]
+elif mode == "wrong-asset-id": release["assets"][0]["id"] = 1
+if args[0] != "api": raise SystemExit(2)
+method = "PATCH" if "--method" in args and args[args.index("--method") + 1] == "PATCH" else "GET"
+endpoint = next((a for a in args if a.startswith("repos/")), "")
+if "/git/ref/tags/" in endpoint:
+    sha = "f" * 40 if mode == "wrong-tag-source" else "cee287597024b5a1e990c6e272518236bc9e32fa"
+    print(json.dumps({"object":{"type":"commit","sha":sha}})); raise SystemExit
+if "/releases/assets/" in endpoint:
+    sys.stdout.buffer.write(b"sealed asset"); raise SystemExit
+if endpoint.endswith("/releases/369467111") and method == "PATCH":
+    request = json.load(open(args[args.index("--input") + 1], encoding="utf-8"))
+    if list(request) != ["body"]: raise SystemExit("PATCH contains fields other than body")
+    capture.write_text(json.dumps(request), encoding="utf-8")
+    state.write_text(request["body"], encoding="utf-8")
+    release["body"] = request["body"]
+    print(json.dumps(release)); raise SystemExit
+if endpoint.endswith("/releases/369467111"):
+    print(json.dumps(release)); raise SystemExit
+raise SystemExit(2)
+`
+	fakeSHA := `#!/usr/bin/env python3
+import os, pathlib, sys
+sys.stdin.buffer.read()
+counter = pathlib.Path(os.environ["FAKE_SHA_COUNT"])
+n = int(counter.read_text()) if counter.exists() else 0
+counter.write_text(str(n + 1))
+values = [
+"9a84817e6d75b197c72a3219f7f851cb31935da679688bb14e8560eea0bf1022",
+"041d4b4ab076601bf6fe15335cb70a5d9f87301beb239e8e106b3ee4fd12f800",
+"d8b418e42b57306862c75fc10e5c347109c13c144a18e240d2a2edba29c1a34e",
+"027ceba61e7b1d3655cce63a1ce4269824d7a5e3acf65fef5fabb0b539c53221"]
+if os.environ.get("FAKE_MODE") == "digest-drift" and n == 1: print("0" * 64)
+else: print(values[min(n, len(values) - 1)])
+`
+	run := func(t *testing.T, mode string) ([]byte, bool, error) {
+		t.Helper()
+		dir := t.TempDir()
+		bin := filepath.Join(dir, "bin")
+		if err := os.Mkdir(bin, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		for name, body := range map[string]string{"gh": fakeGH, "sha256sum": fakeSHA} {
+			if err := os.WriteFile(filepath.Join(bin, name), []byte(body), 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}
+		validated := filepath.Join(dir, "validated")
+		if err := os.Mkdir(validated, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(validated, "release-notes.md"), notes, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(validated, "immutable-promotion-plan.json"), marshalJSON(t, plan), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		capture := filepath.Join(dir, "capture.json")
+		command := exec.Command("bash", "-euo", "pipefail", "-c", "notes=validated/release-notes.md; plan=validated/immutable-promotion-plan.json\n"+repair)
+		command.Dir = dir
+		assetJSON, _ := json.Marshal(assets)
+		command.Env = append(os.Environ(),
+			"PATH="+bin+":"+os.Getenv("PATH"), "FAKE_MODE="+mode, "FAKE_STATE="+filepath.Join(dir, "state"),
+			"FAKE_CAPTURE="+capture, "FAKE_ASSETS="+string(assetJSON), "FAKE_SHA_COUNT="+filepath.Join(dir, "sha-count"),
+			"GITHUB_REPOSITORY=uesugitorachiyo/ao-mission", "PRODUCER_RUN_ID=31630121755", "VERSION=0.1.4", "TAG=v0.1.4",
+			"SOURCE_SHA=cee287597024b5a1e990c6e272518236bc9e32fa", "EXPECTED_MANIFEST_DIGEST=ec21a5639a582d3f8c520053bc5b72974a1b333e26b8f09696fe6cb695873d22",
+		)
+		output, err := command.CombinedOutput()
+		_, captureErr := os.Stat(capture)
+		patched := captureErr == nil
+		if err != nil {
+			return output, patched, err
+		}
+		return mustReadFile(t, capture), patched, nil
+	}
+	request, patched, err := run(t, "valid")
+	if err != nil {
+		t.Fatalf("valid repair failed: %v", err)
+	}
+	if !patched {
+		t.Fatal("valid repair did not PATCH the release body")
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(request, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(payload) != 1 || payload["body"] != string(notes) {
+		t.Fatalf("PATCH payload=%v, want exact body only", payload)
+	}
+	for _, mode := range []string{"wrong-id", "wrong-tag", "wrong-source", "wrong-title", "draft", "prerelease", "nonempty", "repeat", "extra-asset", "wrong-asset-id", "wrong-tag-source", "digest-drift"} {
+		t.Run(mode, func(t *testing.T) {
+			if _, patched, err := run(t, mode); err == nil {
+				t.Fatalf("unsafe repair mode %q succeeded", mode)
+			} else if patched {
+				t.Fatalf("unsafe repair mode %q mutated the release before failing", mode)
+			}
+		})
+	}
+}
+
 type importedReleaseFixture struct {
 	root         string
 	output       string
@@ -266,6 +422,9 @@ func newImportedReleaseFixture(t *testing.T) importedReleaseFixture {
 	base := writeReleaseVerifierFixture(t, verifier, nil)
 	root := filepath.Dir(base.manifestPath)
 	if err := os.WriteFile(filepath.Join(root, "strict-release-verifier.py"), []byte(verifier), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "release-notes.md"), []byte("approved notes"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	fixture := importedReleaseFixture{
@@ -854,6 +1013,15 @@ func readReleaseWorkflow(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return string(data)
+}
+
+func mustReadFile(t *testing.T, path string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
 }
 
 func parseWorkflowShape(t *testing.T, workflow string) workflowShape {
