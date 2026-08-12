@@ -204,6 +204,34 @@ func TestReleaseFinalizationImportsExactRehearsalArtifacts(t *testing.T) {
 	}
 }
 
+func TestReleasePublisherRunScriptHasValidBashSyntax(t *testing.T) {
+	workflow := strings.ReplaceAll(string(mustReadFile(t, filepath.Join("..", "..", ".github", "workflows", "release-finalize.yml"))), "\r\n", "\n")
+	start := strings.Index(workflow, "      - name: Publish only exact imported archives\n")
+	if start < 0 {
+		t.Fatal("release publisher step not found")
+	}
+	end := strings.Index(workflow[start:], "      - name: Upload release-notes repair readbacks\n")
+	if end < 0 {
+		t.Fatal("release publisher step not found")
+	}
+	step := workflow[start : start+end]
+	run := strings.Index(step, "        run: |\n")
+	if run < 0 {
+		t.Fatal("release publisher run script not found")
+	}
+	lines := strings.Split(step[run+len("        run: |\n"):], "\n")
+	for i, line := range lines {
+		if line != "" {
+			lines[i] = strings.TrimPrefix(line, "          ")
+		}
+	}
+	command := exec.Command("bash", "-n")
+	command.Stdin = strings.NewReader(strings.Join(lines, "\n"))
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("release publisher has invalid Bash syntax: %v\n%s", err, output)
+	}
+}
+
 func TestImportedReleaseValidatorRejectsDriftAndUnsafeEvidence(t *testing.T) {
 	workflow, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "release-finalize.yml"))
 	if err != nil {
