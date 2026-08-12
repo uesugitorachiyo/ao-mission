@@ -20,7 +20,8 @@ confirmation and the existing protected `ao-mission-release` environment.
 Before editing, fail closed unless the public release is non-draft and
 non-prerelease, has the exact title, has an empty body, its tag resolves to the
 exact source SHA, and its exact three public archive names and SHA-256 values
-match the immutable plan. Then run only `gh release edit --notes-file`.
+match the immutable plan. Then PATCH only the `body` field of the fixed numeric
+release ID through the GitHub REST API and verify the exact post-state.
 
 Never delete or recreate the release, move or rewrite its tag, upload or delete
 assets, or change permissions, reviewers, credentials, or environment policy.

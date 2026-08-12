@@ -282,6 +282,7 @@ jobs:
           plan=validated/immutable-promotion-plan.json
           [ -f "$notes" ] && [ ! -L "$notes" ]
           if [ "$REPAIR_EMPTY_RELEASE_NOTES" = "true" ]; then
+            # release-notes-repair-begin
             authorized_release_id=369467111
             authorized_source_sha=cee287597024b5a1e990c6e272518236bc9e32fa
             authorized_manifest_digest=ec21a5639a582d3f8c520053bc5b72974a1b333e26b8f09696fe6cb695873d22
@@ -333,6 +334,7 @@ jobs:
               ([.assets[] | {id,name,size,digest}] | sort_by(.name)) == $assets
             ' repair-readbacks/post-release.json >/dev/null
             jq -e --arg sha "$SOURCE_SHA" '.object.type == "commit" and .object.sha == $sha' repair-readbacks/post-tag.json >/dev/null
+            # release-notes-repair-end
           else
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" --title "AO Mission $VERSION" --notes-file "$notes" "${archives[@]}"
           fi
