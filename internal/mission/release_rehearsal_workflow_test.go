@@ -179,6 +179,10 @@ func TestReleaseFinalizationImportsExactRehearsalArtifacts(t *testing.T) {
 	if strings.Contains(workflow, "find validated -maxdepth 1 -type f") {
 		t.Fatal("release finalization workflow searches only the validated top level")
 	}
+	wantPublisher := `gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" --title "AO Mission $VERSION" "${archives[@]}"`
+	if !strings.Contains(workflow, wantPublisher) {
+		t.Fatalf("release finalization publisher is not bound to the explicit repository: want %q", wantPublisher)
+	}
 }
 
 func TestImportedReleaseValidatorRejectsDriftAndUnsafeEvidence(t *testing.T) {
