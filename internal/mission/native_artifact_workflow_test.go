@@ -1,7 +1,9 @@
 package mission
 
 import (
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -102,6 +104,51 @@ func TestCIWorkflowRunsForCandidateBranches(t *testing.T) {
 	}
 	if blockers := ciWorkflowContractBlockers(string(data)); len(blockers) != 0 {
 		t.Fatalf("CI workflow does not cover candidate branches: %v", blockers)
+	}
+}
+
+func TestCIWorkflowMissingDiagnosticHelperFails(t *testing.T) {
+	pwsh, err := exec.LookPath("pwsh")
+	if err != nil {
+		t.Skip("pwsh is required to exercise the cross-platform CI wrapper")
+	}
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "ci.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	script, ok := workflowDiagnosticScript(string(data))
+	if !ok {
+		t.Fatal("missing bounded diagnostic workflow script")
+	}
+	script = strings.Replace(script, "go build -o $helper ./scripts/ci-go-test", "$global:LASTEXITCODE = 0", 1)
+	command := exec.Command(pwsh, "-NoProfile", "-NonInteractive", "-Command", script)
+	command.Env = append(os.Environ(), "RUNNER_TEMP="+t.TempDir())
+	if err := command.Run(); err == nil {
+		t.Fatal("missing diagnostic helper returned exit 0")
+	}
+}
+
+func TestCIWorkflowPreservesDiagnosticHelperExit(t *testing.T) {
+	pwsh, err := exec.LookPath("pwsh")
+	if err != nil {
+		t.Skip("pwsh is required to exercise the cross-platform CI wrapper")
+	}
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "ci.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	script, ok := workflowDiagnosticScript(string(data))
+	if !ok {
+		t.Fatal("missing bounded diagnostic workflow script")
+	}
+	script = strings.Replace(script, "go build -o $helper ./scripts/ci-go-test", "$helper = (Get-Command pwsh).Source; $global:LASTEXITCODE = 0", 1)
+	script = strings.Replace(script, "& $helper", "& $helper -NoProfile -NonInteractive -Command 'exit 7'", 1)
+	command := exec.Command(pwsh, "-NoProfile", "-NonInteractive", "-Command", script)
+	command.Env = append(os.Environ(), "RUNNER_TEMP="+t.TempDir())
+	err = command.Run()
+	var exitError *exec.ExitError
+	if !errors.As(err, &exitError) || exitError.ExitCode() != 7 {
+		t.Fatalf("diagnostic wrapper error = %v, want exit 7", err)
 	}
 }
 
@@ -271,36 +318,69 @@ func workflowYAMLHasDiagnosticTestStep(lines []workflowYAMLLine, start, end int)
 				break
 			}
 		}
-		hasShell := false
-		hasRunBlock := false
-		hasHelperPath := false
-		hasWindowsSuffix := false
-		hasHelperBuild := false
-		hasHelperRun := false
-		hasBuildExit := false
-		hasExit := false
-		for _, line := range lines[i+1 : stepEnd] {
-			switch {
-			case line.indent == 8 && line.text == "shell: pwsh":
-				hasShell = true
-			case line.indent == 8 && line.text == "run: |":
-				hasRunBlock = true
-			case line.indent == 10 && line.text == "$helper = Join-Path $env:RUNNER_TEMP 'ao-mission-ci-go-test'":
-				hasHelperPath = true
-			case line.indent == 10 && line.text == "if ($IsWindows) { $helper += '.exe' }":
-				hasWindowsSuffix = true
-			case line.indent == 10 && line.text == "go build -o $helper ./scripts/ci-go-test":
-				hasHelperBuild = true
-			case line.indent == 10 && line.text == "if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }":
-				hasBuildExit = true
-			case line.indent == 10 && line.text == "& $helper":
-				hasHelperRun = true
-			case line.indent == 10 && line.text == "exit $LASTEXITCODE":
-				hasExit = true
+		positions := make(map[string]int)
+		for offset, line := range lines[i+1 : stepEnd] {
+			if line.indent == 8 && (line.text == "shell: pwsh" || line.text == "run: |") {
+				positions[line.text] = offset
+			}
+			if line.indent == 10 {
+				positions[line.text] = offset
 			}
 		}
-		return hasShell && hasRunBlock && hasHelperPath && hasWindowsSuffix &&
-			hasHelperBuild && hasBuildExit && hasHelperRun && hasExit
+		ordered := []string{
+			"shell: pwsh",
+			"run: |",
+			"$helper = Join-Path $env:RUNNER_TEMP 'ao-mission-ci-go-test'",
+			"if ($IsWindows) { $helper += '.exe' }",
+			"go build -o $helper ./scripts/ci-go-test",
+			"if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }",
+			"$childExit = $null",
+			"$global:LASTEXITCODE = $null",
+			"try {",
+			"& $helper",
+			"$commandSucceeded = $?",
+			"$childExit = $LASTEXITCODE",
+			"} catch {",
+			"Write-Error 'CI test helper failed to launch'",
+			"exit 1",
+			"}",
+			"if ($null -eq $childExit) { exit 1 }",
+			"if ($commandSucceeded -ne ($childExit -eq 0)) { exit 1 }",
+			"exit $childExit",
+		}
+		previous := -1
+		for _, text := range ordered {
+			position, found := positions[text]
+			if !found || position <= previous {
+				return false
+			}
+			previous = position
+		}
+		return true
 	}
 	return false
+}
+
+func workflowDiagnosticScript(workflow string) (string, bool) {
+	lines := strings.Split(workflow, "\n")
+	for i, line := range lines {
+		if strings.TrimSpace(line) != "- name: Run test suite with bounded diagnostics" {
+			continue
+		}
+		for j := i + 1; j < len(lines); j++ {
+			if strings.TrimSpace(lines[j]) != "run: |" {
+				continue
+			}
+			var script []string
+			for k := j + 1; k < len(lines); k++ {
+				if strings.HasPrefix(lines[k], "          ") {
+					script = append(script, strings.TrimPrefix(lines[k], "          "))
+					continue
+				}
+				break
+			}
+			return strings.Join(script, "\n"), len(script) != 0
+		}
+	}
+	return "", false
 }

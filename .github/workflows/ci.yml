@@ -26,7 +26,18 @@ jobs:
           if ($IsWindows) { $helper += '.exe' }
           go build -o $helper ./scripts/ci-go-test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $childExit = $null
+          $global:LASTEXITCODE = $null
+          try {
           & $helper
-          exit $LASTEXITCODE
+          $commandSucceeded = $?
+          $childExit = $LASTEXITCODE
+          } catch {
+          Write-Error 'CI test helper failed to launch'
+          exit 1
+          }
+          if ($null -eq $childExit) { exit 1 }
+          if ($commandSucceeded -ne ($childExit -eq 0)) { exit 1 }
+          exit $childExit
       - run: go vet ./...
       - run: go build ./cmd/ao-mission
