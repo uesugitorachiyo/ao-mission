@@ -32,22 +32,42 @@ def _reject_constant(constant):
     raise ValidationError(f"non-finite JSON number: {constant}")
 
 
+def _parse_finite_float(token):
+    parsed = float(token)
+    if not math.isfinite(parsed):
+        raise ValidationError(f"non-finite JSON number: {token}")
+    return parsed
+
+
 def _identity(info):
-    return (info.st_dev, info.st_ino)
-
-
-def load_json(path):
-    path = Path(path)
     try:
-        initial = path.lstat()
-    except OSError as error:
-        raise ValidationError(f"cannot inspect {path}: {error}") from error
+        device = info.st_dev
+        inode = info.st_ino
+    except AttributeError as error:
+        raise ValidationError("file identity fields are unavailable") from error
+    if not isinstance(device, int) or not isinstance(inode, int):
+        raise ValidationError("file identity fields are unavailable")
+    return (device, inode)
+
+
+def load_json(path, expected_info=None, before_open=None):
+    path = Path(path)
+    if expected_info is None:
+        try:
+            initial = path.lstat()
+        except OSError as error:
+            raise ValidationError(f"cannot inspect {path}: {error}") from error
+    else:
+        initial = expected_info
+    initial_identity = _identity(initial)
     if stat.S_ISLNK(initial.st_mode):
         raise ValidationError(f"JSON path must not be a symlink: {path}")
     if not stat.S_ISREG(initial.st_mode):
         raise ValidationError(f"JSON path must be a regular file: {path}")
     if initial.st_size > MAX_JSON_BYTES:
         raise ValidationError(f"JSON file exceeds {MAX_JSON_BYTES} bytes: {path}")
+    if before_open is not None:
+        before_open(path)
     flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
         descriptor = os.open(path, flags)
@@ -57,7 +77,7 @@ def load_json(path):
         opened = os.fstat(descriptor)
         if not stat.S_ISREG(opened.st_mode):
             raise ValidationError(f"opened JSON path must be a regular file: {path}")
-        if _identity(opened) != _identity(initial):
+        if _identity(opened) != initial_identity:
             raise ValidationError(f"JSON path was replaced before open: {path}")
         if opened.st_size > MAX_JSON_BYTES:
             raise ValidationError(f"JSON file exceeds {MAX_JSON_BYTES} bytes: {path}")
@@ -88,6 +108,7 @@ def load_json(path):
             text,
             object_pairs_hook=_reject_duplicate_keys,
             parse_constant=_reject_constant,
+            parse_float=_parse_finite_float,
         )
     except ValidationError:
         raise
@@ -524,12 +545,12 @@ CHECKS = {
 }
 
 
-def run_check(profile, path, mission_id=None):
+def run_check(profile, path, mission_id=None, expected_info=None, before_open=None):
     try:
         check = CHECKS[profile]
     except KeyError as error:
         raise ValidationError(f"unknown check profile: {profile}") from error
-    check(load_json(path), mission_id)
+    check(load_json(path, expected_info=expected_info, before_open=before_open), mission_id)
 
 
 def validate_tree_filename(filename):
@@ -568,13 +589,35 @@ def validate_tree_candidate(root_resolved, path):
         stat.S_ISREG(info.st_mode) and not stat.S_ISLNK(info.st_mode),
         f"check-tree match must be a regular non-symlink file: {path}",
     )
+    _identity(info)
+    require(info.st_size <= MAX_JSON_BYTES, f"JSON file exceeds {MAX_JSON_BYTES} bytes: {path}")
     try:
         resolved = path.resolve(strict=True)
         contained = os.path.commonpath((str(root_resolved), str(resolved))) == str(root_resolved)
     except (OSError, ValueError) as error:
         raise ValidationError(f"cannot resolve check-tree match {path}: {error}") from error
     require(contained, f"check-tree match escapes root: {path}")
-    return resolved
+    return resolved, info
+
+
+def run_tree_checks(profile, root, filename, before_open=None):
+    validate_tree_filename(filename)
+    root = Path(root)
+    root_resolved = validate_tree_root(root)
+    try:
+        paths = sorted(root.rglob(filename))
+    except OSError as error:
+        raise ValidationError(f"cannot enumerate check-tree root {root}: {error}") from error
+    require(bool(paths), f"no files named {filename} under {root}")
+    for path in paths:
+        try:
+            resolved, info = validate_tree_candidate(root_resolved, path)
+            hook = None
+            if before_open is not None:
+                hook = lambda _path, candidate=resolved: before_open(candidate)
+            run_check(profile, resolved, expected_info=info, before_open=hook)
+        except ValidationError as error:
+            raise ValidationError(f"{path}: {error}") from error
 
 
 def main(argv=None):
@@ -607,23 +650,15 @@ def main(argv=None):
         document = load_json(args.source)
         require(isinstance(document, dict), "bound JSON document must be an object")
         document["mission_id"] = args.mission_id
-        Path(args.destination).write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
+        try:
+            encoded = json.dumps(document, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
+        except ValueError as error:
+            raise ValidationError("bound JSON contains a non-finite output number") from error
+        Path(args.destination).write_text(encoded, encoding="utf-8", newline="\n")
     elif args.command == "check":
         run_check(args.profile, args.path, args.mission_id)
     else:
-        validate_tree_filename(args.filename)
-        root = Path(args.root)
-        root_resolved = validate_tree_root(root)
-        try:
-            paths = sorted(root.rglob(args.filename))
-        except OSError as error:
-            raise ValidationError(f"cannot enumerate check-tree root {root}: {error}") from error
-        require(bool(paths), f"no files named {args.filename} under {root}")
-        for path in paths:
-            try:
-                run_check(args.profile, validate_tree_candidate(root_resolved, path))
-            except ValidationError as error:
-                raise ValidationError(f"{path}: {error}") from error
+        run_tree_checks(args.profile, args.root, args.filename)
     return 0
 
 

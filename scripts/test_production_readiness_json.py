@@ -175,9 +175,9 @@ class ProductionReadinessJSONTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "non-finite.json"
             destination = Path(directory) / "bound.json"
-            for constant in ("NaN", "Infinity", "-Infinity"):
+            for constant in ("NaN", "Infinity", "-Infinity", "1e999", "-1e999"):
                 source.write_text(
-                    '{"mission_id":"mission-123","unexpected":' + constant + "}",
+                    '{"mission_id":"mission-123","unchecked":{"nested":' + constant + "}}",
                     encoding="utf-8",
                 )
                 commands = (
@@ -190,6 +190,20 @@ class ProductionReadinessJSONTests(unittest.TestCase):
                         result = run_helper(*command)
                         self.assertEqual(result.returncode, 2)
                         self.assertIn(f"non-finite JSON number: {constant}", result.stderr)
+
+    def test_bind_serialization_defensively_disallows_non_finite_values(self):
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "bound.json"
+            with mock.patch.object(
+                self.helper,
+                "load_json",
+                return_value={"mission_id": "old", "nested": {"value": math.nan}},
+            ):
+                with self.assertRaisesRegex(self.helper.ValidationError, "non-finite output number"):
+                    self.helper.main(
+                        ["bind-mission-id", "ignored.json", str(destination), "mission-new"]
+                    )
+            self.assertFalse(destination.exists())
 
     def test_numeric_helpers_reject_non_finite_values_defensively(self):
         for numeric in (math.nan, math.inf, -math.inf):
@@ -236,6 +250,13 @@ class ProductionReadinessJSONTests(unittest.TestCase):
             with mock.patch.object(self.helper.os, "fstat", return_value=replacement):
                 with self.assertRaisesRegex(self.helper.ValidationError, "replaced"):
                     self.helper.load_json(target)
+
+            unavailable_identity = SimpleNamespace(
+                st_mode=stat.S_IFREG,
+                st_size=opened.st_size,
+            )
+            with self.assertRaisesRegex(self.helper.ValidationError, "identity fields are unavailable"):
+                self.helper.load_json(target, expected_info=unavailable_identity)
 
             growth_source = self.write_json(root, "growth.json", {})
             with mock.patch.object(self.helper, "MAX_JSON_BYTES", 8), mock.patch.object(
@@ -363,6 +384,38 @@ class ProductionReadinessJSONTests(unittest.TestCase):
 
             with self.assertRaisesRegex(self.helper.ValidationError, "escapes root"):
                 self.helper.validate_tree_candidate(root.resolve(), outside)
+
+    def test_batch_read_rejects_ancestor_swap_after_containment_validation(self):
+        with tempfile.TemporaryDirectory() as parent_directory:
+            parent = Path(parent_directory)
+            root = parent / "root"
+            original_parent = root / "records"
+            outside_parent = parent / "outside"
+            saved_parent = root / "saved-original"
+            original_parent.mkdir(parents=True)
+            outside_parent.mkdir()
+            filename = "promoter-no-promotion.json"
+            self.write_json(original_parent, filename, {"promotion_claimed": False})
+            self.write_json(outside_parent, filename, {"promotion_claimed": True})
+
+            swapped = False
+
+            def swap_ancestor(_candidate):
+                nonlocal swapped
+                if swapped:
+                    return
+                original_parent.replace(saved_parent)
+                outside_parent.replace(original_parent)
+                swapped = True
+
+            with self.assertRaisesRegex(self.helper.ValidationError, "replaced before open"):
+                self.helper.run_tree_checks(
+                    "promoter_no_promotion_node",
+                    root,
+                    filename,
+                    before_open=swap_ancestor,
+                )
+            self.assertTrue(swapped)
 
     def test_readiness_script_is_jq_free_cleanup_safe_and_read_only_formatting(self):
         body = READINESS.read_text(encoding="utf-8")
