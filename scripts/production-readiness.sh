@@ -1,99 +1,119 @@
 #!/usr/bin/env sh
 set -eu
-go test ./... -count=1 >/tmp/ao-mission-go-test.log
-go vet ./... >/tmp/ao-mission-go-vet.log
-go build ./cmd/ao-mission
-gofmt -w cmd internal
+
+tmp_home="$(mktemp -d)"
+cleanup() {
+  rm -rf "$tmp_home"
+}
+trap cleanup EXIT
+trap 'exit 1' HUP INT TERM
+
+mission_bin="$tmp_home/ao-mission"
+json_helper="scripts/production_readiness_json.py"
+json_check() {
+  python3 "$json_helper" check "$@"
+}
+
+go test ./... -count=1 >"$tmp_home/go-test.log"
+go vet ./... >"$tmp_home/go-vet.log"
+go build -o "$tmp_home/ao-mission" ./cmd/ao-mission
+git ls-files -z '*.go' | xargs -0 gofmt -d >"$tmp_home/gofmt.diff"
+test ! -s "$tmp_home/gofmt.diff"
 git diff --check
 python3 scripts/test_public_safety_scan.py
+python3 scripts/test_production_readiness_json.py
 python3 scripts/public-safety-scan.py \
   --root . \
   README.md docs examples internal cmd scripts
-tmp_home="$(mktemp -d)"
-mission_json="$(mktemp)"
-import_json="$(mktemp)"
-inspect_json="$(mktemp)"
-reconcile_json="$(mktemp)"
-event_index_json="$(mktemp)"
-timeline_query_index_json="$(mktemp)"
-restart_recovery_proof_json="$(mktemp)"
-event_search_json="$(mktemp)"
-atlas_prompt_json="$(mktemp)"
-synthesis_json="$(mktemp)"
-doctor_json="$(mktemp)"
-final_synthesis_import_json="$(mktemp)"
-final_synthesis_inspect_json="$(mktemp)"
-final_synthesis_checkpoint_json="$(mktemp)"
-final_synthesis_readback_json="$(mktemp)"
-./ao-mission --home "$tmp_home" start "import completed Atlas recommendation wave" >"$mission_json"
-mission_id="$(jq -r '.mission_id' "$mission_json")"
-./ao-mission --home "$tmp_home" import atlas-recommendation-readback --mission "$mission_id" --path examples/valid/atlas-recommendation-readback.json >"$import_json"
-jq -e '.kind == "atlas-recommendation-readback" and .safe_to_execute == false and .executes_work == false and .approves_work == false' "$import_json" >/dev/null
-./ao-mission --home "$tmp_home" mission inspect --mission "$mission_id" --json >"$inspect_json"
-jq -e '.status == "done" and .current_route == "complete" and .current_phase == "complete" and .evidence.atlas_recommendation.completed_nodes == 40 and .return_gate.final_response_allowed == true' "$inspect_json" >/dev/null
-./ao-mission --home "$tmp_home" final reconcile --mission "$mission_id" >"$reconcile_json"
-jq -e '.schema == "ao.mission.final-reconciliation-packet.v0.1" and .artifacts_agree == true and .final_response_allowed == true and .claims_authority_advance == false and .rsi_remains_denied == true' "$reconcile_json" >/dev/null
-./ao-mission --home "$tmp_home" mission events index --out "$event_index_json" >/dev/null
-./ao-mission --home "$tmp_home" mission events query-index --index "$event_index_json" --out "$timeline_query_index_json" >/dev/null
-jq -e '.schema == "ao.mission.timeline-query-index.v0.1" and .status == "ready" and (.event_index_digest | test("^sha256:[0-9a-f]{64}$")) and (.index_digest | test("^sha256:[0-9a-f]{64}$")) and .event_count >= 1 and .term_count >= 1 and ([.terms[] | select(.term == "final_reconciliation" or .term == "final")] | length >= 1) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false' "$timeline_query_index_json" >/dev/null
-./ao-mission --home "$tmp_home" mission events restart-proof --mission "$mission_id" --out "$restart_recovery_proof_json" --json >/dev/null
-jq -e '.schema == "ao.mission.restart-recovery-proof.v0.1" and .status == "restart_recovery_proven" and .mission_id == "'"$mission_id"'" and .source_digest_stable == true and .event_count_stable == true and .timeline_terms_stable == true and .timeline_matches_stable == true and .no_duplicate_timeline_matches == true and .recovery_proven == true and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false' "$restart_recovery_proof_json" >/dev/null
-./ao-mission --home "$tmp_home" mission events search --mission "$mission_id" --kind final_reconciliation --index "$event_index_json" --json >"$event_search_json"
-jq -e '.schema == "ao.mission.event-search-readback.v0.1" and .status == "ready" and .total_matches >= 1 and .events[0].kind == "final_reconciliation" and .safe_to_execute == false and .executes_work == false and .approves_work == false' "$event_search_json" >/dev/null
-./ao-mission --home "$tmp_home" final atlas-prompt --mission "$mission_id" --event-index "$event_index_json" --out "$atlas_prompt_json" >/dev/null
-jq -e '.schema == "ao.mission.atlas-continuation-prompt-packet.v0.1" and .status == "ready" and .mission_id == "'"$mission_id"'" and (.event_index_digest | test("^sha256:[0-9a-f]{64}$")) and (.final_rollup_digest | test("^sha256:[0-9a-f]{64}$")) and (.prompt | contains("AO Atlas")) and (.prompt | contains("Do not produce a final response if ready_nodes > 0 or exact_next_action remains.")) and (.feature_depth_recommendations | length >= 10) and ([.feature_depth_recommendations[] | select((.gate | length > 0) and (.continuation_command | length > 0) and (.estimated_minutes >= 6) and (.evidence_required | length >= 3))] | length >= 10) and ([.feature_depth_recommendations[].estimated_minutes] | add >= 60) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false' "$atlas_prompt_json" >/dev/null
-./ao-mission --home "$tmp_home" final synthesize --mission "$mission_id" --evidence-root docs/evidence/ao-mission-doubled-wave-v01 >"$synthesis_json"
-jq -e '.schema == "ao.mission.atlas-wave-final-synthesis.v0.1" and .mission == "ao-mission-doubled-wave-v01" and .completed_nodes >= 20 and (.ready_nodes >= 0) and (if .ready_nodes > 0 then .final_response_allowed == false else true end) and (.feature_depth_recommendations | length >= 20) and ([.feature_depth_recommendations[] | select((.gate | length > 0) and (.continuation_command | length > 0) and (.estimated_minutes >= 6) and (.evidence_required | length >= 3))] | length >= 20) and ([.feature_depth_recommendations[].estimated_minutes] | add >= 120) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .rsi_remains_denied == true' "$synthesis_json" >/dev/null
-./ao-mission --home "$tmp_home" start "import Atlas final synthesis readback" >"$mission_json"
-final_synthesis_mission_id="$(jq -r '.mission_id' "$mission_json")"
-jq '.mission_id = "'"$final_synthesis_mission_id"'"' examples/valid/atlas-final-synthesis-readback.json >"$final_synthesis_readback_json"
-./ao-mission --home "$tmp_home" import atlas-final-synthesis-readback --mission "$final_synthesis_mission_id" --path "$final_synthesis_readback_json" >"$final_synthesis_import_json"
-jq -e '.kind == "atlas-final-synthesis-readback" and .safe_to_execute == false and .executes_work == false and .approves_work == false' "$final_synthesis_import_json" >/dev/null
-./ao-mission --home "$tmp_home" mission inspect --mission "$final_synthesis_mission_id" --json >"$final_synthesis_inspect_json"
-jq -e '.status == "done" and .current_route == "complete" and .current_phase == "complete" and .evidence.atlas_final_synthesis.command_readback == "ready" and .evidence.atlas_final_synthesis.promoter_status == "no_promotion_requested" and .route_reconciliation.command_readback_bound == true and .route_reconciliation.promoter_readback_bound == true and .route_reconciliation.atlas_ready_nodes == 0 and .return_gate.final_response_allowed == true' "$final_synthesis_inspect_json" >/dev/null
-./ao-mission --home "$tmp_home" checkpoint inspect --mission "$final_synthesis_mission_id" --json >"$final_synthesis_checkpoint_json"
-jq -e '.schema == "ao.mission.checkpoint-resume-bundle.v0.3" and .mission_id == "'"$final_synthesis_mission_id"'" and .status == "ready" and .return_gate.final_response_allowed == true and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false' "$final_synthesis_checkpoint_json" >/dev/null
-./ao-mission --home "$tmp_home" start "doctor active lease health smoke" >"$mission_json"
-doctor_mission_id="$(jq -r '.mission_id' "$mission_json")"
-./ao-mission --home "$tmp_home" continue --mission "$doctor_mission_id" --until-done --max-iterations 2 >/dev/null
-./ao-mission --home "$tmp_home" doctor --json >"$doctor_json"
-jq -e '.schema == "ao.mission.doctor-readback.v0.1" and .status == "ready" and .lease_health_status == "healthy" and .checkpoint_freshness_status == "fresh" and .early_return_risk_status == "risk_detected" and .stale_route_decision_status == "clear" and ([.risk_missions[].kind] | index("early_return")) and (.exact_next_action | length > 0) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false' "$doctor_json" >/dev/null
-rm -rf "$tmp_home" "$mission_json" "$import_json" "$inspect_json" "$reconcile_json" "$event_index_json" "$timeline_query_index_json" "$restart_recovery_proof_json" "$event_search_json" "$atlas_prompt_json" "$synthesis_json" "$doctor_json" "$final_synthesis_import_json" "$final_synthesis_inspect_json" "$final_synthesis_checkpoint_json" "$final_synthesis_readback_json" ao-mission
+
+mission_json="$tmp_home/mission.json"
+import_json="$tmp_home/import.json"
+inspect_json="$tmp_home/inspect.json"
+reconcile_json="$tmp_home/reconcile.json"
+event_index_json="$tmp_home/event-index.json"
+timeline_query_index_json="$tmp_home/timeline-query-index.json"
+restart_recovery_proof_json="$tmp_home/restart-recovery-proof.json"
+event_search_json="$tmp_home/event-search.json"
+atlas_prompt_json="$tmp_home/atlas-prompt.json"
+synthesis_json="$tmp_home/synthesis.json"
+doctor_json="$tmp_home/doctor.json"
+final_synthesis_import_json="$tmp_home/final-synthesis-import.json"
+final_synthesis_inspect_json="$tmp_home/final-synthesis-inspect.json"
+final_synthesis_checkpoint_json="$tmp_home/final-synthesis-checkpoint.json"
+final_synthesis_readback_json="$tmp_home/final-synthesis-readback.json"
+
+"$mission_bin" --home "$tmp_home/state" start "import completed Atlas recommendation wave" >"$mission_json"
+mission_id="$(python3 "$json_helper" extract-mission-id "$mission_json")"
+"$mission_bin" --home "$tmp_home/state" import atlas-recommendation-readback --mission "$mission_id" --path examples/valid/atlas-recommendation-readback.json >"$import_json"
+json_check atlas_recommendation_import "$import_json"
+"$mission_bin" --home "$tmp_home/state" mission inspect --mission "$mission_id" --json >"$inspect_json"
+json_check atlas_recommendation_inspect "$inspect_json"
+"$mission_bin" --home "$tmp_home/state" final reconcile --mission "$mission_id" >"$reconcile_json"
+json_check final_reconciliation_runtime "$reconcile_json"
+"$mission_bin" --home "$tmp_home/state" mission events index --out "$event_index_json" >/dev/null
+"$mission_bin" --home "$tmp_home/state" mission events query-index --index "$event_index_json" --out "$timeline_query_index_json" >/dev/null
+json_check timeline_query_index "$timeline_query_index_json"
+"$mission_bin" --home "$tmp_home/state" mission events restart-proof --mission "$mission_id" --out "$restart_recovery_proof_json" --json >/dev/null
+json_check restart_recovery_proof "$restart_recovery_proof_json" --mission-id "$mission_id"
+"$mission_bin" --home "$tmp_home/state" mission events search --mission "$mission_id" --kind final_reconciliation --index "$event_index_json" --json >"$event_search_json"
+json_check event_search_runtime "$event_search_json"
+"$mission_bin" --home "$tmp_home/state" final atlas-prompt --mission "$mission_id" --event-index "$event_index_json" --out "$atlas_prompt_json" >/dev/null
+json_check atlas_continuation_prompt "$atlas_prompt_json" --mission-id "$mission_id"
+"$mission_bin" --home "$tmp_home/state" final synthesize --mission "$mission_id" --evidence-root docs/evidence/ao-mission-doubled-wave-v01 >"$synthesis_json"
+json_check atlas_wave_synthesis_runtime "$synthesis_json"
+
+"$mission_bin" --home "$tmp_home/state" start "import Atlas final synthesis readback" >"$mission_json"
+final_synthesis_mission_id="$(python3 "$json_helper" extract-mission-id "$mission_json")"
+python3 "$json_helper" bind-mission-id examples/valid/atlas-final-synthesis-readback.json "$final_synthesis_readback_json" "$final_synthesis_mission_id"
+"$mission_bin" --home "$tmp_home/state" import atlas-final-synthesis-readback --mission "$final_synthesis_mission_id" --path "$final_synthesis_readback_json" >"$final_synthesis_import_json"
+json_check atlas_final_synthesis_import "$final_synthesis_import_json"
+"$mission_bin" --home "$tmp_home/state" mission inspect --mission "$final_synthesis_mission_id" --json >"$final_synthesis_inspect_json"
+json_check atlas_final_synthesis_inspect "$final_synthesis_inspect_json"
+"$mission_bin" --home "$tmp_home/state" checkpoint inspect --mission "$final_synthesis_mission_id" --json >"$final_synthesis_checkpoint_json"
+json_check checkpoint_resume_bundle "$final_synthesis_checkpoint_json" --mission-id "$final_synthesis_mission_id"
+
+"$mission_bin" --home "$tmp_home/state" start "doctor active lease health smoke" >"$mission_json"
+doctor_mission_id="$(python3 "$json_helper" extract-mission-id "$mission_json")"
+"$mission_bin" --home "$tmp_home/state" continue --mission "$doctor_mission_id" --until-done --max-iterations 2 >/dev/null
+"$mission_bin" --home "$tmp_home/state" doctor --json >"$doctor_json"
+json_check doctor_runtime "$doctor_json"
+
 grep -q "25-node Atlas recommendation import wave" docs/operator-next-actions.md
 grep -q "Do not stop before 25 completed nodes" docs/evidence/ao-mission-atlas-wave-import-v01/next-recommended-prompt.md
 grep -q "final-reconciliation-packet.json" docs/operator-next-actions.md
 grep -q "Command and final reconciliation closure check" docs/operator-next-actions.md
-jq -e '.schema == "ao.mission.final-reconciliation-packet.v0.1" and .status == "ready" and .artifacts_agree == true and .promotion_claimed == false and .rsi_remains_denied == true and .claims_authority_advance == false and .safe_to_execute == false and .executes_work == false and .approves_work == false' examples/valid/final-reconciliation-packet.json >/dev/null
-jq -e '.schema == "ao.mission.final-reconciliation-packet.v0.1" and .status == "blocked" and .artifacts_agree == false and (.blocker | contains("Foundry completed_nodes=39")) and (.blocker | contains("Atlas completed_nodes=40")) and .promotion_claimed == false and .rsi_remains_denied == true and .claims_authority_advance == false and .safe_to_execute == false and .executes_work == false and .approves_work == false' examples/valid/final-reconciliation-mismatch-packet.json >/dev/null
-jq -e '.schema == "ao.mission.final-rollup.v0.1" and .final_response_allowed == false and .return_gate_status == "early_return_denied" and .ready_nodes_remaining == 2 and .completed_nodes == 10 and .total_nodes == 12 and (.exact_next_action | contains("ready nodes remain")) and (.feature_depth_recommendations | length >= 10) and ([.feature_depth_recommendations[] | select((.gate | length > 0) and (.continuation_command | length > 0) and (.estimated_minutes >= 6) and (.evidence_required | length >= 3))] | length >= 10) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .provider_calls == false' examples/valid/final-rollup-ready-node-denial.json >/dev/null
-jq -e '.schema == "ao.sentinel.public-safety-wording-readback.v0.1" and .status == "passed" and .unsafe_public_wording_found == false and .claims_authority_advance == false and .rsi_remains_denied == true and (.scanned_artifacts | index("docs/evidence/ao-mission-atlas-wave-import-v01/next-recommended-prompt.md")) and (.scanned_artifacts | index("examples/valid/final-reconciliation-packet.json"))' docs/evidence/ao-mission-atlas-wave-import-v01/sentinel-public-safety-scan.json >/dev/null
-jq -e '.schema == "ao.mission.production-readiness-branch-cleanup.v0.1" and .status == "passed" and .mission == "ao-mission-atlas-wave-import-v01" and .completed_nodes_at_recording == 15 and .local_verification_passed == true and .github_ci_passed_through_previous_node == true and .stale_local_codex_branches_remaining == 0 and .stale_remote_codex_branches_remaining == 0 and .current_node_branch_cleanup_pending_pr_merge == true and .direct_main_mutation == false and .promotion_claimed == false and .rsi_remains_denied == true' docs/evidence/ao-mission-atlas-wave-import-v01/production-readiness-branch-cleanup.json >/dev/null
-jq -e '.schema == "ao.promoter.no-promotion-readback.v0.1" and .status == "no_promotion_requested" and .mission_id == "ao-mission-atlas-wave-import-v01" and .completed_nodes_at_recording == 16 and .safe_to_promote == false and .promotion_claimed == false and .claims_authority_advance == false and .broad_RSI == "denied" and .rsi_remains_denied == true and .executes_work == false and .approves_work == false' docs/evidence/ao-mission-atlas-wave-import-v01/promoter-no-promotion-summary.json >/dev/null
-jq -e '.schema == "ao.foundry.terminal-state-binding.v0.1" and (.states | length == 4) and ([.states[].status] | index("completed") and index("promoted") and index("denied") and index("blocked")) and ([.states[] | select(.status == "completed" or .status == "promoted") | .expected_mission_status] | all(. == "done")) and ([.states[] | select(.status == "denied" or .status == "blocked") | .expected_mission_status] | all(. == "blocked")) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .rsi_remains_denied == true' examples/valid/foundry-terminal-state-binding.json >/dev/null
-jq -e '.schema == "ao.command.compact-timeline-readback.v0.1" and .status == "ready" and .compact == true and (.includes_event_kinds | index("atlas_recommendation")) and (.includes_event_kinds | index("final_reconciliation")) and ([.recent_events[].kind] | index("atlas_recommendation") and index("final_reconciliation")) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false and .rsi_remains_denied == true' examples/valid/command-compact-timeline-readback.json >/dev/null
-jq -e '.schema_version == "ao.compatibility.mission-status-timeline-vector.v1" and .edge == "ao-mission.run_status_timeline -> ao-command.operator_timeline" and .run_status.schema == "ao.mission.run-status-timeline.v0.1" and .timeline.schema == "ao.mission.compact-timeline.v0.1" and (.timeline.events | length == 3) and .expected_command_operator_timeline.schema == "ao-command.operator-timeline.v1" and .expected_command_operator_timeline.timeline_event_count == (.timeline.events | length) and .expected_command_operator_timeline.latest_event == .timeline.events[-1].kind and .compatibility.tested_edge_count == 2 and .compatibility.full_stack_compatibility_complete == false and .run_status.safe_to_execute == false and .timeline.safe_to_execute == false and .run_status.executes_work == false and .timeline.executes_work == false and .run_status.approves_work == false and .timeline.approves_work == false and .run_status.mutates_repositories == false and .timeline.mutates_repositories == false' examples/valid/mission-status-timeline-compatibility-vector.json >/dev/null
-jq -e '.schema == "ao.command.mission-status.v0.1" and .goal_lease.schema == "ao.mission.goal-lease.v0.3" and .goal_lease.min_nodes == 15 and .goal_lease.min_minutes == 120 and .goal_lease.max_minutes == 180 and .goal_lease.checkpoint_policy == "after_each_node_or_timed_interval" and .checkpoint_count == 2 and .checkpoint_freshness_status == "fresh" and .return_gate_status == "early_return_denied" and .read_only == true and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false' examples/valid/command-status-lease-checkpoint-readback.json >/dev/null
-jq -e '.schema == "ao.mission.doctor-command-compact-early-return-risk.v0.1" and .status == "risk_detected" and .mission == "ao-mission-doubled-wave-v01" and .doctor.schema == "ao.mission.doctor-readback.v0.1" and .doctor.early_return_risk_status == "risk_detected" and ([.doctor.risk_missions[].kind] | index("early_return")) and .command_compact.schema == "ao.command.compact-timeline-readback.v0.1" and (.command_compact.includes_event_kinds | index("doctor_risk")) and ([.command_compact.recent_events[] | select(.kind == "doctor_risk" and (.summary | contains("final_response_allowed=false")))] | length >= 1) and .binding.doctor_risk_kind == "early_return" and .binding.command_event_kind == "doctor_risk" and .binding.exact_next_action_bound == true and .binding.final_response_allowed == false and .binding.final_response_denial_bound == true and .binding.command_compact_risk_bound == true and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false and .rsi_remains_denied == true' examples/valid/doctor-command-compact-early-return-risk.json >/dev/null
-jq -e '.schema == "ao.mission.beta-incident-stop-rule-readback.v0.1" and .status == "hold_required" and .incident_severity == "high" and .sentinel_status == "failed" and .promoter_status == "hold" and .stop_rule_triggered == true and .promoter_hold_required == true and .read_only == true and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false and .provider_calls_allowed == false and .credential_use_allowed == false and .release_or_publish_allowed == false and .claims_authority_advance == false and .rsi_remains_denied == true' examples/valid/beta-incident-stop-rule-readback.json >/dev/null
-jq -e '.schema == "ao.mission.pilot-feedback-capture-packet.v0.1" and .status == "ready" and .pilot_id == "pilot-alpha" and (.capture_channels | length == 3) and (.questions | length >= 3) and (.evidence_required | length >= 4) and .read_only == true and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false and .provider_calls_allowed == false and .credential_use_allowed == false and .release_or_publish_allowed == false and .claims_authority_advance == false and .rsi_remains_denied == true' examples/valid/pilot-feedback-capture-packet.json >/dev/null
-jq -e '.schema == "ao.mission.event-search-readback.v0.1" and .status == "ready" and .kind == "final_reconciliation" and .total_matches == 1 and .events[0].kind == "final_reconciliation" and (.events[0].summary | contains("artifacts_agree=true")) and (.events[0].summary | contains("rsi_remains_denied=true")) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false' examples/valid/final-reconciliation-event-search-readback.json >/dev/null
-find docs/evidence/ao-mission-atlas-wave-import-v01/nodes -name promoter-no-promotion.json -print0 | xargs -0 -n1 jq -e '.promotion_claimed == false' >/dev/null
-find docs/evidence/ao-mission-atlas-wave-import-v01/nodes -name sentinel-public-safety.json -print0 | xargs -0 -n1 jq -e '.claims_authority_advance == false and .rsi_remains_denied == true' >/dev/null
-jq -e '.schema == "ao.mission.wave-boundary-readiness.v0.1" and .status == "passed" and .mission == "ao-mission-atlas-wave-import-v01" and .completed_nodes_at_recording == 23 and .promoter_no_promotion_records >= 23 and .sentinel_public_safety_records >= 23 and .promotion_claimed == false and .claims_authority_advance == false and .rsi_remains_denied == true' docs/evidence/ao-mission-atlas-wave-import-v01/wave-boundary-readiness.json >/dev/null
-jq -e '.schema == "ao.mission.merged-pr-branch-cleanup.v0.1" and .status == "passed" and .mission == "ao-mission-atlas-wave-import-v01" and .completed_nodes_through_previous_node == 23 and (.merged_prs | length == 23) and (.merged_prs[0] == 21) and (.merged_prs[-1] == 43) and .stale_local_codex_branches_remaining == 0 and .stale_remote_codex_branches_remaining == 0 and .current_node_branch_cleanup_pending_pr_merge == true and .direct_main_mutation == false and .rsi_remains_denied == true' docs/evidence/ao-mission-atlas-wave-import-v01/merged-pr-branch-cleanup.json >/dev/null
-jq -e '.schema == "ao.mission.atlas-wave-final-synthesis.v0.1" and .status == "completed" and .mission == "ao-mission-atlas-wave-import-v01" and .completed_nodes >= 25 and .ready_nodes == 0 and .blocked_nodes == 0 and .final_response_allowed == true and .current_node_pr_pending == false and .promotion_claimed == false and .claims_authority_advance == false and .rsi_remains_denied == true and (.feature_depth_recommendations | length >= 10)' docs/evidence/ao-mission-atlas-wave-import-v01/final-synthesis.json >/dev/null
-jq -e '.schema == "ao.mission.post-merge-final-closure.v0.1" and .status == "completed" and .mission == "ao-mission-atlas-wave-import-v01" and .completed_nodes == 26 and .ready_nodes == 0 and .blocked_nodes == 0 and (.merged_prs | length == 25) and (.merged_prs[0] == 21) and (.merged_prs[-1] == 45) and .stale_local_codex_branches_remaining == 0 and .stale_remote_codex_branches_remaining == 0 and .final_response_allowed == true and .rsi_remains_denied == true' docs/evidence/ao-mission-atlas-wave-import-v01/post-merge-final-closure.json >/dev/null
+json_check final_reconciliation_fixture examples/valid/final-reconciliation-packet.json
+json_check final_reconciliation_mismatch_fixture examples/valid/final-reconciliation-mismatch-packet.json
+json_check final_rollup_ready_node_denial examples/valid/final-rollup-ready-node-denial.json
+json_check sentinel_public_safety_scan docs/evidence/ao-mission-atlas-wave-import-v01/sentinel-public-safety-scan.json
+json_check production_readiness_branch_cleanup docs/evidence/ao-mission-atlas-wave-import-v01/production-readiness-branch-cleanup.json
+json_check promoter_no_promotion_summary docs/evidence/ao-mission-atlas-wave-import-v01/promoter-no-promotion-summary.json
+json_check foundry_terminal_state_binding examples/valid/foundry-terminal-state-binding.json
+json_check command_compact_timeline examples/valid/command-compact-timeline-readback.json
+json_check mission_status_timeline_vector examples/valid/mission-status-timeline-compatibility-vector.json
+json_check command_status_lease_checkpoint examples/valid/command-status-lease-checkpoint-readback.json
+json_check doctor_command_compact_risk examples/valid/doctor-command-compact-early-return-risk.json
+json_check beta_incident_stop_rule examples/valid/beta-incident-stop-rule-readback.json
+json_check pilot_feedback_capture examples/valid/pilot-feedback-capture-packet.json
+json_check final_reconciliation_event_search examples/valid/final-reconciliation-event-search-readback.json
+python3 "$json_helper" check-tree promoter_no_promotion_node docs/evidence/ao-mission-atlas-wave-import-v01/nodes promoter-no-promotion.json
+python3 "$json_helper" check-tree sentinel_public_safety_node docs/evidence/ao-mission-atlas-wave-import-v01/nodes sentinel-public-safety.json
+json_check wave_boundary_readiness docs/evidence/ao-mission-atlas-wave-import-v01/wave-boundary-readiness.json
+json_check merged_pr_branch_cleanup docs/evidence/ao-mission-atlas-wave-import-v01/merged-pr-branch-cleanup.json
+json_check atlas_wave_final_synthesis_fixture docs/evidence/ao-mission-atlas-wave-import-v01/final-synthesis.json
+json_check post_merge_final_closure docs/evidence/ao-mission-atlas-wave-import-v01/post-merge-final-closure.json
 grep -q "Do not stop before 30 completed nodes" docs/evidence/ao-mission-atlas-wave-import-v01/next-wave-recommended-prompt.md
-jq -e '.schema == "ao.mission.wave-duration-ledger.v0.1" and .mission == "ao-mission-doubled-wave-v01" and .status == "active" and .minimum_minutes == 120 and .target_minutes == 120 and .max_minutes == 180 and .minimum_minutes_met == false and .final_response_allowed == false and .rsi_remains_denied == true and .safe_to_execute == false and .executes_work == false and .approves_work == false' docs/evidence/ao-mission-doubled-wave-v01/duration-ledger.json >/dev/null
-jq -e '.schema == "ao.mission.codex-session-duration-readback.v0.1" and .mission == "ao-mission-doubled-wave-v01" and .status == "metadata_available" and .content_read == false and .secret_values_read == false and .session_log_files_found > 0 and .safe_to_execute == false and .executes_work == false and .approves_work == false and .rsi_remains_denied == true' docs/evidence/ao-mission-doubled-wave-v01/codex-session-duration-readback.json >/dev/null
-jq -e '.contract_version == "ao.atlas.ao-mission-final-synthesis-readback.v0.1" and .completed_nodes == 26 and .ready_nodes == 0 and .blocked_nodes == 0 and .final_response_allowed == true and .command_readback == "ready" and .promoter_status == "no_promotion_requested" and .rsi_remains_denied == true and .safe_to_execute == false and .executes_work == false and .approves_work == false' examples/valid/atlas-final-synthesis-readback.json >/dev/null
-jq -e '.schema == "ao.mission.event-search-production-smoke.v0.1" and .status == "passed" and .mission == "ao-mission-atlas-wave-import-v01" and .searched_kind == "final_reconciliation" and .total_matches_minimum == 1 and .safe_to_execute == false and .executes_work == false and .approves_work == false and .rsi_remains_denied == true' docs/evidence/ao-mission-atlas-wave-import-v01/event-search-production-smoke.json >/dev/null
-jq -e '.schema == "ao.mission.event-evidence-alias-readback.v0.1" and .status == "passed" and .mission == "ao-mission-doubled-wave-v01" and (.event_kinds | length == 6) and (.event_kinds | index("route_evidence") and index("node_evidence") and index("pr_evidence") and index("ci_evidence") and index("rollup_evidence") and index("blocker_evidence")) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .rsi_remains_denied == true' docs/evidence/ao-mission-doubled-wave-v01/nodes/node-10-event-evidence-aliases/event-alias-search-readbacks.json >/dev/null
-jq -e '.schema == "ao.mission.event-evidence-alias-search-readbacks.v0.1" and .status == "passed" and .mission == "ao-mission-doubled-wave-v01" and (.event_kinds | length == 6) and (.event_kinds | index("route_evidence") and index("node_evidence") and index("pr_evidence") and index("ci_evidence") and index("rollup_evidence") and index("blocker_evidence")) and (.searches | length == 6) and ([.searches[] | select(.total_matches >= 1 and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false)] | length == 6) and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false and .rsi_remains_denied == true' examples/valid/event-evidence-alias-search-readbacks.json >/dev/null
-jq -e '.schema == "ao.mission.bounded-autonomy-month3-recovery-readback.v0.1" and .status == "passed" and .failure_injection_count == 10 and .recovery_proof_count == 9 and .duplicate_mutation_detected == false and .ready_nodes_remaining == 0 and .exact_next_action_remaining == false and .stale_task_branches_remaining == 0 and .stale_worktrees_remaining == 0 and .final_response_denied_while_ready_work_remained == true and .compatibility_gate_active == false and .release_or_publish == false and .provider_pilot == false and .external_beta_launched == false and .promotion_requested == false and .promotion_granted == false and .rsi_remains_denied == true' examples/valid/bounded-autonomy-month3-recovery-readback.json >/dev/null
-jq -e '.schema == "ao.mission.bounded-autonomy-month4-controlled-improvement-readback.v0.1" and .status == "passed" and .candidate_classes_evaluated == 3 and .accepted_candidate_count == 3 and .all_accepted_candidates_have_measurable_gain == true and .green_ci_required_for_accepted_candidates == true and .rejected_candidates_leave_no_mutation == true and .rollback_evidence_matches == true and .command_presents_proposal_approval_measurement_decision_rollback == true and .sentinel_rejects_self_improvement_and_rsi_overclaims == true and .promoter_records_no_promotion_external_beta_gate_activation_or_rsi == true and .compatibility_gate_active == false and .release_or_publish == false and .provider_pilot == false and .external_beta_launched == false and .promotion_requested == false and .promotion_granted == false and .live_self_modification == false and .rsi_remains_denied == true and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false and .calls_providers == false and .releases_or_deploys == false' examples/valid/bounded-autonomy-month4-controlled-improvement-readback.json >/dev/null
-jq -e '.schema == "ao.mission.bounded-autonomy-month5-dogfood-readback.v0.1" and .status == "passed" and .task_portfolio_count == 5 and .completed_task_count == 5 and .accepted_tasks_merge_after_green_ci == true and .denied_tasks_have_correct_reason_and_safe_next_action == true and .month1_comparison.completion_rate == 1 and .month1_comparison.first_pass_verification_rate == 1 and .month1_comparison.recovery_rate == 1 and .month1_comparison.duplicate_or_orphan_work == false and .month1_comparison.rollback_reliability == "passed" and .month1_comparison.unsupported_claim_count == 0 and .operator_friction_fixed == true and .no_unreviewed_autonomous_mutation == true and .scoped_repositories_clean_and_synced == true and .compatibility_gate_active == false and .release_or_publish == false and .provider_pilot == false and .external_beta_launched == false and .promotion_requested == false and .promotion_granted == false and .live_self_modification == false and .rsi_remains_denied == true and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false and .calls_providers == false and .releases_or_deploys == false' examples/valid/bounded-autonomy-month5-dogfood-readback.json >/dev/null
-jq -e '.schema == "ao.mission.bounded-autonomy-month6-qualification-readback.v0.1" and .status == "passed" and .months_1_to_5_closed == true and .month1_benchmark_rerun == "passed" and .month2_workflow_rerun == "passed" and .month3_recovery_rerun == "passed" and .month4_candidate_rerun == "passed" and .month5_dogfood_reconciled == "passed" and .current_release_metadata_verified == true and .compatibility_edges_verified == 16 and .canonical_vectors_verified == 16 and .consumer_tests_verified == 16 and .production_readiness == "passed" and .architecture_verification == "passed" and .command_verification == "passed" and .ao2_verification == "passed" and .control_plane_verification == "passed" and .release_decision == "control_plane_patch_release" and .ao2_release_needed == false and .control_plane_release_needed == true and .control_plane_release_published == true and .control_plane_public_asset_verification == "passed" and .public_asset_replacement_required == true and .stable_publication_required == true and .controlled_rsi_research_authorized == false and .compatibility_gate_active == false and .release_or_publish == true and .provider_pilot == false and .external_beta_launched == false and .promotion_requested == false and .promotion_granted == false and .live_self_modification == false and .rsi_remains_denied == true and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false and .calls_providers == false and .releases_or_deploys == false and .ready_nodes_remaining == 0 and .exact_next_action_remaining == false' examples/valid/bounded-autonomy-month6-qualification-readback.json >/dev/null
-jq -e '.schema == "ao.mission.bounded-autonomy-repair-from-month3-readback.v0.1" and .status == "passed" and .classification_before_repair == "partial_invalid_closure" and .month3_recovery_repaired == true and .month3_final_reconciliation.status == "ready" and .month3_final_reconciliation.artifacts_agree == true and .month3_final_reconciliation.mission_status == "done" and .month3_final_reconciliation.command_status == "done" and .month3_final_reconciliation.completed_nodes == 26 and .month3_final_reconciliation.total_nodes == 26 and .month3_final_reconciliation.ready_nodes == 0 and .month3_final_reconciliation.final_response_allowed == true and .month3_final_reconciliation.exact_next_action_remaining == false and .month4_rollback_repaired == true and .month4_original_ao_mission_revert_conflicted == true and .month4_explicit_rollback_verified == true and .month4_restore_matched_before == true and .month5_genuine_dogfood_completed == true and .month5_reused_prior_task_as_substitute == false and .month5_completed_task_count == 5 and .month6_requalified == true and .month6_release_decision == "control_plane_patch_release" and .control_plane_spin_change_binary_impact_reviewed == true and .control_plane_release_needed == true and .control_plane_release_published == true and .control_plane_public_asset_verification == "passed" and .ao2_release_needed == false and .compatibility_gate_active == false and .release_or_publish == true and .provider_pilot == false and .external_beta_launched == false and .promotion_requested == false and .promotion_granted == false and .live_self_modification == false and .rsi_remains_denied == true and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false and .calls_providers == false and .releases_or_deploys == false' examples/valid/bounded-autonomy-repair-from-month3-readback.json >/dev/null
-jq -e '.schema == "ao.mission.sqlite-migration-dry-run.v0.1" and .status == "ready" and .mission == "ao-stack-month6-recommendations" and .dry_run_only == true and .source_store_kind == "json_ledger" and .target_store_kind == "sqlite" and .records_scanned >= 1 and .records_planned == .records_scanned and .records_written == 0 and .sqlite_file_created == false and .source_mutated == false and .migration_started == false and (.plan_digest | test("^sha256:[0-9a-f]{64}$")) and .rollback_receipt_ready == true and .provider_calls == false and .credential_use == false and .release_or_publish == false and .direct_main_mutation == false and .safe_to_execute == false and .executes_work == false and .approves_work == false and .mutates_repositories == false and .rsi_remains_denied == true' examples/valid/mission-sqlite-migration-dry-run.json >/dev/null
+json_check wave_duration_ledger docs/evidence/ao-mission-doubled-wave-v01/duration-ledger.json
+json_check codex_session_duration docs/evidence/ao-mission-doubled-wave-v01/codex-session-duration-readback.json
+json_check atlas_final_synthesis_fixture examples/valid/atlas-final-synthesis-readback.json
+json_check event_search_production_smoke docs/evidence/ao-mission-atlas-wave-import-v01/event-search-production-smoke.json
+json_check event_evidence_alias_readback docs/evidence/ao-mission-doubled-wave-v01/nodes/node-10-event-evidence-aliases/event-alias-search-readbacks.json
+json_check event_evidence_alias_searches examples/valid/event-evidence-alias-search-readbacks.json
+json_check bounded_autonomy_month3 examples/valid/bounded-autonomy-month3-recovery-readback.json
+json_check bounded_autonomy_month4 examples/valid/bounded-autonomy-month4-controlled-improvement-readback.json
+json_check bounded_autonomy_month5 examples/valid/bounded-autonomy-month5-dogfood-readback.json
+json_check bounded_autonomy_month6 examples/valid/bounded-autonomy-month6-qualification-readback.json
+json_check bounded_autonomy_repair examples/valid/bounded-autonomy-repair-from-month3-readback.json
+json_check sqlite_migration_dry_run examples/valid/mission-sqlite-migration-dry-run.json
+
 echo "AO Mission production readiness: 100/100 status=ready"
