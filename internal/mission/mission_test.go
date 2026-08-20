@@ -5197,6 +5197,46 @@ func TestMissionRestartRecoveryProofBindsIndexedTimelineAfterStoreReload(t *test
 	}
 }
 
+func TestMissionTimelineQueryIndexDigestIgnoresGenerationTimestamp(t *testing.T) {
+	index := MissionTimelineQueryIndex{
+		Schema:           "ao.mission.timeline-query-index.v0.1",
+		Status:           "ready",
+		IndexVersion:     "v0.1",
+		EventIndexDigest: "sha256:" + strings.Repeat("a", 64),
+		GeneratedAtUTC:   "2026-08-20T18:55:44Z",
+	}
+	first, err := digestMissionTimelineQueryIndex(index)
+	if err != nil {
+		t.Fatal(err)
+	}
+	index.GeneratedAtUTC = "2026-08-20T18:55:45Z"
+	second, err := digestMissionTimelineQueryIndex(index)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first != second {
+		t.Fatalf("timeline digest changed with generation timestamp: first=%s second=%s", first, second)
+	}
+}
+
+func TestMissionTimelineQueryIndexValidationAcceptsLegacyTimestampDigest(t *testing.T) {
+	index := MissionTimelineQueryIndex{
+		Schema:           "ao.mission.timeline-query-index.v0.1",
+		Status:           "ready",
+		IndexVersion:     "v0.1",
+		EventIndexDigest: "sha256:" + strings.Repeat("a", 64),
+		GeneratedAtUTC:   "2026-08-20T18:55:44Z",
+	}
+	body, err := json.Marshal(index)
+	if err != nil {
+		t.Fatal(err)
+	}
+	index.IndexDigest = digestBytes(body)
+	if err := ValidateMissionTimelineQueryIndexDigest(index); err != nil {
+		t.Fatalf("legacy timestamp-bound digest was rejected: %v", err)
+	}
+}
+
 func TestMissionCompactionResumePromptBindsLatestEventTimeline(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(dir)

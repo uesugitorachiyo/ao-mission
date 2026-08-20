@@ -203,14 +203,31 @@ func ValidateMissionTimelineQueryIndexDigest(index MissionTimelineQueryIndex) er
 		return err
 	}
 	if index.IndexDigest != expected {
-		return fmt.Errorf("mission timeline query index digest mismatch")
+		legacy, legacyErr := digestLegacyMissionTimelineQueryIndex(index)
+		if legacyErr != nil {
+			return legacyErr
+		}
+		if index.IndexDigest != legacy {
+			return fmt.Errorf("mission timeline query index digest mismatch")
+		}
 	}
 	return nil
+}
+
+func digestLegacyMissionTimelineQueryIndex(index MissionTimelineQueryIndex) (string, error) {
+	copy := index
+	copy.IndexDigest = ""
+	body, err := json.Marshal(copy)
+	if err != nil {
+		return "", err
+	}
+	return digestBytes(body), nil
 }
 
 func digestMissionTimelineQueryIndex(index MissionTimelineQueryIndex) (string, error) {
 	copy := index
 	copy.IndexDigest = ""
+	copy.GeneratedAtUTC = ""
 	body, err := json.Marshal(copy)
 	if err != nil {
 		return "", err
