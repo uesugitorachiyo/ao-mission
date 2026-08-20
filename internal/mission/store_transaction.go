@@ -124,7 +124,7 @@ func (s Store) withMissionLock(id string, fn func() error) error {
 	return s.withMissionLockMode(id, true, fn)
 }
 
-func (s Store) withMissionReadLock(id string, fn func() error) error {
+func (s Store) withMissionLockWithoutTempCleanup(id string, fn func() error) error {
 	return s.withMissionLockMode(id, false, fn)
 }
 

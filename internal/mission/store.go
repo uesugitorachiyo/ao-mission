@@ -212,7 +212,7 @@ func (s Store) listFilteredWithStats(filters ListFilters) ([]Record, storeListSt
 				candidate := candidates[index]
 				var result loadResult
 				result.err = s.runMissionRecordLoad(candidate.id, func() error {
-					return s.withMissionReadLock(candidate.id, func() error {
+					return s.withMissionLockWithoutTempCleanup(candidate.id, func() error {
 						if err := s.recoverMissionTransactionLocked(candidate.id); err != nil {
 							return err
 						}
