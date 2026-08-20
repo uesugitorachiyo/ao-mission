@@ -23,6 +23,7 @@ const (
 	correlationRedactedPathSentinel        = "<local-path-redacted>"
 	correlationLocatorStateLive            = "live"
 	correlationLocatorStateArchiveRedacted = "archive_redacted"
+	ao2EvidencePackSchema                  = "ao2.evidence-pack.v1"
 )
 
 var (
@@ -1493,6 +1494,47 @@ type correlationBinding struct {
 	parentDigestField string
 }
 
+func selectNativeIdentifierCandidate(
+	document map[string]any,
+	candidates []correlationFieldCandidate,
+) (correlationFieldCandidate, error) {
+	_, schema, err := correlationSchemaIdentifier(document)
+	if err != nil {
+		return correlationFieldCandidate{}, err
+	}
+	if schema != ao2EvidencePackSchema {
+		if len(candidates) != 1 {
+			return correlationFieldCandidate{}, errors.New("ambiguous multiple candidate native identifiers")
+		}
+		return candidates[0], nil
+	}
+
+	var selected correlationFieldCandidate
+	found := false
+	for _, candidate := range candidates {
+		if candidate.Path == "/run_id" {
+			selected = candidate
+			found = true
+			break
+		}
+	}
+	if !found {
+		return correlationFieldCandidate{}, errors.New(
+			"AO2 evidence pack requires a top-level run_id",
+		)
+	}
+	for _, candidate := range candidates {
+		if candidate.Field == "run_id" && candidate.Value != selected.Value {
+			return correlationFieldCandidate{}, fmt.Errorf(
+				"AO2 evidence pack run_id %q conflicts with %q",
+				candidate.Path,
+				selected.Path,
+			)
+		}
+	}
+	return selected, nil
+}
+
 func deriveCorrelationBinding(
 	current correlationArtifactDraft,
 	drafts []correlationArtifactDraft,
@@ -1524,14 +1566,15 @@ func deriveCorrelationBinding(
 		candidate.Value = identifier
 		candidates = append(candidates, candidate)
 	}
-	if len(candidates) > 1 {
-		return correlationBinding{}, errors.New("ambiguous multiple candidate native identifiers")
-	}
-	if len(candidates) == 1 {
+	if len(candidates) > 0 {
+		selected, err := selectNativeIdentifierCandidate(current.document, candidates)
+		if err != nil {
+			return correlationBinding{}, err
+		}
 		return correlationBinding{
 			mode:             CorrelationBindingNativeField,
-			nativeField:      candidates[0].Path,
-			nativeIdentifier: candidates[0].Value,
+			nativeField:      selected.Path,
+			nativeIdentifier: selected.Value,
 		}, nil
 	}
 

@@ -836,6 +836,69 @@ func TestCorrelationChainSupportsStackEvidenceConventions(t *testing.T) {
 	}
 }
 
+func TestCorrelationChainBindsAO2EvidencePackToCanonicalRunID(t *testing.T) {
+	record := correlationTestRecord()
+	path := filepath.Join(t.TempDir(), "ao2-evidence-pack.json")
+	writeJSONForTest(t, path, map[string]any{
+		"schema_version": "ao2.evidence-pack.v1",
+		"run_id":         "windows-qualification-demo",
+		"workflow_id":    "risky-pr-run@0.1.0",
+		"verdict":        "accepted",
+		"workflow_tasks": []any{
+			map[string]any{"task_id": "implementer"},
+		},
+	})
+
+	chain, err := BuildCorrelationChain(record, []CorrelationArtifactSpec{{
+		Role: "ao2-evidence",
+		Path: path,
+	}})
+	if err != nil {
+		t.Fatalf("AO2 evidence pack was rejected: %v", err)
+	}
+	if len(chain.Entries) != 1 {
+		t.Fatalf("entry count = %d, want 1", len(chain.Entries))
+	}
+	entry := chain.Entries[0]
+	if entry.Producer != "ao2" ||
+		entry.BindingMode != CorrelationBindingNativeField ||
+		entry.NativeField != "/run_id" ||
+		entry.NativeIdentifier != "windows-qualification-demo" {
+		t.Fatalf("AO2 evidence identity was not bound to /run_id: %+v", entry)
+	}
+}
+
+func TestCorrelationChainRejectsInvalidAO2EvidencePackRunIdentity(t *testing.T) {
+	record := correlationTestRecord()
+
+	for name, document := range map[string]map[string]any{
+		"missing top-level run_id": {
+			"schema_version": "ao2.evidence-pack.v1",
+			"workflow_id":    "risky-pr-run@0.1.0",
+		},
+		"conflicting nested run_id": {
+			"schema_version": "ao2.evidence-pack.v1",
+			"run_id":         "windows-qualification-demo",
+			"workflow_id":    "risky-pr-run@0.1.0",
+			"runtime_contract": map[string]any{
+				"run_id": "different-run",
+			},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "ao2-evidence-pack.json")
+			writeJSONForTest(t, path, document)
+			_, err := BuildCorrelationChain(record, []CorrelationArtifactSpec{{
+				Role: "ao2-evidence",
+				Path: path,
+			}})
+			if err == nil || !strings.Contains(err.Error(), "AO2 evidence pack") {
+				t.Fatalf("invalid AO2 run identity was accepted: %v", err)
+			}
+		})
+	}
+}
+
 func TestCorrelationChainRejectsAmbiguousBindingCandidates(t *testing.T) {
 	record := correlationTestRecord()
 
