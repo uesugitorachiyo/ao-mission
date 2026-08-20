@@ -1494,45 +1494,73 @@ type correlationBinding struct {
 	parentDigestField string
 }
 
-func selectNativeIdentifierCandidate(
+func validateAO2EvidencePackRunIdentity(
 	document map[string]any,
-	candidates []correlationFieldCandidate,
-) (correlationFieldCandidate, error) {
+) (correlationFieldCandidate, bool, error) {
 	_, schema, err := correlationSchemaIdentifier(document)
 	if err != nil {
-		return correlationFieldCandidate{}, err
+		return correlationFieldCandidate{}, false, err
 	}
 	if schema != ao2EvidencePackSchema {
-		if len(candidates) != 1 {
-			return correlationFieldCandidate{}, errors.New("ambiguous multiple candidate native identifiers")
-		}
-		return candidates[0], nil
+		return correlationFieldCandidate{}, false, nil
 	}
 
-	var selected correlationFieldCandidate
-	found := false
-	for _, candidate := range candidates {
-		if candidate.Path == "/run_id" {
-			selected = candidate
-			found = true
-			break
-		}
-	}
+	raw, found := document["run_id"]
 	if !found {
-		return correlationFieldCandidate{}, errors.New(
+		return correlationFieldCandidate{}, true, errors.New(
 			"AO2 evidence pack requires a top-level run_id",
 		)
 	}
-	for _, candidate := range candidates {
-		if candidate.Field == "run_id" && candidate.Value != selected.Value {
-			return correlationFieldCandidate{}, fmt.Errorf(
-				"AO2 evidence pack run_id %q conflicts with %q",
-				candidate.Path,
-				selected.Path,
-			)
+	value, ok := raw.(string)
+	canonical, valid := normalizeNativeIdentifier("run_id", value)
+	if !ok || !valid {
+		return correlationFieldCandidate{}, true, errors.New(
+			"AO2 evidence pack run_id \"/run_id\" must be a valid string",
+		)
+	}
+	if err := validateAO2RunIDValues(document, "", canonical); err != nil {
+		return correlationFieldCandidate{}, true, err
+	}
+	return correlationFieldCandidate{Path: "/run_id", Field: "run_id", Value: canonical}, true, nil
+}
+
+func validateAO2RunIDValues(value any, path, canonical string) error {
+	switch typed := value.(type) {
+	case map[string]any:
+		keys := make([]string, 0, len(typed))
+		for key := range typed {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			childPath := appendCorrelationJSONPointer(path, key)
+			if key == "run_id" {
+				runID, ok := typed[key].(string)
+				normalized, valid := normalizeNativeIdentifier("run_id", runID)
+				if !ok || !valid {
+					return fmt.Errorf("AO2 evidence pack run_id %q must be a valid string", childPath)
+				}
+				if normalized != canonical {
+					return fmt.Errorf("AO2 evidence pack run_id %q conflicts with %q", childPath, "/run_id")
+				}
+				continue
+			}
+			if err := validateAO2RunIDValues(typed[key], childPath, canonical); err != nil {
+				return err
+			}
+		}
+	case []any:
+		for i, child := range typed {
+			if err := validateAO2RunIDValues(
+				child,
+				appendCorrelationJSONPointer(path, fmt.Sprintf("%d", i)),
+				canonical,
+			); err != nil {
+				return err
+			}
 		}
 	}
-	return selected, nil
+	return nil
 }
 
 func deriveCorrelationBinding(
@@ -1540,6 +1568,13 @@ func deriveCorrelationBinding(
 	drafts []correlationArtifactDraft,
 	record Record,
 ) (correlationBinding, error) {
+	// AO2 run identity is mandatory artifact validity even when a digest link
+	// subsequently takes precedence as the correlation binding.
+	ao2RunID, isAO2EvidencePack, err := validateAO2EvidencePackRunIdentity(current.document)
+	if err != nil {
+		return correlationBinding{}, err
+	}
+
 	parentCandidates := digestLinkedParents(current, drafts)
 	if len(parentCandidates) > 1 {
 		return correlationBinding{}, errors.New("ambiguous multiple candidate parent links")
@@ -1566,15 +1601,21 @@ func deriveCorrelationBinding(
 		candidate.Value = identifier
 		candidates = append(candidates, candidate)
 	}
-	if len(candidates) > 0 {
-		selected, err := selectNativeIdentifierCandidate(current.document, candidates)
-		if err != nil {
-			return correlationBinding{}, err
-		}
+	if isAO2EvidencePack {
 		return correlationBinding{
 			mode:             CorrelationBindingNativeField,
-			nativeField:      selected.Path,
-			nativeIdentifier: selected.Value,
+			nativeField:      ao2RunID.Path,
+			nativeIdentifier: ao2RunID.Value,
+		}, nil
+	}
+	if len(candidates) > 1 {
+		return correlationBinding{}, errors.New("ambiguous multiple candidate native identifiers")
+	}
+	if len(candidates) == 1 {
+		return correlationBinding{
+			mode:             CorrelationBindingNativeField,
+			nativeField:      candidates[0].Path,
+			nativeIdentifier: candidates[0].Value,
 		}, nil
 	}
 

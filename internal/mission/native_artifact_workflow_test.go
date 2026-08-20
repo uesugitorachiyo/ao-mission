@@ -100,10 +100,135 @@ func TestCIWorkflowRunsForCandidateBranches(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	workflow := string(data)
-	for _, want := range []string{"push:", "main", "'codex/**'", "windows-latest"} {
-		if !strings.Contains(workflow, want) {
-			t.Fatalf("CI workflow does not cover candidate branches: missing %q", want)
+	if blockers := ciWorkflowContractBlockers(string(data)); len(blockers) != 0 {
+		t.Fatalf("CI workflow does not cover candidate branches: %v", blockers)
+	}
+}
+
+func TestCIWorkflowCandidateBranchContractRejectsDecoys(t *testing.T) {
+	for name, workflow := range map[string]string{
+		"comment decoys":        "on:\n  pull_request:\n# push: branches main 'codex/**'\njobs:\n  test:\n    runs-on: ubuntu-latest\n# windows-latest\n",
+		"unrelated branch list": "on:\n  push:\n    branches:\n      - main\n  workflow_dispatch:\n    inputs:\n      codex/**: {}\njobs:\n  test:\n    strategy:\n      matrix:\n        os: [ubuntu-latest]\n    runs-on: windows-latest\n",
+		"unrelated windows job": "on:\n  push:\n    branches:\n      - main\n      - 'codex/**'\njobs:\n  docs:\n    runs-on: windows-latest\n  test:\n    strategy:\n      matrix:\n        os: [ubuntu-latest]\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			if blockers := ciWorkflowContractBlockers(workflow); len(blockers) == 0 {
+				t.Fatal("decoy workflow passed the candidate-branch Windows matrix contract")
+			}
+		})
+	}
+}
+
+func ciWorkflowContractBlockers(workflow string) []string {
+	blockers := make([]string, 0)
+	lines := workflowYAMLLines(workflow)
+	onStart, onEnd, ok := workflowYAMLSection(lines, 0, len(lines), -2, "on")
+	if !ok {
+		return append(blockers, "missing on section")
+	}
+	pushStart, pushEnd, ok := workflowYAMLSection(lines, onStart, onEnd, 0, "push")
+	if !ok {
+		blockers = append(blockers, "missing on.push section")
+	} else if branchStart, branchEnd, found := workflowYAMLSection(lines, pushStart, pushEnd, 2, "branches"); !found {
+		blockers = append(blockers, "missing on.push.branches")
+	} else {
+		branches := workflowYAMLList(lines, branchStart, branchEnd, 4)
+		for _, want := range []string{"main", "codex/**"} {
+			if _, found := branches[want]; !found {
+				blockers = append(blockers, "missing on.push.branches "+want)
+			}
 		}
 	}
+
+	jobsStart, jobsEnd, ok := workflowYAMLSection(lines, 0, len(lines), -2, "jobs")
+	if !ok {
+		return append(blockers, "missing jobs section")
+	}
+	testStart, testEnd, ok := workflowYAMLSection(lines, jobsStart, jobsEnd, 0, "test")
+	strategyStart, strategyEnd, strategyOK := workflowYAMLSection(lines, testStart, testEnd, 2, "strategy")
+	matrixStart, matrixEnd, matrixOK := workflowYAMLSection(lines, strategyStart, strategyEnd, 4, "matrix")
+	osValues, osOK := workflowYAMLInlineList(lines, matrixStart, matrixEnd, 6, "os")
+	if !ok || !strategyOK || !matrixOK || !osOK {
+		blockers = append(blockers, "missing jobs.test.strategy.matrix.os")
+	} else if _, found := osValues["windows-latest"]; !found {
+		blockers = append(blockers, "missing windows-latest in jobs.test.strategy.matrix.os")
+	}
+	return blockers
+}
+
+type workflowYAMLLine struct {
+	indent int
+	text   string
+}
+
+func workflowYAMLLines(workflow string) []workflowYAMLLine {
+	lines := make([]workflowYAMLLine, 0)
+	for _, raw := range strings.Split(workflow, "\n") {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		lines = append(lines, workflowYAMLLine{
+			indent: len(raw) - len(strings.TrimLeft(raw, " ")),
+			text:   trimmed,
+		})
+	}
+	return lines
+}
+
+func workflowYAMLSection(
+	lines []workflowYAMLLine,
+	start, end, parentIndent int,
+	key string,
+) (int, int, bool) {
+	indent := parentIndent + 2
+	for i := start; i < end; i++ {
+		if lines[i].indent != indent || lines[i].text != key+":" {
+			continue
+		}
+		sectionEnd := end
+		for j := i + 1; j < end; j++ {
+			if lines[j].indent <= indent {
+				sectionEnd = j
+				break
+			}
+		}
+		return i + 1, sectionEnd, true
+	}
+	return 0, 0, false
+}
+
+func workflowYAMLList(lines []workflowYAMLLine, start, end, parentIndent int) map[string]struct{} {
+	values := make(map[string]struct{})
+	for i := start; i < end; i++ {
+		if lines[i].indent != parentIndent+2 || !strings.HasPrefix(lines[i].text, "- ") {
+			continue
+		}
+		value := strings.Trim(strings.TrimSpace(strings.TrimPrefix(lines[i].text, "- ")), "'\"")
+		values[value] = struct{}{}
+	}
+	return values
+}
+
+func workflowYAMLInlineList(
+	lines []workflowYAMLLine,
+	start, end, parentIndent int,
+	key string,
+) (map[string]struct{}, bool) {
+	prefix := key + ":"
+	for i := start; i < end; i++ {
+		if lines[i].indent != parentIndent+2 || !strings.HasPrefix(lines[i].text, prefix) {
+			continue
+		}
+		raw := strings.TrimSpace(strings.TrimPrefix(lines[i].text, prefix))
+		if len(raw) < 2 || raw[0] != '[' || raw[len(raw)-1] != ']' {
+			return nil, false
+		}
+		values := make(map[string]struct{})
+		for _, value := range strings.Split(raw[1:len(raw)-1], ",") {
+			values[strings.Trim(strings.TrimSpace(value), "'\"")] = struct{}{}
+		}
+		return values, true
+	}
+	return nil, false
 }
