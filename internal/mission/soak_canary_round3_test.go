@@ -331,6 +331,7 @@ func TestSoakCanaryGitCheckedArithmeticRejectsMalformedBounds(t *testing.T) {
 }
 
 func TestSoakCanaryRunningCheckpointFailureReapsChildAndRestartFailsClosed(t *testing.T) {
+	requireTestSymlinkCapability(t)
 	fixture := validSoakCanaryFixture(t)
 	clock := &soakCanaryFakeClock{now: time.Date(2026, 7, 29, 21, 0, 0, 0, time.UTC)}
 	process := &soakCanaryReapTrackingProcess{
@@ -344,6 +345,7 @@ func TestSoakCanaryRunningCheckpointFailureReapsChildAndRestartFailsClosed(t *te
 		},
 	}
 	var reservedCheckpoint []byte
+	checkpointTarget := t.TempDir()
 	fixture.request.Clock = clock
 	fixture.request.Executor = &soakCanaryCheckpointFailureExecutor{
 		process: process,
@@ -356,7 +358,9 @@ func TestSoakCanaryRunningCheckpointFailureReapsChildAndRestartFailsClosed(t *te
 			if err := os.Remove(fixture.request.CheckpointPath); err != nil {
 				t.Fatal(err)
 			}
-			createTestSymlink(t, t.TempDir(), fixture.request.CheckpointPath)
+			if err := os.Symlink(checkpointTarget, fixture.request.CheckpointPath); err != nil {
+				t.Errorf("create checkpoint symlink: %v", err)
+			}
 		},
 	}
 

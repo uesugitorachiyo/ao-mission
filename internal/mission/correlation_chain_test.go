@@ -2458,15 +2458,15 @@ func TestWriteCorrelationChainRejectsExistingDestinationWithoutChangingIt(t *tes
 		t.Fatal(err)
 	}
 
-	for name, prepare := range map[string]func(string) []byte{
-		"regular file": func(path string) []byte {
+	for name, prepare := range map[string]func(*testing.T, string) []byte{
+		"regular file": func(t *testing.T, path string) []byte {
 			body := []byte("do not replace\n")
 			if err := os.WriteFile(path, body, 0o644); err != nil {
 				t.Fatal(err)
 			}
 			return body
 		},
-		"hard link": func(path string) []byte {
+		"hard link": func(t *testing.T, path string) []byte {
 			source := filepath.Join(filepath.Dir(path), "hard-link-source")
 			body := []byte("hard-linked evidence\n")
 			if err := os.WriteFile(source, body, 0o644); err != nil {
@@ -2477,7 +2477,7 @@ func TestWriteCorrelationChainRejectsExistingDestinationWithoutChangingIt(t *tes
 			}
 			return body
 		},
-		"symlink": func(path string) []byte {
+		"symlink": func(t *testing.T, path string) []byte {
 			source := filepath.Join(filepath.Dir(path), "symlink-source")
 			body := []byte("symlink target\n")
 			if err := os.WriteFile(source, body, 0o644); err != nil {
@@ -2489,7 +2489,7 @@ func TestWriteCorrelationChainRejectsExistingDestinationWithoutChangingIt(t *tes
 	} {
 		t.Run(name, func(t *testing.T) {
 			outputPath := filepath.Join(t.TempDir(), "chain.json")
-			before := prepare(outputPath)
+			before := prepare(t, outputPath)
 			if err := WriteCorrelationChainFile(outputPath, chain); err == nil {
 				t.Fatalf("existing %s destination was replaced", name)
 			}

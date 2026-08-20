@@ -3,6 +3,7 @@ package mission
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"runtime"
 	"syscall"
 	"testing"
@@ -19,6 +20,16 @@ func createTestSymlink(t *testing.T, oldname, newname string) {
 			t.Skipf("Windows symlink privilege is unavailable: %v", err)
 		}
 		t.Fatalf("create test symlink: %v", err)
+	}
+}
+
+func requireTestSymlinkCapability(t *testing.T) {
+	t.Helper()
+	target := t.TempDir()
+	link := filepath.Join(t.TempDir(), "symlink-capability-probe")
+	createTestSymlink(t, target, link)
+	if err := os.Remove(link); err != nil {
+		t.Fatalf("remove test symlink capability probe: %v", err)
 	}
 }
 

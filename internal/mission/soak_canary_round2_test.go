@@ -191,6 +191,7 @@ func TestSoakCanaryTotalAttemptElapsedIncludesPostRunVerification(t *testing.T) 
 }
 
 func TestSoakCanaryPostChildEvidenceFailurePersistsCompletedAttempt(t *testing.T) {
+	requireTestSymlinkCapability(t)
 	fixture := validSoakCanaryFixture(t)
 	clock := &soakCanaryFakeClock{now: time.Date(2026, 7, 29, 21, 0, 0, 0, time.UTC)}
 	symlinkTarget := t.TempDir()
@@ -198,7 +199,9 @@ func TestSoakCanaryPostChildEvidenceFailurePersistsCompletedAttempt(t *testing.T
 	fixture.request.Executor = &soakCanaryCallbackExecutor{
 		clock: clock,
 		beforeReturn: func() {
-			createTestSymlink(t, symlinkTarget, filepath.Join(fixture.request.EvidenceRoot, "nodes"))
+			if err := os.Symlink(symlinkTarget, filepath.Join(fixture.request.EvidenceRoot, "nodes")); err != nil {
+				t.Errorf("create evidence symlink: %v", err)
+			}
 		},
 	}
 
