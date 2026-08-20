@@ -10,6 +10,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -225,11 +226,35 @@ func TestReleasePublisherRunScriptHasValidBashSyntax(t *testing.T) {
 			lines[i] = strings.TrimPrefix(line, "          ")
 		}
 	}
-	command := exec.Command("bash", "-n")
+	bash, err := bashForWorkflowSyntaxTest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	command := exec.Command(bash, "-n")
 	command.Stdin = strings.NewReader(strings.Join(lines, "\n"))
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("release publisher has invalid Bash syntax: %v\n%s", err, output)
 	}
+}
+
+func bashForWorkflowSyntaxTest() (string, error) {
+	if bash, err := exec.LookPath("bash"); err == nil {
+		return bash, nil
+	}
+	git, err := exec.LookPath("git")
+	if err != nil {
+		return "", errors.New("bash is unavailable and Git could not be located")
+	}
+	gitRoot := filepath.Dir(filepath.Dir(git))
+	for _, candidate := range []string{
+		filepath.Join(gitRoot, "bin", "bash.exe"),
+		filepath.Join(gitRoot, "usr", "bin", "bash.exe"),
+	} {
+		if info, statErr := os.Stat(candidate); statErr == nil && !info.IsDir() {
+			return candidate, nil
+		}
+	}
+	return "", errors.New("bash is unavailable, including the Git for Windows installation")
 }
 
 func TestImportedReleaseValidatorRejectsDriftAndUnsafeEvidence(t *testing.T) {
