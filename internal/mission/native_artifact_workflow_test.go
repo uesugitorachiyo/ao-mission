@@ -94,3 +94,16 @@ func TestNativeArtifactWorkflowContract(t *testing.T) {
 		}
 	}
 }
+
+func TestCIWorkflowRunsForCandidateBranches(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "ci.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	workflow := string(data)
+	for _, want := range []string{"push:", "main", "'codex/**'", "windows-latest"} {
+		if !strings.Contains(workflow, want) {
+			t.Fatalf("CI workflow does not cover candidate branches: missing %q", want)
+		}
+	}
+}
