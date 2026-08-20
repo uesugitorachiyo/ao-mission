@@ -15,9 +15,10 @@ import (
 )
 
 type Store struct {
-	Root             string
-	Clock            func() time.Time
-	transactionFault func(string, missionTransactionPaths) error
+	Root                   string
+	Clock                  func() time.Time
+	transactionFault       func(string, missionTransactionPaths) error
+	transactionTempCleanup func(missionTransactionPaths) error
 }
 
 func DefaultRoot() string {
@@ -183,7 +184,7 @@ func (s Store) listFilteredWithStats(filters ListFilters) ([]Record, storeListSt
 		recordPath := filepath.Join(s.Root, "missions", entry.Name())
 		filenameMissionID := strings.TrimSuffix(entry.Name(), ".json")
 		isRecord := false
-		if err := s.withMissionLock(filenameMissionID, func() error {
+		if err := s.withMissionReadLock(filenameMissionID, func() error {
 			if err := s.recoverMissionTransactionLocked(filenameMissionID); err != nil {
 				return err
 			}

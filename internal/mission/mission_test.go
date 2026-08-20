@@ -4945,6 +4945,48 @@ func TestMissionEventIndexScaleMetricsExposeReadAndEventCounts(t *testing.T) {
 	}
 }
 
+func TestMissionEventIndexDoesNotRescanTransactionTempsPerRecord(t *testing.T) {
+	s := seedMissionRecordStore(t, 100)
+	scans := 0
+	s.transactionTempCleanup = func(missionTransactionPaths) error {
+		scans++
+		return nil
+	}
+	if _, err := BuildMissionEventIndex(s); err != nil {
+		t.Fatal(err)
+	}
+	if scans != 0 {
+		t.Fatalf("event index performed %d per-record transaction temp directory scans", scans)
+	}
+}
+
+func TestMissionEventIndexDefersTransactionTempCleanupToDirectLifecycleReads(t *testing.T) {
+	s := seedMissionRecordStore(t, 1)
+	id := "mission-scale-0"
+	stale := filepath.Join(s.Root, "missions", "."+id+".json.tmp-stale")
+	writeStale := func() {
+		t.Helper()
+		if err := os.WriteFile(stale, []byte("stale"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	writeStale()
+	if _, err := BuildMissionEventIndex(s); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(stale); err != nil {
+		t.Fatalf("read-only event index unexpectedly cleaned transaction temp: %v", err)
+	}
+
+	if _, err := s.Load(id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(stale); !os.IsNotExist(err) {
+		t.Fatalf("direct lifecycle read did not clean transaction temp: %v", err)
+	}
+}
+
 func TestMissionDoctorUsesSingleStoreListingMetrics(t *testing.T) {
 	s := seedMissionRecordStore(t, 100)
 	readback := BuildMissionDoctorReadback(s)
