@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -4957,6 +4958,57 @@ func TestMissionEventIndexDoesNotRescanTransactionTempsPerRecord(t *testing.T) {
 	}
 	if scans != 0 {
 		t.Fatalf("event index performed %d per-record transaction temp directory scans", scans)
+	}
+}
+
+func TestMissionEventIndexLoadsRecordsWithBoundedParallelism(t *testing.T) {
+	s := seedMissionRecordStore(t, 32)
+	var active atomic.Int32
+	var maximum atomic.Int32
+	s.missionRecordLoad = func(_ string, load func() error) error {
+		current := active.Add(1)
+		defer active.Add(-1)
+		for current > maximum.Load() && !maximum.CompareAndSwap(maximum.Load(), current) {
+		}
+		time.Sleep(10 * time.Millisecond)
+		return load()
+	}
+	if _, err := BuildMissionEventIndex(s); err != nil {
+		t.Fatal(err)
+	}
+	if got := maximum.Load(); got <= 1 || got > missionRecordLoadWorkerLimit {
+		t.Fatalf("record load parallelism=%d, want 2..%d", got, missionRecordLoadWorkerLimit)
+	}
+	if got := active.Load(); got != 0 {
+		t.Fatalf("record loads still active after listing: %d", got)
+	}
+}
+
+func TestMissionRecordParallelLoadReturnsDeterministicFirstError(t *testing.T) {
+	s := seedMissionRecordStore(t, 32)
+	var active atomic.Int32
+	s.missionRecordLoad = func(id string, load func() error) error {
+		active.Add(1)
+		defer active.Add(-1)
+		switch id {
+		case "mission-scale-10":
+			time.Sleep(50 * time.Millisecond)
+			return errors.New("first candidate failure: mission-scale-10")
+		case "mission-scale-2":
+			return errors.New("later candidate failure: mission-scale-2")
+		default:
+			return load()
+		}
+	}
+	_, stats, err := s.listFilteredWithStats(ListFilters{})
+	if err == nil || !strings.Contains(err.Error(), "first candidate failure: mission-scale-10") {
+		t.Fatalf("parallel load error=%v, want deterministic first candidate failure", err)
+	}
+	if stats.StoreFileReads != 2 {
+		t.Fatalf("store file reads=%d, want sequentially visible reads before first error", stats.StoreFileReads)
+	}
+	if got := active.Load(); got != 0 {
+		t.Fatalf("record loads still active after error return: %d", got)
 	}
 }
 

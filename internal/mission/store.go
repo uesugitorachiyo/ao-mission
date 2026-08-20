@@ -9,8 +9,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -19,7 +21,10 @@ type Store struct {
 	Clock                  func() time.Time
 	transactionFault       func(string, missionTransactionPaths) error
 	transactionTempCleanup func(missionTransactionPaths) error
+	missionRecordLoad      func(string, func() error) error
 }
+
+const missionRecordLoadWorkerLimit = 8
 
 func DefaultRoot() string {
 	if v := os.Getenv("AO_MISSION_HOME"); strings.TrimSpace(v) != "" {
@@ -175,47 +180,88 @@ func (s Store) listFilteredWithStats(filters ListFilters) ([]Record, storeListSt
 	if err != nil {
 		return nil, stats, err
 	}
-	records := make([]Record, 0, len(entries))
+	type candidate struct {
+		id   string
+		path string
+	}
+	candidates := make([]candidate, 0, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() || !isMissionRecordCandidateName(entry.Name()) {
 			continue
 		}
-		var rec Record
-		recordPath := filepath.Join(s.Root, "missions", entry.Name())
-		filenameMissionID := strings.TrimSuffix(entry.Name(), ".json")
-		isRecord := false
-		if err := s.withMissionReadLock(filenameMissionID, func() error {
-			if err := s.recoverMissionTransactionLocked(filenameMissionID); err != nil {
-				return err
+		candidates = append(candidates, candidate{
+			id:   strings.TrimSuffix(entry.Name(), ".json"),
+			path: filepath.Join(s.Root, "missions", entry.Name()),
+		})
+	}
+	type loadResult struct {
+		record   Record
+		isRecord bool
+		read     bool
+		err      error
+	}
+	results := make([]loadResult, len(candidates))
+	jobs := make(chan int)
+	workerCount := min(max(runtime.GOMAXPROCS(0), 2), missionRecordLoadWorkerLimit, len(candidates))
+	var workers sync.WaitGroup
+	workers.Add(workerCount)
+	for range workerCount {
+		go func() {
+			defer workers.Done()
+			for index := range jobs {
+				candidate := candidates[index]
+				var result loadResult
+				result.err = s.runMissionRecordLoad(candidate.id, func() error {
+					return s.withMissionReadLock(candidate.id, func() error {
+						if err := s.recoverMissionTransactionLocked(candidate.id); err != nil {
+							return err
+						}
+						body, err := os.ReadFile(candidate.path)
+						if err != nil {
+							return err
+						}
+						result.read = true
+						var envelope struct {
+							Schema string `json:"schema"`
+						}
+						if err := json.Unmarshal(body, &envelope); err != nil {
+							return err
+						}
+						if envelope.Schema != RecordSchema {
+							return nil
+						}
+						if err := decodeRecordBytes(body, &result.record); err != nil {
+							return err
+						}
+						if result.record.MissionID != candidate.id {
+							return fmt.Errorf("Mission record filename does not match mission_id")
+						}
+						result.isRecord = true
+						return nil
+					})
+				})
+				results[index] = result
 			}
-			body, err := os.ReadFile(recordPath)
-			if err != nil {
-				return err
-			}
+		}()
+	}
+	for index := range candidates {
+		jobs <- index
+	}
+	close(jobs)
+	workers.Wait()
+
+	records := make([]Record, 0, len(results))
+	for _, result := range results {
+		if result.read {
 			stats.StoreFileReads++
-			var envelope struct {
-				Schema string `json:"schema"`
-			}
-			if err := json.Unmarshal(body, &envelope); err != nil {
-				return err
-			}
-			if envelope.Schema != RecordSchema {
-				return nil
-			}
-			if err := decodeRecordBytes(body, &rec); err != nil {
-				return err
-			}
-			if rec.MissionID != filenameMissionID {
-				return fmt.Errorf("Mission record filename does not match mission_id")
-			}
-			isRecord = true
-			return nil
-		}); err != nil {
-			return nil, stats, err
 		}
-		if !isRecord {
+		if result.err != nil {
+			return nil, stats, result.err
+		}
+		if !result.isRecord {
 			continue
 		}
+		rec := result.record
 		if filters.Status != "" && rec.Status != filters.Status {
 			continue
 		}
@@ -231,6 +277,13 @@ func (s Store) listFilteredWithStats(filters ListFilters) ([]Record, storeListSt
 		return records[i].CreatedAtUTC < records[j].CreatedAtUTC
 	})
 	return records, stats, nil
+}
+
+func (s Store) runMissionRecordLoad(id string, load func() error) error {
+	if s.missionRecordLoad != nil {
+		return s.missionRecordLoad(id, load)
+	}
+	return load()
 }
 
 func isMissionRecordCandidateName(name string) bool {
