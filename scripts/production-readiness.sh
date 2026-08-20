@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 set -eu
+export PYTHONDONTWRITEBYTECODE=1
 
 tmp_home="$(mktemp -d)"
 cleanup() {

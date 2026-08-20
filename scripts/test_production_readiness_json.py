@@ -233,6 +233,7 @@ class ProductionReadinessJSONTests(unittest.TestCase):
         )
         self.assertNotRegex(executable, r"(^|[|;&( ])jq([ )]|$)")
         self.assertNotIn("gofmt -w", executable)
+        self.assertIn("PYTHONDONTWRITEBYTECODE=1", executable)
         self.assertRegex(executable, r"trap .*EXIT")
         self.assertNotRegex(executable, r"go build ./cmd/ao-mission")
         self.assertRegex(executable, r"go build -o \"\$tmp_home/")
