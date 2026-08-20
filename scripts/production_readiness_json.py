@@ -3,7 +3,10 @@
 
 import argparse
 import json
+import math
+import os
 import re
+import stat
 import sys
 from pathlib import Path
 
@@ -25,20 +28,67 @@ def _reject_duplicate_keys(pairs):
     return result
 
 
+def _reject_constant(constant):
+    raise ValidationError(f"non-finite JSON number: {constant}")
+
+
+def _identity(info):
+    return (info.st_dev, info.st_ino)
+
+
 def load_json(path):
     path = Path(path)
     try:
-        raw = path.read_bytes()
+        initial = path.lstat()
     except OSError as error:
-        raise ValidationError(f"cannot read {path}: {error}") from error
-    if len(raw) > MAX_JSON_BYTES:
+        raise ValidationError(f"cannot inspect {path}: {error}") from error
+    if stat.S_ISLNK(initial.st_mode):
+        raise ValidationError(f"JSON path must not be a symlink: {path}")
+    if not stat.S_ISREG(initial.st_mode):
+        raise ValidationError(f"JSON path must be a regular file: {path}")
+    if initial.st_size > MAX_JSON_BYTES:
         raise ValidationError(f"JSON file exceeds {MAX_JSON_BYTES} bytes: {path}")
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as error:
+        raise ValidationError(f"cannot open JSON file {path}: {error}") from error
+    try:
+        opened = os.fstat(descriptor)
+        if not stat.S_ISREG(opened.st_mode):
+            raise ValidationError(f"opened JSON path must be a regular file: {path}")
+        if _identity(opened) != _identity(initial):
+            raise ValidationError(f"JSON path was replaced before open: {path}")
+        if opened.st_size > MAX_JSON_BYTES:
+            raise ValidationError(f"JSON file exceeds {MAX_JSON_BYTES} bytes: {path}")
+        chunks = []
+        remaining = MAX_JSON_BYTES + 1
+        while remaining:
+            chunk = os.read(descriptor, min(64 * 1024, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        raw = b"".join(chunks)
+        final = os.fstat(descriptor)
+        if not stat.S_ISREG(final.st_mode) or _identity(final) != _identity(opened):
+            raise ValidationError(f"opened JSON file was replaced while reading: {path}")
+        if len(raw) > MAX_JSON_BYTES or final.st_size > MAX_JSON_BYTES:
+            raise ValidationError(f"JSON file grew beyond {MAX_JSON_BYTES} bytes while reading: {path}")
+    except OSError as error:
+        raise ValidationError(f"cannot read JSON file {path}: {error}") from error
+    finally:
+        os.close(descriptor)
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError as error:
         raise ValidationError(f"JSON is not UTF-8: {path}") from error
     try:
-        return json.loads(text, object_pairs_hook=_reject_duplicate_keys)
+        return json.loads(
+            text,
+            object_pairs_hook=_reject_duplicate_keys,
+            parse_constant=_reject_constant,
+        )
     except ValidationError:
         raise
     except (json.JSONDecodeError, UnicodeDecodeError) as error:
@@ -108,6 +158,7 @@ def string(document, path):
 def number(document, path):
     result = value(document, path)
     require(isinstance(result, (int, float)) and not isinstance(result, bool), f"{path} must be a number")
+    require(math.isfinite(result), f"{path} must be a finite number")
     return result
 
 
@@ -160,6 +211,7 @@ def recommendations(document, minimum_count, minimum_minutes):
                 qualified += 1
             minutes = item.get("estimated_minutes")
             require(isinstance(minutes, (int, float)) and not isinstance(minutes, bool), f"feature_depth_recommendations.{index}.estimated_minutes must be a number")
+            require(math.isfinite(minutes), f"feature_depth_recommendations.{index}.estimated_minutes must be a finite number")
             total_minutes += minutes
         except KeyError as error:
             raise ValidationError(f"feature_depth_recommendations.{index} missing {error.args[0]}") from error
@@ -480,6 +532,51 @@ def run_check(profile, path, mission_id=None):
     check(load_json(path), mission_id)
 
 
+def validate_tree_filename(filename):
+    require(
+        bool(filename)
+        and filename not in {".", ".."}
+        and not Path(filename).is_absolute()
+        and "/" not in filename
+        and "\\" not in filename
+        and Path(filename).name == filename,
+        "check-tree filename must be a non-empty basename",
+    )
+
+
+def validate_tree_root(root):
+    root = Path(root)
+    try:
+        info = root.lstat()
+    except OSError as error:
+        raise ValidationError(f"cannot inspect check-tree root {root}: {error}") from error
+    require(not stat.S_ISLNK(info.st_mode), f"check-tree root must not be a symlink: {root}")
+    require(stat.S_ISDIR(info.st_mode), f"check-tree root must be a directory: {root}")
+    try:
+        return root.resolve(strict=True)
+    except OSError as error:
+        raise ValidationError(f"cannot resolve check-tree root {root}: {error}") from error
+
+
+def validate_tree_candidate(root_resolved, path):
+    path = Path(path)
+    try:
+        info = path.lstat()
+    except OSError as error:
+        raise ValidationError(f"cannot inspect check-tree match {path}: {error}") from error
+    require(
+        stat.S_ISREG(info.st_mode) and not stat.S_ISLNK(info.st_mode),
+        f"check-tree match must be a regular non-symlink file: {path}",
+    )
+    try:
+        resolved = path.resolve(strict=True)
+        contained = os.path.commonpath((str(root_resolved), str(resolved))) == str(root_resolved)
+    except (OSError, ValueError) as error:
+        raise ValidationError(f"cannot resolve check-tree match {path}: {error}") from error
+    require(contained, f"check-tree match escapes root: {path}")
+    return resolved
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -514,12 +611,17 @@ def main(argv=None):
     elif args.command == "check":
         run_check(args.profile, args.path, args.mission_id)
     else:
+        validate_tree_filename(args.filename)
         root = Path(args.root)
-        paths = sorted(root.rglob(args.filename))
+        root_resolved = validate_tree_root(root)
+        try:
+            paths = sorted(root.rglob(args.filename))
+        except OSError as error:
+            raise ValidationError(f"cannot enumerate check-tree root {root}: {error}") from error
         require(bool(paths), f"no files named {args.filename} under {root}")
         for path in paths:
             try:
-                run_check(args.profile, path)
+                run_check(args.profile, validate_tree_candidate(root_resolved, path))
             except ValidationError as error:
                 raise ValidationError(f"{path}: {error}") from error
     return 0

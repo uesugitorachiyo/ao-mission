@@ -3,11 +3,16 @@
 
 import importlib.util
 import json
+import math
+import os
+import stat
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -166,6 +171,79 @@ class ProductionReadinessJSONTests(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertIn("mission_id must be a non-empty string", result.stderr)
 
+    def test_all_cli_json_operations_reject_non_finite_numbers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "non-finite.json"
+            destination = Path(directory) / "bound.json"
+            for constant in ("NaN", "Infinity", "-Infinity"):
+                source.write_text(
+                    '{"mission_id":"mission-123","unexpected":' + constant + "}",
+                    encoding="utf-8",
+                )
+                commands = (
+                    ("extract-mission-id", source),
+                    ("bind-mission-id", source, destination, "mission-new"),
+                    ("check", "sqlite_migration_dry_run", source),
+                )
+                for command in commands:
+                    with self.subTest(constant=constant, command=command[0]):
+                        result = run_helper(*command)
+                        self.assertEqual(result.returncode, 2)
+                        self.assertIn(f"non-finite JSON number: {constant}", result.stderr)
+
+    def test_numeric_helpers_reject_non_finite_values_defensively(self):
+        for numeric in (math.nan, math.inf, -math.inf):
+            with self.subTest(numeric=numeric):
+                with self.assertRaisesRegex(self.helper.ValidationError, "finite number"):
+                    self.helper.number({"metric": numeric}, "metric")
+
+    def test_load_rejects_oversize_nonregular_symlink_replacement_and_growth(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            oversized = root / "oversized.json"
+            with oversized.open("wb") as handle:
+                handle.seek(self.helper.MAX_JSON_BYTES)
+                handle.write(b"x")
+            result = run_helper("extract-mission-id", oversized)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("exceeds", result.stderr)
+
+            result = run_helper("extract-mission-id", root)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("regular file", result.stderr)
+
+            target = self.write_json(root, "target.json", {"mission_id": "mission-123"})
+            link = root / "link.json"
+            try:
+                link.symlink_to(target)
+            except OSError as error:
+                if os.name == "nt" and getattr(error, "winerror", None) == 1314:
+                    pass
+                else:
+                    raise
+            else:
+                result = run_helper("extract-mission-id", link)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("symlink", result.stderr)
+
+            opened = target.stat()
+            replacement = SimpleNamespace(
+                st_mode=stat.S_IFREG,
+                st_size=opened.st_size,
+                st_dev=opened.st_dev + 1,
+                st_ino=opened.st_ino,
+            )
+            with mock.patch.object(self.helper.os, "fstat", return_value=replacement):
+                with self.assertRaisesRegex(self.helper.ValidationError, "replaced"):
+                    self.helper.load_json(target)
+
+            growth_source = self.write_json(root, "growth.json", {})
+            with mock.patch.object(self.helper, "MAX_JSON_BYTES", 8), mock.patch.object(
+                self.helper.os, "read", return_value=b"x" * 9
+            ):
+                with self.assertRaisesRegex(self.helper.ValidationError, "grew beyond"):
+                    self.helper.load_json(growth_source)
+
     def test_bind_mission_id_preserves_document_and_writes_utf8(self):
         with tempfile.TemporaryDirectory() as directory:
             source = self.write_json(directory, "source.json", {"mission_id": "old", "label": "caf\u00e9"})
@@ -225,6 +303,66 @@ class ProductionReadinessJSONTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 2)
             self.assertIn("nested", result.stderr)
+
+    def test_batch_check_rejects_unsafe_names_roots_matches_and_empty_batches(self):
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as outside_directory:
+            root = Path(directory)
+            outside = self.write_json(
+                outside_directory, "promoter-no-promotion.json", {"promotion_claimed": False}
+            )
+            invalid_names = (
+                "",
+                "../promoter-no-promotion.json",
+                "nested/promoter-no-promotion.json",
+                "nested\\promoter-no-promotion.json",
+                ".",
+                "..",
+                str(outside.resolve()),
+            )
+            for filename in invalid_names:
+                with self.subTest(filename=filename):
+                    result = run_helper("check-tree", "promoter_no_promotion_node", root, filename)
+                    self.assertEqual(result.returncode, 2)
+                    self.assertIn("basename", result.stderr)
+
+            result = run_helper(
+                "check-tree", "promoter_no_promotion_node", root, "promoter-no-promotion.json"
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("no files", result.stderr)
+
+            root_file = self.write_json(outside_directory, "not-a-root.json", {})
+            result = run_helper(
+                "check-tree", "promoter_no_promotion_node", root_file, "promoter-no-promotion.json"
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("root must be a directory", result.stderr)
+
+            root_link = Path(outside_directory) / "root-link"
+            try:
+                root_link.symlink_to(root, target_is_directory=True)
+            except OSError as error:
+                if os.name == "nt" and getattr(error, "winerror", None) == 1314:
+                    root_link = None
+                else:
+                    raise
+            if root_link is not None:
+                result = run_helper(
+                    "check-tree", "promoter_no_promotion_node", root_link, "promoter-no-promotion.json"
+                )
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("root must not be a symlink", result.stderr)
+
+                match_link = root / "promoter-no-promotion.json"
+                match_link.symlink_to(outside)
+                result = run_helper(
+                    "check-tree", "promoter_no_promotion_node", root, "promoter-no-promotion.json"
+                )
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("match must be a regular non-symlink file", result.stderr)
+
+            with self.assertRaisesRegex(self.helper.ValidationError, "escapes root"):
+                self.helper.validate_tree_candidate(root.resolve(), outside)
 
     def test_readiness_script_is_jq_free_cleanup_safe_and_read_only_formatting(self):
         body = READINESS.read_text(encoding="utf-8")
