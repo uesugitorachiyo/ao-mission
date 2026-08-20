@@ -210,6 +210,122 @@ func TestCIWorkflowCandidateBranchContractRejectsDecoys(t *testing.T) {
 	}
 }
 
+func TestCIWorkflowDefaultWindowsEnvironmentContract(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "ci.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if blockers := ciDefaultWindowsEnvironmentBlockers(string(data)); len(blockers) != 0 {
+		t.Fatalf("CI workflow does not qualify the default Windows environment: %v", blockers)
+	}
+}
+
+func TestCIWorkflowDefaultWindowsEnvironmentContractRejectsDecoys(t *testing.T) {
+	valid := defaultWindowsWorkflowFixture()
+	if blockers := ciDefaultWindowsEnvironmentBlockers(valid); len(blockers) != 0 {
+		t.Fatalf("valid fixture blockers: %v", blockers)
+	}
+	anotherJob := strings.Replace(valid, "run: git config --global core.autocrlf true", "run: Write-Output ready", 1)
+	anotherJob = strings.Replace(anotherJob, "  windows-default-environment:", "  docs:\n    runs-on: ubuntu-latest\n    steps:\n      - run: git config --global core.autocrlf true\n  windows-default-environment:", 1)
+	for name, workflow := range map[string]string{
+		"comment decoys":       strings.Replace(valid, "git config --global core.autocrlf true", "Write-Output ready\n          # git config --global core.autocrlf true", 1),
+		"another job":          anotherJob,
+		"UTF8 enabled":         strings.Replace(valid, "PYTHONUTF8: '0'", "PYTHONUTF8: '1'", 1),
+		"post-checkout config": strings.Replace(valid, "      - name: Configure default Windows Git conversion\n        shell: pwsh\n        run: git config --global core.autocrlf true\n      - uses: actions/checkout@v4", "      - uses: actions/checkout@v4\n      - name: Configure default Windows Git conversion\n        shell: pwsh\n        run: git config --global core.autocrlf true", 1),
+		"uninspected gofmt":    strings.Replace(valid, "          if ($formatDiff) { $formatDiff; exit 1 }", "          Write-Output $formatDiff", 1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if blockers := ciDefaultWindowsEnvironmentBlockers(workflow); len(blockers) == 0 {
+				t.Fatal("decoy workflow passed the default-Windows contract")
+			}
+		})
+	}
+}
+
+func defaultWindowsWorkflowFixture() string {
+	return `jobs:
+  windows-default-environment:
+    runs-on: windows-latest
+    env:
+      PYTHONUTF8: '0'
+    steps:
+      - name: Configure default Windows Git conversion
+        shell: pwsh
+        run: git config --global core.autocrlf true
+      - uses: actions/checkout@v4
+        with:
+          path: 'AO Mission Default Environment'
+      - name: Verify default Windows environment
+        shell: pwsh
+        run: |
+          $goFiles = Get-ChildItem -Path cmd, internal -Recurse -Filter '*.go' -File
+          $formatDiff = gofmt -d -- $goFiles.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($formatDiff) { $formatDiff; exit 1 }
+          python scripts/test_public_safety_scan.py
+          go test ./internal/mission -count=1
+          go test ./... -count=1
+          go vet ./...
+          go build ./cmd/ao-mission
+          git diff --check
+`
+}
+
+func ciDefaultWindowsEnvironmentBlockers(workflow string) []string {
+	blockers := make([]string, 0)
+	lines := workflowYAMLLines(workflow)
+	jobsStart, jobsEnd, ok := workflowYAMLSection(lines, 0, len(lines), -2, "jobs")
+	if !ok {
+		return append(blockers, "missing jobs section")
+	}
+	jobStart, jobEnd, ok := workflowYAMLSection(lines, jobsStart, jobsEnd, 0, "windows-default-environment")
+	if !ok {
+		return append(blockers, "missing jobs.windows-default-environment")
+	}
+	if value, found := workflowYAMLScalar(lines, jobStart, jobEnd, 2, "runs-on"); !found || value != "windows-latest" {
+		blockers = append(blockers, "default-Windows job must run on windows-latest")
+	}
+	envStart, envEnd, envOK := workflowYAMLSection(lines, jobStart, jobEnd, 2, "env")
+	if value, found := workflowYAMLScalar(lines, envStart, envEnd, 4, "PYTHONUTF8"); !envOK || !found || value != "0" {
+		blockers = append(blockers, "default-Windows job must set PYTHONUTF8 to 0")
+	}
+	jobLines := lines[jobStart:jobEnd]
+	indexOf := func(indent int, text string) int {
+		for i, line := range jobLines {
+			if line.indent == indent && line.text == text {
+				return i
+			}
+		}
+		return -1
+	}
+	config := indexOf(8, "run: git config --global core.autocrlf true")
+	checkout := indexOf(6, "- uses: actions/checkout@v4")
+	if config < 0 || checkout < 0 || config > checkout {
+		blockers = append(blockers, "core.autocrlf=true must be configured before checkout")
+	}
+	for _, requirement := range []struct {
+		indent int
+		text   string
+		name   string
+	}{
+		{10, "path: 'AO Mission Default Environment'", "space-bearing checkout path"},
+		{10, "$goFiles = Get-ChildItem -Path cmd, internal -Recurse -Filter '*.go' -File", "recursive Go source enumeration"},
+		{10, "$formatDiff = gofmt -d -- $goFiles.FullName", "gofmt diff capture"},
+		{10, "if ($formatDiff) { $formatDiff; exit 1 }", "gofmt diff inspection"},
+		{10, "python scripts/test_public_safety_scan.py", "public safety scan"},
+		{10, "go test ./internal/mission -count=1", "Mission package test"},
+		{10, "go test ./... -count=1", "full Go test"},
+		{10, "go vet ./...", "Go vet"},
+		{10, "go build ./cmd/ao-mission", "Mission build"},
+		{10, "git diff --check", "Git whitespace check"},
+	} {
+		if indexOf(requirement.indent, requirement.text) < 0 {
+			blockers = append(blockers, "missing "+requirement.name)
+		}
+	}
+	return blockers
+}
+
 func ciWorkflowContractBlockers(workflow string) []string {
 	blockers := make([]string, 0)
 	lines := workflowYAMLLines(workflow)
