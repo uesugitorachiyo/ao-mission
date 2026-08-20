@@ -4002,9 +4002,7 @@ func TestArtifactManifestV02RejectsSymlinkedContentDirectories(t *testing.T) {
 			if err := os.WriteFile(externalPath, body, 0o644); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.Symlink(filepath.Join(external, "artifacts"), filepath.Join(dir, "artifacts")); err != nil {
-				t.Fatal(err)
-			}
+			createTestSymlink(t, filepath.Join(external, "artifacts"), filepath.Join(dir, "artifacts"))
 		},
 		"sha256 symlink": func(t *testing.T, dir string) {
 			t.Helper()
@@ -4019,9 +4017,7 @@ func TestArtifactManifestV02RejectsSymlinkedContentDirectories(t *testing.T) {
 			if err := os.Mkdir(filepath.Join(dir, "artifacts"), 0o755); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.Symlink(filepath.Join(external, "sha256"), filepath.Join(dir, retainedArtifactDirectory)); err != nil {
-				t.Fatal(err)
-			}
+			createTestSymlink(t, filepath.Join(external, "sha256"), filepath.Join(dir, retainedArtifactDirectory))
 		},
 		"artifacts regular file": func(t *testing.T, dir string) {
 			t.Helper()
@@ -4066,9 +4062,7 @@ func TestArtifactManifestV02RejectsSymlinkedContentDirectories(t *testing.T) {
 
 func TestArtifactManifestMaterializationRejectsSymlinkedContentDirectory(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.Symlink(t.TempDir(), filepath.Join(dir, "artifacts")); err != nil {
-		t.Fatal(err)
-	}
+	createTestSymlink(t, t.TempDir(), filepath.Join(dir, "artifacts"))
 	sourcePath := filepath.Join(t.TempDir(), "artifact.json")
 	body := []byte(`{"schema":"ao.mission.route-decision.v0.1"}`)
 	if err := os.WriteFile(sourcePath, body, 0o644); err != nil {

@@ -440,16 +440,12 @@ func TestSoakCanaryUnsafeRootsFailBeforeLaunch(t *testing.T) {
 		}},
 		{name: "symlink repository", mutate: func(f *soakCanaryTestFixture) {
 			link := filepath.Join(t.TempDir(), "repository-link")
-			if err := os.Symlink(f.request.RepositoryRoot, link); err != nil {
-				t.Fatal(err)
-			}
+			createTestSymlink(t, f.request.RepositoryRoot, link)
 			f.request.RepositoryRoot = link
 		}},
 		{name: "symlink evidence", mutate: func(f *soakCanaryTestFixture) {
 			link := filepath.Join(t.TempDir(), "evidence-link")
-			if err := os.Symlink(f.request.EvidenceRoot, link); err != nil {
-				t.Fatal(err)
-			}
+			createTestSymlink(t, f.request.EvidenceRoot, link)
 			f.request.EvidenceRoot = link
 			f.request.Authority.EvidenceRoot = link
 			f.request.CheckpointPath = filepath.Join(link, "checkpoint.json")
@@ -460,15 +456,11 @@ func TestSoakCanaryUnsafeRootsFailBeforeLaunch(t *testing.T) {
 		{name: "symlink checkpoint component", mutate: func(f *soakCanaryTestFixture) {
 			target := t.TempDir()
 			link := filepath.Join(f.request.EvidenceRoot, "checkpoints")
-			if err := os.Symlink(target, link); err != nil {
-				t.Fatal(err)
-			}
+			createTestSymlink(t, target, link)
 			f.request.CheckpointPath = filepath.Join(link, "checkpoint.json")
 		}},
 		{name: "symlink output component", mutate: func(f *soakCanaryTestFixture) {
-			if err := os.Symlink(t.TempDir(), filepath.Join(f.request.EvidenceRoot, "nodes")); err != nil {
-				t.Fatal(err)
-			}
+			createTestSymlink(t, t.TempDir(), filepath.Join(f.request.EvidenceRoot, "nodes"))
 		}},
 	}
 	for _, test := range tests {
@@ -555,9 +547,7 @@ func TestSoakCanaryCompletionRemainsProvisionalWhenTerminalPathIsUnsafe(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(t.TempDir(), filepath.Join(fixture.request.EvidenceRoot, "terminal")); err != nil {
-		t.Fatal(err)
-	}
+	createTestSymlink(t, t.TempDir(), filepath.Join(fixture.request.EvidenceRoot, "terminal"))
 	if err := PersistSoakCanaryCompletion(fixture.request.EvidenceRoot, summary); err == nil {
 		t.Fatal("unsafe terminal path accepted")
 	}

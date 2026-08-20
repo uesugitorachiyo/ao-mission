@@ -1602,9 +1602,7 @@ func TestCorrelationChainRejectsUnsafeArtifactFiles(t *testing.T) {
 		"correlation_id": record.CorrelationID,
 	})
 	symlinkPath := filepath.Join(dir, "symlink.json")
-	if err := os.Symlink(regularPath, symlinkPath); err != nil {
-		t.Fatal(err)
-	}
+	createTestSymlink(t, regularPath, symlinkPath)
 	oversizedPath := filepath.Join(dir, "oversized.json")
 	oversized, err := os.Create(oversizedPath)
 	if err != nil {
@@ -2485,9 +2483,7 @@ func TestWriteCorrelationChainRejectsExistingDestinationWithoutChangingIt(t *tes
 			if err := os.WriteFile(source, body, 0o644); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.Symlink(source, path); err != nil {
-				t.Fatal(err)
-			}
+			createTestSymlink(t, source, path)
 			return body
 		},
 	} {
@@ -2531,9 +2527,7 @@ func TestWriteCorrelationChainRejectsOutputSymlinkRace(t *testing.T) {
 	outputPath := filepath.Join(dir, "chain.json")
 
 	err = writeCorrelationChainFileWithCreate(outputPath, chain, func(path string) (*os.File, error) {
-		if err := os.Symlink(targetPath, path); err != nil {
-			return nil, err
-		}
+		createTestSymlink(t, targetPath, path)
 		return openExclusiveCorrelationOutput(path)
 	})
 	if err == nil {

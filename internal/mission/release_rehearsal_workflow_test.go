@@ -277,9 +277,7 @@ func TestImportedReleaseValidatorRejectsDriftAndUnsafeEvidence(t *testing.T) {
 			}
 		}},
 		{name: "symlink", mutate: func(t *testing.T, fixture *importedReleaseFixture) {
-			if err := os.Symlink(fixture.manifestPath, filepath.Join(fixture.root, "unsafe-link")); err != nil {
-				t.Fatal(err)
-			}
+			createTestSymlink(t, fixture.manifestPath, filepath.Join(fixture.root, "unsafe-link"))
 		}},
 		{name: "oversized", mutate: func(t *testing.T, fixture *importedReleaseFixture) {
 			path := filepath.Join(fixture.root, "oversized")

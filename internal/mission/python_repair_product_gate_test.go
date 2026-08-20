@@ -226,9 +226,7 @@ func TestPythonRepairProductGateRejectsUnsafePathAndSymlink(t *testing.T) {
 	root, manifest = writePythonRepairGateFixture(t, nil)
 	target := filepath.Join(root, "evidence.json")
 	linked := filepath.Join(root, "linked.json")
-	if err := os.Symlink(target, linked); err != nil {
-		t.Fatal(err)
-	}
+	createTestSymlink(t, target, linked)
 	document = readJSONMap(t, manifest)
 	info, _ := os.Stat(target)
 	digest := fileSHA256(t, target)

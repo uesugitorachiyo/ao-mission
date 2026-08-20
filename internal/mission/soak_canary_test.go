@@ -501,9 +501,7 @@ func TestSoakCanaryStrictInputTransportRejectsUnknownDuplicateTrailingAndSpecial
 		})
 	}
 	symlink := filepath.Join(dir, "symlink.json")
-	if err := os.Symlink(valid, symlink); err != nil {
-		t.Fatal(err)
-	}
+	createTestSymlink(t, valid, symlink)
 	if _, err := LoadSoakCanaryAuthority(symlink); err == nil {
 		t.Fatal("symlink input was accepted")
 	}

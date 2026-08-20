@@ -223,9 +223,7 @@ func TestSoakCanaryGitVerifierRejectsUnsafeMetadataComponents(t *testing.T) {
 				if err := os.Rename(refs, outside); err != nil {
 					t.Fatal(err)
 				}
-				if err := os.Symlink(outside, refs); err != nil {
-					t.Skipf("symlink unavailable: %v", err)
-				}
+				createTestSymlink(t, outside, refs)
 			},
 		},
 		{
@@ -236,9 +234,7 @@ func TestSoakCanaryGitVerifierRejectsUnsafeMetadataComponents(t *testing.T) {
 				if err := os.Rename(index, outside); err != nil {
 					t.Fatal(err)
 				}
-				if err := os.Symlink(outside, index); err != nil {
-					t.Skipf("symlink unavailable: %v", err)
-				}
+				createTestSymlink(t, outside, index)
 			},
 		},
 		{
@@ -249,9 +245,7 @@ func TestSoakCanaryGitVerifierRejectsUnsafeMetadataComponents(t *testing.T) {
 				if err := os.Rename(object, outside); err != nil {
 					t.Fatal(err)
 				}
-				if err := os.Symlink(outside, object); err != nil {
-					t.Skipf("symlink unavailable: %v", err)
-				}
+				createTestSymlink(t, outside, object)
 			},
 		},
 	}
@@ -280,9 +274,7 @@ func TestSoakCanaryGitVerifierRejectsPackedObjectSymlink(t *testing.T) {
 	if err := os.Rename(packs[0], outside); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(outside, packs[0]); err != nil {
-		t.Skipf("symlink unavailable: %v", err)
-	}
+	createTestSymlink(t, outside, packs[0])
 	err = (InProcessSoakCanaryGitVerifier{}).Verify(root, head)
 	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "unsafe") {
 		t.Fatalf("unsafe packed-object symlink accepted or wrong error: %v", err)
@@ -293,9 +285,7 @@ func TestSoakCanaryGitVerifierRejectsRepositoryRootSymlink(t *testing.T) {
 	root := t.TempDir()
 	head := initializeSoakCanaryGitRepository(t, root)
 	link := filepath.Join(t.TempDir(), "repository")
-	if err := os.Symlink(root, link); err != nil {
-		t.Skipf("symlink unavailable: %v", err)
-	}
+	createTestSymlink(t, root, link)
 	err := (InProcessSoakCanaryGitVerifier{}).Verify(link, head)
 	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "root") {
 		t.Fatalf("repository-root symlink accepted or wrong error: %v", err)
@@ -366,9 +356,7 @@ func TestSoakCanaryRunningCheckpointFailureReapsChildAndRestartFailsClosed(t *te
 			if err := os.Remove(fixture.request.CheckpointPath); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.Symlink(t.TempDir(), fixture.request.CheckpointPath); err != nil {
-				t.Fatal(err)
-			}
+			createTestSymlink(t, t.TempDir(), fixture.request.CheckpointPath)
 		},
 	}
 
