@@ -24,8 +24,19 @@ jobs:
         run: |
           $helper = Join-Path $env:RUNNER_TEMP 'ao-mission-ci-go-test'
           if ($IsWindows) { $helper += '.exe' }
+          $buildExit = $null
+          $global:LASTEXITCODE = $null
+          try {
           go build -o $helper ./scripts/ci-go-test
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $buildSucceeded = $?
+          $buildExit = $LASTEXITCODE
+          } catch {
+          Write-Error 'CI test helper build failed to start'
+          exit 1
+          }
+          if ($null -eq $buildExit) { exit 1 }
+          if ($buildSucceeded -ne ($buildExit -eq 0)) { exit 1 }
+          if ($buildExit -ne 0) { exit $buildExit }
           $childExit = $null
           $global:LASTEXITCODE = $null
           try {

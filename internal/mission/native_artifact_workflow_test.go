@@ -128,6 +128,36 @@ func TestCIWorkflowMissingDiagnosticHelperFails(t *testing.T) {
 	}
 }
 
+func TestCIWorkflowMissingDiagnosticBuildCommandFails(t *testing.T) {
+	pwsh, err := exec.LookPath("pwsh")
+	if err != nil {
+		t.Skip("pwsh is required to exercise the cross-platform CI wrapper")
+	}
+	script := readWorkflowDiagnosticScript(t)
+	script = strings.Replace(script, "go build -o $helper ./scripts/ci-go-test", "definitely-missing-ao-mission-build-command", 1)
+	command := exec.Command(pwsh, "-NoProfile", "-NonInteractive", "-Command", script)
+	command.Env = append(os.Environ(), "RUNNER_TEMP="+t.TempDir())
+	if err := command.Run(); err == nil {
+		t.Fatal("missing diagnostic build command returned exit 0")
+	}
+}
+
+func TestCIWorkflowPreservesDiagnosticBuildExit(t *testing.T) {
+	pwsh, err := exec.LookPath("pwsh")
+	if err != nil {
+		t.Skip("pwsh is required to exercise the cross-platform CI wrapper")
+	}
+	script := readWorkflowDiagnosticScript(t)
+	script = strings.Replace(script, "go build -o $helper ./scripts/ci-go-test", "& pwsh -NoProfile -NonInteractive -Command 'exit 6'", 1)
+	command := exec.Command(pwsh, "-NoProfile", "-NonInteractive", "-Command", script)
+	command.Env = append(os.Environ(), "RUNNER_TEMP="+t.TempDir())
+	err = command.Run()
+	var exitError *exec.ExitError
+	if !errors.As(err, &exitError) || exitError.ExitCode() != 6 {
+		t.Fatalf("diagnostic build wrapper error = %v, want exit 6", err)
+	}
+}
+
 func TestCIWorkflowPreservesDiagnosticHelperExit(t *testing.T) {
 	pwsh, err := exec.LookPath("pwsh")
 	if err != nil {
@@ -150,6 +180,19 @@ func TestCIWorkflowPreservesDiagnosticHelperExit(t *testing.T) {
 	if !errors.As(err, &exitError) || exitError.ExitCode() != 7 {
 		t.Fatalf("diagnostic wrapper error = %v, want exit 7", err)
 	}
+}
+
+func readWorkflowDiagnosticScript(t *testing.T) string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "ci.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	script, ok := workflowDiagnosticScript(string(data))
+	if !ok {
+		t.Fatal("missing bounded diagnostic workflow script")
+	}
+	return script
 }
 
 func TestCIWorkflowCandidateBranchContractRejectsDecoys(t *testing.T) {
@@ -318,13 +361,13 @@ func workflowYAMLHasDiagnosticTestStep(lines []workflowYAMLLine, start, end int)
 				break
 			}
 		}
-		positions := make(map[string]int)
-		for offset, line := range lines[i+1 : stepEnd] {
+		stepLines := make([]string, 0, stepEnd-i)
+		for _, line := range lines[i+1 : stepEnd] {
 			if line.indent == 8 && (line.text == "shell: pwsh" || line.text == "run: |") {
-				positions[line.text] = offset
+				stepLines = append(stepLines, line.text)
 			}
 			if line.indent == 10 {
-				positions[line.text] = offset
+				stepLines = append(stepLines, line.text)
 			}
 		}
 		ordered := []string{
@@ -332,8 +375,19 @@ func workflowYAMLHasDiagnosticTestStep(lines []workflowYAMLLine, start, end int)
 			"run: |",
 			"$helper = Join-Path $env:RUNNER_TEMP 'ao-mission-ci-go-test'",
 			"if ($IsWindows) { $helper += '.exe' }",
+			"$buildExit = $null",
+			"$global:LASTEXITCODE = $null",
+			"try {",
 			"go build -o $helper ./scripts/ci-go-test",
-			"if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }",
+			"$buildSucceeded = $?",
+			"$buildExit = $LASTEXITCODE",
+			"} catch {",
+			"Write-Error 'CI test helper build failed to start'",
+			"exit 1",
+			"}",
+			"if ($null -eq $buildExit) { exit 1 }",
+			"if ($buildSucceeded -ne ($buildExit -eq 0)) { exit 1 }",
+			"if ($buildExit -ne 0) { exit $buildExit }",
 			"$childExit = $null",
 			"$global:LASTEXITCODE = $null",
 			"try {",
@@ -348,15 +402,13 @@ func workflowYAMLHasDiagnosticTestStep(lines []workflowYAMLLine, start, end int)
 			"if ($commandSucceeded -ne ($childExit -eq 0)) { exit 1 }",
 			"exit $childExit",
 		}
-		previous := -1
-		for _, text := range ordered {
-			position, found := positions[text]
-			if !found || position <= previous {
-				return false
+		cursor := 0
+		for _, line := range stepLines {
+			if cursor < len(ordered) && line == ordered[cursor] {
+				cursor++
 			}
-			previous = position
 		}
-		return true
+		return cursor == len(ordered)
 	}
 	return false
 }
