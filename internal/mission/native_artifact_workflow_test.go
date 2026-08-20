@@ -110,6 +110,7 @@ func TestCIWorkflowCandidateBranchContractRejectsDecoys(t *testing.T) {
 		"comment decoys":        "on:\n  pull_request:\n# push: branches main 'codex/**'\njobs:\n  test:\n    runs-on: ubuntu-latest\n# windows-latest\n",
 		"unrelated branch list": "on:\n  push:\n    branches:\n      - main\n  workflow_dispatch:\n    inputs:\n      codex/**: {}\njobs:\n  test:\n    strategy:\n      matrix:\n        os: [ubuntu-latest]\n    runs-on: windows-latest\n",
 		"unrelated windows job": "on:\n  push:\n    branches:\n      - main\n      - 'codex/**'\njobs:\n  docs:\n    runs-on: windows-latest\n  test:\n    strategy:\n      matrix:\n        os: [ubuntu-latest]\n",
+		"diagnostic decoys":     "on:\n  push:\n    branches:\n      - main\n      - 'codex/**'\njobs:\n  test:\n    strategy:\n      fail-fast: true\n      matrix:\n        os: [ubuntu-latest, windows-latest]\n    steps:\n      # shell: pwsh; go build ./scripts/ci-go-test; exit $LASTEXITCODE\n      - run: go test ./... -count=1\n  docs:\n    strategy:\n      fail-fast: false\n    steps:\n      - shell: pwsh\n        run: go build ./scripts/ci-go-test\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			if blockers := ciWorkflowContractBlockers(workflow); len(blockers) == 0 {
@@ -146,12 +147,18 @@ func ciWorkflowContractBlockers(workflow string) []string {
 	}
 	testStart, testEnd, ok := workflowYAMLSection(lines, jobsStart, jobsEnd, 0, "test")
 	strategyStart, strategyEnd, strategyOK := workflowYAMLSection(lines, testStart, testEnd, 2, "strategy")
+	if value, found := workflowYAMLScalar(lines, strategyStart, strategyEnd, 4, "fail-fast"); !found || value != "false" {
+		blockers = append(blockers, "jobs.test.strategy.fail-fast must be false")
+	}
 	matrixStart, matrixEnd, matrixOK := workflowYAMLSection(lines, strategyStart, strategyEnd, 4, "matrix")
 	osValues, osOK := workflowYAMLInlineList(lines, matrixStart, matrixEnd, 6, "os")
 	if !ok || !strategyOK || !matrixOK || !osOK {
 		blockers = append(blockers, "missing jobs.test.strategy.matrix.os")
 	} else if _, found := osValues["windows-latest"]; !found {
 		blockers = append(blockers, "missing windows-latest in jobs.test.strategy.matrix.os")
+	}
+	if !workflowYAMLHasDiagnosticTestStep(lines, testStart, testEnd) {
+		blockers = append(blockers, "missing bounded diagnostic go-test pwsh step")
 	}
 	return blockers
 }
@@ -231,4 +238,69 @@ func workflowYAMLInlineList(
 		return values, true
 	}
 	return nil, false
+}
+
+func workflowYAMLScalar(
+	lines []workflowYAMLLine,
+	start, end, parentIndent int,
+	key string,
+) (string, bool) {
+	prefix := key + ":"
+	for i := start; i < end; i++ {
+		if lines[i].indent != parentIndent+2 || !strings.HasPrefix(lines[i].text, prefix) {
+			continue
+		}
+		return strings.Trim(strings.TrimSpace(strings.TrimPrefix(lines[i].text, prefix)), "'\""), true
+	}
+	return "", false
+}
+
+func workflowYAMLHasDiagnosticTestStep(lines []workflowYAMLLine, start, end int) bool {
+	stepsStart, stepsEnd, ok := workflowYAMLSection(lines, start, end, 2, "steps")
+	if !ok {
+		return false
+	}
+	for i := stepsStart; i < stepsEnd; i++ {
+		if lines[i].indent != 6 || lines[i].text != "- name: Run test suite with bounded diagnostics" {
+			continue
+		}
+		stepEnd := stepsEnd
+		for j := i + 1; j < stepsEnd; j++ {
+			if lines[j].indent <= 6 {
+				stepEnd = j
+				break
+			}
+		}
+		hasShell := false
+		hasRunBlock := false
+		hasHelperPath := false
+		hasWindowsSuffix := false
+		hasHelperBuild := false
+		hasHelperRun := false
+		hasBuildExit := false
+		hasExit := false
+		for _, line := range lines[i+1 : stepEnd] {
+			switch {
+			case line.indent == 8 && line.text == "shell: pwsh":
+				hasShell = true
+			case line.indent == 8 && line.text == "run: |":
+				hasRunBlock = true
+			case line.indent == 10 && line.text == "$helper = Join-Path $env:RUNNER_TEMP 'ao-mission-ci-go-test'":
+				hasHelperPath = true
+			case line.indent == 10 && line.text == "if ($IsWindows) { $helper += '.exe' }":
+				hasWindowsSuffix = true
+			case line.indent == 10 && line.text == "go build -o $helper ./scripts/ci-go-test":
+				hasHelperBuild = true
+			case line.indent == 10 && line.text == "if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }":
+				hasBuildExit = true
+			case line.indent == 10 && line.text == "& $helper":
+				hasHelperRun = true
+			case line.indent == 10 && line.text == "exit $LASTEXITCODE":
+				hasExit = true
+			}
+		}
+		return hasShell && hasRunBlock && hasHelperPath && hasWindowsSuffix &&
+			hasHelperBuild && hasBuildExit && hasHelperRun && hasExit
+	}
+	return false
 }
