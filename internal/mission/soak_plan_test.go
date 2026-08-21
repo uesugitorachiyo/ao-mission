@@ -541,9 +541,7 @@ func TestLoadSoakPlanInputRejectsUnsafeFixtureTransportAndJSON(t *testing.T) {
 		{name: "traversal", path: filepath.Join(dir, "..", "outside.json"), want: "safe relative fixture path"},
 	}
 	symlinkPath := filepath.Join(dir, "symlink.json")
-	if err := os.Symlink(validPath, symlinkPath); err != nil {
-		t.Fatal(err)
-	}
+	createTestSymlink(t, validPath, symlinkPath)
 	tests = append(tests, struct {
 		name string
 		path string

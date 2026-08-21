@@ -428,9 +428,9 @@ func TestSoakCanaryExecutableProvenanceChangeFailsBeforeLaunch(t *testing.T) {
 func TestSoakCanaryUnsafeRootsFailBeforeLaunch(t *testing.T) {
 	tests := []struct {
 		name   string
-		mutate func(*soakCanaryTestFixture)
+		mutate func(*testing.T, *soakCanaryTestFixture)
 	}{
-		{name: "evidence under repository", mutate: func(f *soakCanaryTestFixture) {
+		{name: "evidence under repository", mutate: func(t *testing.T, f *soakCanaryTestFixture) {
 			f.request.EvidenceRoot = filepath.Join(f.request.RepositoryRoot, "evidence")
 			f.request.Authority.EvidenceRoot = f.request.EvidenceRoot
 			f.request.CheckpointPath = filepath.Join(f.request.EvidenceRoot, "checkpoint.json")
@@ -438,18 +438,14 @@ func TestSoakCanaryUnsafeRootsFailBeforeLaunch(t *testing.T) {
 			f.request.Activation.AuthorityRecordDigest = f.request.Authority.AuthorityRecordDigest
 			signSoakCanaryActivation(&f.request.Activation)
 		}},
-		{name: "symlink repository", mutate: func(f *soakCanaryTestFixture) {
+		{name: "symlink repository", mutate: func(t *testing.T, f *soakCanaryTestFixture) {
 			link := filepath.Join(t.TempDir(), "repository-link")
-			if err := os.Symlink(f.request.RepositoryRoot, link); err != nil {
-				t.Fatal(err)
-			}
+			createTestSymlink(t, f.request.RepositoryRoot, link)
 			f.request.RepositoryRoot = link
 		}},
-		{name: "symlink evidence", mutate: func(f *soakCanaryTestFixture) {
+		{name: "symlink evidence", mutate: func(t *testing.T, f *soakCanaryTestFixture) {
 			link := filepath.Join(t.TempDir(), "evidence-link")
-			if err := os.Symlink(f.request.EvidenceRoot, link); err != nil {
-				t.Fatal(err)
-			}
+			createTestSymlink(t, f.request.EvidenceRoot, link)
 			f.request.EvidenceRoot = link
 			f.request.Authority.EvidenceRoot = link
 			f.request.CheckpointPath = filepath.Join(link, "checkpoint.json")
@@ -457,24 +453,20 @@ func TestSoakCanaryUnsafeRootsFailBeforeLaunch(t *testing.T) {
 			f.request.Activation.AuthorityRecordDigest = f.request.Authority.AuthorityRecordDigest
 			signSoakCanaryActivation(&f.request.Activation)
 		}},
-		{name: "symlink checkpoint component", mutate: func(f *soakCanaryTestFixture) {
+		{name: "symlink checkpoint component", mutate: func(t *testing.T, f *soakCanaryTestFixture) {
 			target := t.TempDir()
 			link := filepath.Join(f.request.EvidenceRoot, "checkpoints")
-			if err := os.Symlink(target, link); err != nil {
-				t.Fatal(err)
-			}
+			createTestSymlink(t, target, link)
 			f.request.CheckpointPath = filepath.Join(link, "checkpoint.json")
 		}},
-		{name: "symlink output component", mutate: func(f *soakCanaryTestFixture) {
-			if err := os.Symlink(t.TempDir(), filepath.Join(f.request.EvidenceRoot, "nodes")); err != nil {
-				t.Fatal(err)
-			}
+		{name: "symlink output component", mutate: func(t *testing.T, f *soakCanaryTestFixture) {
+			createTestSymlink(t, t.TempDir(), filepath.Join(f.request.EvidenceRoot, "nodes"))
 		}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			fixture := validSoakCanaryFixture(t)
-			test.mutate(&fixture)
+			test.mutate(t, &fixture)
 			executor := &soakCanaryFakeExecutor{}
 			fixture.request.Executor = executor
 			summary, err := RunSoakCanary(context.Background(), fixture.request)
@@ -555,9 +547,7 @@ func TestSoakCanaryCompletionRemainsProvisionalWhenTerminalPathIsUnsafe(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(t.TempDir(), filepath.Join(fixture.request.EvidenceRoot, "terminal")); err != nil {
-		t.Fatal(err)
-	}
+	createTestSymlink(t, t.TempDir(), filepath.Join(fixture.request.EvidenceRoot, "terminal"))
 	if err := PersistSoakCanaryCompletion(fixture.request.EvidenceRoot, summary); err == nil {
 		t.Fatal("unsafe terminal path accepted")
 	}

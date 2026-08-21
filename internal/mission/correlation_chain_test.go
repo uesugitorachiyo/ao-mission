@@ -836,6 +836,204 @@ func TestCorrelationChainSupportsStackEvidenceConventions(t *testing.T) {
 	}
 }
 
+func TestCorrelationChainBindsAO2EvidencePackToCanonicalRunID(t *testing.T) {
+	record := correlationTestRecord()
+	path := filepath.Join(t.TempDir(), "ao2-evidence-pack.json")
+	writeJSONForTest(t, path, map[string]any{
+		"schema_version": "ao2.evidence-pack.v1",
+		"run_id":         "windows-qualification-demo",
+		"workflow_id":    "risky-pr-run@0.1.0",
+		"verdict":        "accepted",
+		"workflow_tasks": []any{
+			map[string]any{"task_id": "implementer"},
+		},
+	})
+
+	chain, err := BuildCorrelationChain(record, []CorrelationArtifactSpec{{
+		Role: "ao2-evidence",
+		Path: path,
+	}})
+	if err != nil {
+		t.Fatalf("AO2 evidence pack was rejected: %v", err)
+	}
+	if len(chain.Entries) != 1 {
+		t.Fatalf("entry count = %d, want 1", len(chain.Entries))
+	}
+	entry := chain.Entries[0]
+	if entry.Producer != "ao2" ||
+		entry.BindingMode != CorrelationBindingNativeField ||
+		entry.NativeField != "/run_id" ||
+		entry.NativeIdentifier != "windows-qualification-demo" {
+		t.Fatalf("AO2 evidence identity was not bound to /run_id: %+v", entry)
+	}
+}
+
+func TestCorrelationChainRejectsInvalidAO2EvidencePackRunIdentity(t *testing.T) {
+	record := correlationTestRecord()
+
+	for name, document := range map[string]map[string]any{
+		"missing top-level run_id": {
+			"schema_version": "ao2.evidence-pack.v1",
+			"workflow_id":    "risky-pr-run@0.1.0",
+		},
+		"conflicting nested run_id": {
+			"schema_version": "ao2.evidence-pack.v1",
+			"run_id":         "windows-qualification-demo",
+			"workflow_id":    "risky-pr-run@0.1.0",
+			"runtime_contract": map[string]any{
+				"run_id": "different-run",
+			},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "ao2-evidence-pack.json")
+			writeJSONForTest(t, path, document)
+			_, err := BuildCorrelationChain(record, []CorrelationArtifactSpec{{
+				Role: "ao2-evidence",
+				Path: path,
+			}})
+			if err == nil || !strings.Contains(err.Error(), "AO2 evidence pack") {
+				t.Fatalf("invalid AO2 run identity was accepted: %v", err)
+			}
+		})
+	}
+}
+
+func TestCorrelationChainRequiresAO2RunIdentityBeforeDigestLinkBinding(t *testing.T) {
+	record := correlationTestRecord()
+	dir := t.TempDir()
+	parentPath := filepath.Join(dir, "parent.json")
+	writeJSONForTest(t, parentPath, map[string]any{
+		"schema":         "ao.atlas.parent.v1",
+		"correlation_id": record.CorrelationID,
+	})
+	parentDigest := digestFileForTest(t, parentPath)
+
+	for name, document := range map[string]map[string]any{
+		"missing top-level run_id": {
+			"schema_version": "ao2.evidence-pack.v1",
+			"parent_sha256":  parentDigest,
+		},
+		"conflicting nested run_id": {
+			"schema_version": "ao2.evidence-pack.v1",
+			"run_id":         "windows-qualification-demo",
+			"parent_sha256":  parentDigest,
+			"runtime_contract": map[string]any{
+				"run_id": "different-run",
+			},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(dir, strings.ReplaceAll(name, " ", "-")+".json")
+			writeJSONForTest(t, path, document)
+			_, err := BuildCorrelationChain(record, []CorrelationArtifactSpec{
+				{Role: "parent", Path: parentPath},
+				{Role: "ao2-evidence", Path: path},
+			})
+			if err == nil || !strings.Contains(err.Error(), "AO2 evidence pack") {
+				t.Fatalf("digest-linked AO2 evidence bypassed run identity validation: %v", err)
+			}
+		})
+	}
+
+	validPath := filepath.Join(dir, "valid.json")
+	writeJSONForTest(t, validPath, map[string]any{
+		"schema_version": "ao2.evidence-pack.v1",
+		"run_id":         "windows-qualification-demo",
+		"parent_sha256":  parentDigest,
+	})
+	chain, err := BuildCorrelationChain(record, []CorrelationArtifactSpec{
+		{Role: "parent", Path: parentPath},
+		{Role: "ao2-evidence", Path: validPath},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries := make(map[string]CorrelationChainEntry, len(chain.Entries))
+	for _, entry := range chain.Entries {
+		entries[entry.Role] = entry
+	}
+	if entries["ao2-evidence"].BindingMode != CorrelationBindingDigestLink ||
+		entries["ao2-evidence"].ParentRole != "parent" {
+		t.Fatalf("validated AO2 digest link did not retain parent precedence: %+v", entries["ao2-evidence"])
+	}
+}
+
+func TestCorrelationChainValidatesEveryAO2RunIDValue(t *testing.T) {
+	record := correlationTestRecord()
+
+	validPath := filepath.Join(t.TempDir(), "same-run-ids.json")
+	writeJSONForTest(t, validPath, map[string]any{
+		"schema_version": "ao2.evidence-pack.v1",
+		"run_id":         "windows-qualification-demo",
+		"runtime_contract": map[string]any{
+			"run_id": "windows-qualification-demo",
+			"events": []any{
+				map[string]any{"run_id": "windows-qualification-demo"},
+			},
+		},
+	})
+	if _, err := BuildCorrelationChain(record, []CorrelationArtifactSpec{{Role: "ao2-evidence", Path: validPath}}); err != nil {
+		t.Fatalf("matching nested AO2 run_id strings were rejected: %v", err)
+	}
+
+	for name, value := range map[string]any{
+		"empty string": "",
+		"number":       1,
+		"boolean":      true,
+		"null":         nil,
+		"object":       map[string]any{"value": "windows-qualification-demo"},
+		"array":        []any{"windows-qualification-demo"},
+	} {
+		t.Run("top-level "+name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "invalid-top-level-run-id.json")
+			writeJSONForTest(t, path, map[string]any{
+				"schema_version": "ao2.evidence-pack.v1",
+				"run_id":         value,
+			})
+			_, err := BuildCorrelationChain(record, []CorrelationArtifactSpec{{Role: "ao2-evidence", Path: path}})
+			if err == nil || !strings.Contains(err.Error(), "AO2 evidence pack run_id") {
+				t.Fatalf("AO2 evidence accepted top-level %s run_id: %v", name, err)
+			}
+		})
+	}
+
+	for name, value := range map[string]any{
+		"number":  1,
+		"boolean": true,
+		"null":    nil,
+		"object":  map[string]any{"value": "windows-qualification-demo"},
+		"array":   []any{"windows-qualification-demo"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "invalid-run-id.json")
+			writeJSONForTest(t, path, map[string]any{
+				"schema_version": "ao2.evidence-pack.v1",
+				"run_id":         "windows-qualification-demo",
+				"runtime_contract": map[string]any{
+					"events": []any{map[string]any{"run_id": value}},
+				},
+			})
+			_, err := BuildCorrelationChain(record, []CorrelationArtifactSpec{{Role: "ao2-evidence", Path: path}})
+			if err == nil || !strings.Contains(err.Error(), "AO2 evidence pack run_id") {
+				t.Fatalf("AO2 evidence accepted nested %s run_id: %v", name, err)
+			}
+		})
+	}
+}
+
+func TestCorrelationChainRejectsSchemaOnlyAO2EvidencePack(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "schema-only.json")
+	writeJSONForTest(t, path, map[string]any{"schema_version": "ao2.evidence-pack.v1"})
+	_, err := BuildCorrelationChain(correlationTestRecord(), []CorrelationArtifactSpec{{
+		Role: "ao2-evidence",
+		Path: path,
+	}})
+	if err == nil || !strings.Contains(err.Error(), "AO2 evidence pack requires a top-level run_id") {
+		t.Fatalf("schema-only AO2 evidence did not return the required run_id error: %v", err)
+	}
+}
+
 func TestCorrelationChainRejectsAmbiguousBindingCandidates(t *testing.T) {
 	record := correlationTestRecord()
 
@@ -1404,9 +1602,7 @@ func TestCorrelationChainRejectsUnsafeArtifactFiles(t *testing.T) {
 		"correlation_id": record.CorrelationID,
 	})
 	symlinkPath := filepath.Join(dir, "symlink.json")
-	if err := os.Symlink(regularPath, symlinkPath); err != nil {
-		t.Fatal(err)
-	}
+	createTestSymlink(t, regularPath, symlinkPath)
 	oversizedPath := filepath.Join(dir, "oversized.json")
 	oversized, err := os.Create(oversizedPath)
 	if err != nil {
@@ -2262,15 +2458,15 @@ func TestWriteCorrelationChainRejectsExistingDestinationWithoutChangingIt(t *tes
 		t.Fatal(err)
 	}
 
-	for name, prepare := range map[string]func(string) []byte{
-		"regular file": func(path string) []byte {
+	for name, prepare := range map[string]func(*testing.T, string) []byte{
+		"regular file": func(t *testing.T, path string) []byte {
 			body := []byte("do not replace\n")
 			if err := os.WriteFile(path, body, 0o644); err != nil {
 				t.Fatal(err)
 			}
 			return body
 		},
-		"hard link": func(path string) []byte {
+		"hard link": func(t *testing.T, path string) []byte {
 			source := filepath.Join(filepath.Dir(path), "hard-link-source")
 			body := []byte("hard-linked evidence\n")
 			if err := os.WriteFile(source, body, 0o644); err != nil {
@@ -2281,21 +2477,19 @@ func TestWriteCorrelationChainRejectsExistingDestinationWithoutChangingIt(t *tes
 			}
 			return body
 		},
-		"symlink": func(path string) []byte {
+		"symlink": func(t *testing.T, path string) []byte {
 			source := filepath.Join(filepath.Dir(path), "symlink-source")
 			body := []byte("symlink target\n")
 			if err := os.WriteFile(source, body, 0o644); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.Symlink(source, path); err != nil {
-				t.Fatal(err)
-			}
+			createTestSymlink(t, source, path)
 			return body
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			outputPath := filepath.Join(t.TempDir(), "chain.json")
-			before := prepare(outputPath)
+			before := prepare(t, outputPath)
 			if err := WriteCorrelationChainFile(outputPath, chain); err == nil {
 				t.Fatalf("existing %s destination was replaced", name)
 			}
@@ -2333,9 +2527,7 @@ func TestWriteCorrelationChainRejectsOutputSymlinkRace(t *testing.T) {
 	outputPath := filepath.Join(dir, "chain.json")
 
 	err = writeCorrelationChainFileWithCreate(outputPath, chain, func(path string) (*os.File, error) {
-		if err := os.Symlink(targetPath, path); err != nil {
-			return nil, err
-		}
+		createTestSymlink(t, targetPath, path)
 		return openExclusiveCorrelationOutput(path)
 	})
 	if err == nil {

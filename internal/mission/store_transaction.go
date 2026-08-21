@@ -120,7 +120,15 @@ func (s Store) transactionJournalPath(id string) string {
 	return filepath.Join(s.Root, "missions", id+".import-transaction.json")
 }
 
-func (s Store) withMissionLock(id string, fn func() error) (err error) {
+func (s Store) withMissionLock(id string, fn func() error) error {
+	return s.withMissionLockMode(id, true, fn)
+}
+
+func (s Store) withMissionLockWithoutTempCleanup(id string, fn func() error) error {
+	return s.withMissionLockMode(id, false, fn)
+}
+
+func (s Store) withMissionLockMode(id string, cleanupTemps bool, fn func() error) (err error) {
 	if err := s.Init(); err != nil {
 		return err
 	}
@@ -142,10 +150,19 @@ func (s Store) withMissionLock(id string, fn func() error) (err error) {
 			err = unlockErr
 		}
 	}()
-	if err := cleanupMissionTransactionTempsLocked(paths); err != nil {
-		return err
+	if cleanupTemps {
+		if err := s.cleanupTransactionTempsLocked(paths); err != nil {
+			return err
+		}
 	}
 	return fn()
+}
+
+func (s Store) cleanupTransactionTempsLocked(paths missionTransactionPaths) error {
+	if s.transactionTempCleanup != nil {
+		return s.transactionTempCleanup(paths)
+	}
+	return cleanupMissionTransactionTempsLocked(paths)
 }
 
 func (s Store) recoverMissionTransactionLocked(id string) error {

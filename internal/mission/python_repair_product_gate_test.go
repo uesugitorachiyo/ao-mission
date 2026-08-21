@@ -226,9 +226,7 @@ func TestPythonRepairProductGateRejectsUnsafePathAndSymlink(t *testing.T) {
 	root, manifest = writePythonRepairGateFixture(t, nil)
 	target := filepath.Join(root, "evidence.json")
 	linked := filepath.Join(root, "linked.json")
-	if err := os.Symlink(target, linked); err != nil {
-		t.Fatal(err)
-	}
+	createTestSymlink(t, target, linked)
 	document = readJSONMap(t, manifest)
 	info, _ := os.Stat(target)
 	digest := fileSHA256(t, target)
@@ -267,6 +265,22 @@ func TestCLIPythonRepairProductGateRoundTrip(t *testing.T) {
 	root, manifest := writePythonRepairGateFixture(t, func(evidence map[string]any) {
 		evidence["completed_at"] = now.Add(-time.Minute).Format(time.RFC3339)
 		evidence["expires_at"] = now.Add(time.Hour).Format(time.RFC3339)
+		evidence["selection"].(map[string]any)["selected_at"] = now.Add(-2 * time.Minute).Format(time.RFC3339)
+		selectedAt, err := time.Parse(time.RFC3339, evidence["selection"].(map[string]any)["selected_at"].(string))
+		if err != nil {
+			t.Fatal(err)
+		}
+		completedAt, err := time.Parse(time.RFC3339, evidence["completed_at"].(string))
+		if err != nil {
+			t.Fatal(err)
+		}
+		expiresAt, err := time.Parse(time.RFC3339, evidence["expires_at"].(string))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if selectedAt.After(completedAt) || completedAt.After(expiresAt) || completedAt.Sub(selectedAt) > 7*24*time.Hour {
+			t.Fatalf("time-inconsistent repair fixture: selected=%s completed=%s expires=%s", selectedAt, completedAt, expiresAt)
+		}
 	})
 	var stdout, stderr bytes.Buffer
 	code := Run([]string{

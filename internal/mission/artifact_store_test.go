@@ -213,9 +213,7 @@ func TestRetainArtifactRejectsSymlinkObject(t *testing.T) {
 	if err := os.WriteFile(target, wantTarget, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(target, path); err != nil {
-		t.Skipf("symlinks unavailable: %v", err)
-	}
+	createTestSymlink(t, target, path)
 
 	if _, _, err := store.retainArtifact(body); err == nil {
 		t.Fatal("symlink object was accepted")
@@ -243,9 +241,7 @@ func TestRetainArtifactRejectsParentSymlinkRedirection(t *testing.T) {
 				}
 				linkPath = filepath.Join(parent, name)
 			}
-			if err := os.Symlink(outside, linkPath); err != nil {
-				t.Skipf("symlinks unavailable: %v", err)
-			}
+			createTestSymlink(t, outside, linkPath)
 
 			if _, _, err := NewStore(root).retainArtifact(body); err == nil {
 				t.Fatal("parent symlink was accepted")
@@ -266,9 +262,7 @@ func TestRetainArtifactRejectsParentSwapBeforeCreation(t *testing.T) {
 			root := t.TempDir()
 			outside := t.TempDir()
 			probe := filepath.Join(root, "symlink-probe")
-			if err := os.Symlink(outside, probe); err != nil {
-				t.Skipf("symlinks unavailable: %v", err)
-			}
+			createTestSymlink(t, outside, probe)
 			if err := os.Remove(probe); err != nil {
 				t.Fatal(err)
 			}
@@ -283,7 +277,8 @@ func TestRetainArtifactRejectsParentSwapBeforeCreation(t *testing.T) {
 				if err := os.Remove(path); err != nil {
 					return err
 				}
-				return os.Symlink(outside, path)
+				createTestSymlink(t, outside, path)
+				return nil
 			}
 
 			if _, _, err := NewStore(root).retainArtifact(body); err == nil {
