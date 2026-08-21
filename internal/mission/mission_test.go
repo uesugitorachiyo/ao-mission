@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -4002,9 +4003,7 @@ func TestArtifactManifestV02RejectsSymlinkedContentDirectories(t *testing.T) {
 			if err := os.WriteFile(externalPath, body, 0o644); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.Symlink(filepath.Join(external, "artifacts"), filepath.Join(dir, "artifacts")); err != nil {
-				t.Fatal(err)
-			}
+			createTestSymlink(t, filepath.Join(external, "artifacts"), filepath.Join(dir, "artifacts"))
 		},
 		"sha256 symlink": func(t *testing.T, dir string) {
 			t.Helper()
@@ -4019,9 +4018,7 @@ func TestArtifactManifestV02RejectsSymlinkedContentDirectories(t *testing.T) {
 			if err := os.Mkdir(filepath.Join(dir, "artifacts"), 0o755); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.Symlink(filepath.Join(external, "sha256"), filepath.Join(dir, retainedArtifactDirectory)); err != nil {
-				t.Fatal(err)
-			}
+			createTestSymlink(t, filepath.Join(external, "sha256"), filepath.Join(dir, retainedArtifactDirectory))
 		},
 		"artifacts regular file": func(t *testing.T, dir string) {
 			t.Helper()
@@ -4066,9 +4063,7 @@ func TestArtifactManifestV02RejectsSymlinkedContentDirectories(t *testing.T) {
 
 func TestArtifactManifestMaterializationRejectsSymlinkedContentDirectory(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.Symlink(t.TempDir(), filepath.Join(dir, "artifacts")); err != nil {
-		t.Fatal(err)
-	}
+	createTestSymlink(t, t.TempDir(), filepath.Join(dir, "artifacts"))
 	sourcePath := filepath.Join(t.TempDir(), "artifact.json")
 	body := []byte(`{"schema":"ao.mission.route-decision.v0.1"}`)
 	if err := os.WriteFile(sourcePath, body, 0o644); err != nil {
@@ -4951,6 +4946,99 @@ func TestMissionEventIndexScaleMetricsExposeReadAndEventCounts(t *testing.T) {
 	}
 }
 
+func TestMissionEventIndexDoesNotRescanTransactionTempsPerRecord(t *testing.T) {
+	s := seedMissionRecordStore(t, 100)
+	scans := 0
+	s.transactionTempCleanup = func(missionTransactionPaths) error {
+		scans++
+		return nil
+	}
+	if _, err := BuildMissionEventIndex(s); err != nil {
+		t.Fatal(err)
+	}
+	if scans != 0 {
+		t.Fatalf("event index performed %d per-record transaction temp directory scans", scans)
+	}
+}
+
+func TestMissionEventIndexLoadsRecordsWithBoundedParallelism(t *testing.T) {
+	s := seedMissionRecordStore(t, 32)
+	var active atomic.Int32
+	var maximum atomic.Int32
+	s.missionRecordLoad = func(_ string, load func() error) error {
+		current := active.Add(1)
+		defer active.Add(-1)
+		for current > maximum.Load() && !maximum.CompareAndSwap(maximum.Load(), current) {
+		}
+		time.Sleep(10 * time.Millisecond)
+		return load()
+	}
+	if _, err := BuildMissionEventIndex(s); err != nil {
+		t.Fatal(err)
+	}
+	if got := maximum.Load(); got <= 1 || got > missionRecordLoadWorkerLimit {
+		t.Fatalf("record load parallelism=%d, want 2..%d", got, missionRecordLoadWorkerLimit)
+	}
+	if got := active.Load(); got != 0 {
+		t.Fatalf("record loads still active after listing: %d", got)
+	}
+}
+
+func TestMissionRecordParallelLoadReturnsDeterministicFirstError(t *testing.T) {
+	s := seedMissionRecordStore(t, 32)
+	var active atomic.Int32
+	s.missionRecordLoad = func(id string, load func() error) error {
+		active.Add(1)
+		defer active.Add(-1)
+		switch id {
+		case "mission-scale-10":
+			time.Sleep(50 * time.Millisecond)
+			return errors.New("first candidate failure: mission-scale-10")
+		case "mission-scale-2":
+			return errors.New("later candidate failure: mission-scale-2")
+		default:
+			return load()
+		}
+	}
+	_, stats, err := s.listFilteredWithStats(ListFilters{})
+	if err == nil || !strings.Contains(err.Error(), "first candidate failure: mission-scale-10") {
+		t.Fatalf("parallel load error=%v, want deterministic first candidate failure", err)
+	}
+	if stats.StoreFileReads != 2 {
+		t.Fatalf("store file reads=%d, want sequentially visible reads before first error", stats.StoreFileReads)
+	}
+	if got := active.Load(); got != 0 {
+		t.Fatalf("record loads still active after error return: %d", got)
+	}
+}
+
+func TestMissionEventIndexDefersTransactionTempCleanupToDirectLifecycleReads(t *testing.T) {
+	s := seedMissionRecordStore(t, 1)
+	id := "mission-scale-0"
+	stale := filepath.Join(s.Root, "missions", "."+id+".json.tmp-stale")
+	writeStale := func() {
+		t.Helper()
+		if err := os.WriteFile(stale, []byte("stale"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	writeStale()
+	if _, err := BuildMissionEventIndex(s); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(stale); err != nil {
+		t.Fatalf("read-only event index unexpectedly cleaned transaction temp: %v", err)
+	}
+
+	if _, err := s.Load(id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(stale); !os.IsNotExist(err) {
+		t.Fatalf("direct lifecycle read did not clean transaction temp: %v", err)
+	}
+}
+
 func TestMissionDoctorUsesSingleStoreListingMetrics(t *testing.T) {
 	s := seedMissionRecordStore(t, 100)
 	readback := BuildMissionDoctorReadback(s)
@@ -5106,6 +5194,46 @@ func TestMissionRestartRecoveryProofBindsIndexedTimelineAfterStoreReload(t *test
 	if persisted.BeforeEventSourceDigest != cliProof.BeforeEventSourceDigest ||
 		persisted.AfterTimelineTermDigest != cliProof.AfterTimelineTermDigest {
 		t.Fatalf("persisted restart proof changed digests: persisted=%+v cli=%+v", persisted, cliProof)
+	}
+}
+
+func TestMissionTimelineQueryIndexDigestIgnoresGenerationTimestamp(t *testing.T) {
+	index := MissionTimelineQueryIndex{
+		Schema:           "ao.mission.timeline-query-index.v0.1",
+		Status:           "ready",
+		IndexVersion:     "v0.1",
+		EventIndexDigest: "sha256:" + strings.Repeat("a", 64),
+		GeneratedAtUTC:   "2026-08-20T18:55:44Z",
+	}
+	first, err := digestMissionTimelineQueryIndex(index)
+	if err != nil {
+		t.Fatal(err)
+	}
+	index.GeneratedAtUTC = "2026-08-20T18:55:45Z"
+	second, err := digestMissionTimelineQueryIndex(index)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first != second {
+		t.Fatalf("timeline digest changed with generation timestamp: first=%s second=%s", first, second)
+	}
+}
+
+func TestMissionTimelineQueryIndexValidationAcceptsLegacyTimestampDigest(t *testing.T) {
+	index := MissionTimelineQueryIndex{
+		Schema:           "ao.mission.timeline-query-index.v0.1",
+		Status:           "ready",
+		IndexVersion:     "v0.1",
+		EventIndexDigest: "sha256:" + strings.Repeat("a", 64),
+		GeneratedAtUTC:   "2026-08-20T18:55:44Z",
+	}
+	body, err := json.Marshal(index)
+	if err != nil {
+		t.Fatal(err)
+	}
+	index.IndexDigest = digestBytes(body)
+	if err := ValidateMissionTimelineQueryIndexDigest(index); err != nil {
+		t.Fatalf("legacy timestamp-bound digest was rejected: %v", err)
 	}
 }
 

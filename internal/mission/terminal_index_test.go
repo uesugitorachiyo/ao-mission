@@ -436,9 +436,7 @@ func writeMissionTerminalFixtureAtRoot(t *testing.T, root string, options termin
 			if err := os.Rename(path, target); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.Symlink(target, path); err != nil {
-				t.Fatal(err)
-			}
+			createTestSymlink(t, target, path)
 		}
 		digest := digestBytes(artifact.body)
 		if options.alterArtifactDigest && artifact.role == "terminal" {

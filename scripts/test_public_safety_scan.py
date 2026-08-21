@@ -11,6 +11,10 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 SCANNER = REPOSITORY_ROOT / "scripts" / "public-safety-scan.py"
 
 
+def windows_symlink_privilege_unavailable(error: OSError) -> bool:
+    return sys.platform == "win32" and error.winerror == 1314
+
+
 class PublicSafetyScanTests(unittest.TestCase):
     def run_scan(self, root: Path, *paths: str) -> subprocess.CompletedProcess[str]:
         selected = paths or (".",)
@@ -117,15 +121,30 @@ class PublicSafetyScanTests(unittest.TestCase):
             outside = Path(directory) / "outside.txt"
             root.mkdir()
             outside.write_text("public fixture", encoding="utf-8")
-            (root / "escape").symlink_to(outside)
-
-            symlink_result = self.run_scan(root)
             outside_result = self.run_scan(root, str(outside))
 
-            self.assertEqual(symlink_result.returncode, 1)
-            self.assertIn("symlink escape", symlink_result.stderr)
             self.assertEqual(outside_result.returncode, 2)
             self.assertIn("outside scan root", outside_result.stderr)
+
+            try:
+                (root / "escape").symlink_to(outside)
+            except OSError as error:
+                if not windows_symlink_privilege_unavailable(error):
+                    raise
+            else:
+                symlink_result = self.run_scan(root)
+                self.assertEqual(symlink_result.returncode, 1)
+                self.assertIn("symlink escape", symlink_result.stderr)
+
+    def test_classifies_only_windows_error_1314_as_unavailable_privilege(self) -> None:
+        privilege_error = OSError(0, "fixture", None, 1314)
+        unrelated_error = OSError(0, "fixture", None, 2)
+
+        self.assertEqual(
+            windows_symlink_privilege_unavailable(privilege_error),
+            sys.platform == "win32",
+        )
+        self.assertFalse(windows_symlink_privilege_unavailable(unrelated_error))
 
     def test_output_is_deterministic(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

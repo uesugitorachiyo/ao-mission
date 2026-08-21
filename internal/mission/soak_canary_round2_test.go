@@ -18,9 +18,7 @@ func TestSoakCanaryRepositorySnapshotIncludesWorktreeAndExcludesGit(t *testing.T
 	mustWriteSoakCanaryTestFile(t, filepath.Join(root, ".git", "index"), []byte("ignored\n"))
 	outside := filepath.Join(t.TempDir(), "outside.txt")
 	mustWriteSoakCanaryTestFile(t, outside, []byte("outside-content-must-not-be-read\n"))
-	if err := os.Symlink(outside, filepath.Join(root, "link")); err != nil {
-		t.Fatal(err)
-	}
+	createTestSymlink(t, outside, filepath.Join(root, "link"))
 
 	first, err := BuildSoakCanaryRepositorySnapshot(root)
 	if err != nil {
@@ -193,6 +191,7 @@ func TestSoakCanaryTotalAttemptElapsedIncludesPostRunVerification(t *testing.T) 
 }
 
 func TestSoakCanaryPostChildEvidenceFailurePersistsCompletedAttempt(t *testing.T) {
+	requireTestSymlinkCapability(t)
 	fixture := validSoakCanaryFixture(t)
 	clock := &soakCanaryFakeClock{now: time.Date(2026, 7, 29, 21, 0, 0, 0, time.UTC)}
 	symlinkTarget := t.TempDir()
@@ -201,7 +200,7 @@ func TestSoakCanaryPostChildEvidenceFailurePersistsCompletedAttempt(t *testing.T
 		clock: clock,
 		beforeReturn: func() {
 			if err := os.Symlink(symlinkTarget, filepath.Join(fixture.request.EvidenceRoot, "nodes")); err != nil {
-				t.Error(err)
+				t.Errorf("create evidence symlink: %v", err)
 			}
 		},
 	}
