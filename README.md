@@ -87,6 +87,7 @@ ao-mission validate contract --path <json>
 ao-mission import correlation-evidence --mission <id> --path <json> --correlation-chain <chain.json> --correlation-role <exact-chain-role>
 ao-mission import blueprint-authorization --mission <id> --path <json> [--correlation-chain <chain.json>]
 ao-mission import atlas-workgraph --mission <id> --path <json>
+ao-mission import ao-next-terminal --mission <id> --path <json>
 ao-mission import atlas-recommendation-readback --mission <id> --path <json>
 ao-mission import foundry-run-link --mission <id> --path <json>
 ao-mission import foundry-final-rollup --mission <id> --path <json>

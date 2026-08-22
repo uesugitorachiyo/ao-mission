@@ -79,7 +79,11 @@ func importArtifact(
 	var correlatedBinding *CorrelatedImportBinding
 	chainDigest := ""
 	if chainPath == "" {
-		body, err = os.ReadFile(path)
+		if kind == aoNextCandidateImportKind {
+			body, err = readBoundedRegularFile(path, aoNextCandidateInputLimit)
+		} else {
+			body, err = os.ReadFile(path)
+		}
 	} else {
 		existing, err = s.Load(missionID)
 		if err == nil {
@@ -127,8 +131,10 @@ func importArtifact(
 	if err != nil {
 		return ImportReadback{}, err
 	}
-	if err := ValidatePublicSafeText(string(body)); err != nil {
-		return ImportReadback{}, err
+	if kind != aoNextCandidateImportKind {
+		if err := ValidatePublicSafeText(string(body)); err != nil {
+			return ImportReadback{}, err
+		}
 	}
 	if err := validateNoDuplicateJSONKeys(body); err != nil {
 		return ImportReadback{}, err
@@ -136,6 +142,14 @@ func importArtifact(
 	var doc map[string]any
 	if err := json.Unmarshal(body, &doc); err != nil {
 		return ImportReadback{}, err
+	}
+	var aoNextProjection *AONextCandidateProjection
+	if kind == aoNextCandidateImportKind {
+		projection, parseErr := parseAONextCandidateProjection(body)
+		if parseErr != nil {
+			return ImportReadback{}, parseErr
+		}
+		aoNextProjection = &projection
 	}
 	if isMissionEvidenceReadback(kind) {
 		for _, field := range []string{"safe_to_execute", "schedules_work", "executes_work", "approves_work", "mutates_repositories", "provider_calls", "release_or_publish", "credential_use", "direct_main_mutation", "concurrent_mutation", "claims_authority_advance"} {
@@ -178,6 +192,12 @@ func importArtifact(
 		if chainReference != nil &&
 			(rec.MissionID != chainReference.MissionID || rec.CorrelationID != chainReference.CorrelationID) {
 			return fmt.Errorf("correlation chain identity changed before import")
+		}
+		if kind == aoNextCandidateImportKind && rec.Evidence.AONextCandidate != nil {
+			if rec.Evidence.AONextCandidate.ArtifactDigest == ref.Digest {
+				return nil
+			}
+			return fmt.Errorf("AO Next candidate terminal already bound to a different digest")
 		}
 		for _, existingRef := range rec.ArtifactRefs {
 			if existingRef.Ref != ref.Ref || existingRef.Kind != ref.Kind {
@@ -378,6 +398,13 @@ func importArtifact(
 			rec.CurrentPhase = "ledger_compaction_recorded"
 			rec.ExactNextAction = "ledger compaction readback recorded; continue from retained route and step evidence"
 			AppendRouteHistory(rec, routeFromRecord(*rec, "Ledger compaction readback imported"))
+		case kind == aoNextCandidateImportKind:
+			projection := *aoNextProjection
+			projection.ArtifactDigest = ref.Digest
+			projection.ContentRef = ref.ContentRef
+			projection.OriginalRef = ref.Ref
+			projection.GeneratedAtUTC = now(nil)
+			rec.Evidence.AONextCandidate = &projection
 		default:
 			return fmt.Errorf("unsupported import kind %q", kind)
 		}
@@ -409,7 +436,7 @@ func importArtifact(
 
 func isMissionEvidenceReadback(kind string) bool {
 	switch kind {
-	case "atlas-recommendation-readback", "atlas-final-synthesis-readback", "scheduler-readback", "scheduler-recovery-readback", "ledger-compaction-readback":
+	case "atlas-recommendation-readback", "atlas-final-synthesis-readback", "scheduler-readback", "scheduler-recovery-readback", "ledger-compaction-readback", aoNextCandidateImportKind:
 		return true
 	default:
 		return false
