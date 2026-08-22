@@ -654,7 +654,7 @@ def main(argv=None):
             encoded = json.dumps(document, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
         except ValueError as error:
             raise ValidationError("bound JSON contains a non-finite output number") from error
-        Path(args.destination).write_text(encoded, encoding="utf-8", newline="\n")
+        Path(args.destination).write_bytes(encoded.encode("utf-8"))
     elif args.command == "check":
         run_check(args.profile, args.path, args.mission_id)
     else:

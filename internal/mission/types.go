@@ -167,6 +167,26 @@ type EvidenceSummary struct {
 	SchedulerRecovery     *SchedulerRecoveryCounts           `json:"scheduler_recovery,omitempty"`
 	LedgerCompaction      *LedgerCompactionCounts            `json:"ledger_compaction,omitempty"`
 	IssueRepairSupervisor *IssueRepairSupervisorState        `json:"issue_repair_supervisor,omitempty"`
+	AONextCandidate       *AONextCandidateProjection         `json:"ao_next_candidate,omitempty"`
+}
+
+type AONextCandidateProjection struct {
+	Schema                string `json:"schema"`
+	Status                string `json:"status"`
+	RunID                 string `json:"run_id"`
+	TaskID                string `json:"task_id"`
+	SourceDigest          string `json:"source_digest"`
+	RecordDigest          string `json:"record_digest"`
+	ArtifactDigest        string `json:"artifact_digest"`
+	ContentRef            string `json:"content_ref"`
+	OriginalRef           string `json:"original_ref"`
+	OperatorInterventions int    `json:"operator_interventions"`
+	RepairAttempts        int    `json:"repair_attempts"`
+	ReadOnly              bool   `json:"read_only"`
+	ExecutesWork          bool   `json:"executes_work"`
+	ApprovesWork          bool   `json:"approves_work"`
+	MutatesRepositories   bool   `json:"mutates_repositories"`
+	GeneratedAtUTC        string `json:"generated_at_utc"`
 }
 
 type NodeCounts struct {
@@ -791,6 +811,7 @@ type CommandStatus struct {
 	ApprovesWork               bool                               `json:"approves_work"`
 	MutatesRepositories        bool                               `json:"mutates_repositories"`
 	AtlasRecommendation        *AtlasRecommendationReadbackCounts `json:"atlas_recommendation,omitempty"`
+	AONextCandidate            *AONextCandidateProjection         `json:"ao_next_candidate,omitempty"`
 	Blockers                   []string                           `json:"blockers"`
 	GeneratedAtUTC             string                             `json:"generated_at_utc"`
 }
