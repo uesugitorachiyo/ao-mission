@@ -197,7 +197,9 @@ func importArtifact(
 			if rec.Evidence.AONextCandidate.ArtifactDigest == ref.Digest {
 				return nil
 			}
-			return fmt.Errorf("AO Next candidate terminal already bound to a different digest")
+			if rec.Evidence.AONextCandidate.RunID == aoNextProjection.RunID {
+				return fmt.Errorf("AO Next candidate run already bound to a different digest")
+			}
 		}
 		for _, existingRef := range rec.ArtifactRefs {
 			if existingRef.Ref != ref.Ref || existingRef.Kind != ref.Kind {

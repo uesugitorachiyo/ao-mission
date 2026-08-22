@@ -86,6 +86,23 @@ func TestAONextCandidateImportIsReadOnlyDigestIdempotentAndCommandVisible(t *tes
 		afterDrift.Status != statusBefore {
 		t.Fatalf("rejected drift mutated Mission: %#v", afterDrift)
 	}
+
+	nextDocument := validAONextCandidateRecord()
+	nextDocument["record_digest"] = "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+	nextDocument["measurement"].(map[string]any)["run_id"] = "run-windows-02"
+	nextPath := filepath.Join(t.TempDir(), "terminal-next-run.json")
+	writeAONextCandidateRecord(t, nextPath, nextDocument)
+	if _, err := ImportArtifact(store, record.MissionID, "ao-next-terminal", nextPath); err != nil {
+		t.Fatalf("new candidate run was not retained additively: %v", err)
+	}
+	latest, err := store.Load(record.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if latest.Evidence.AONextCandidate.RunID != "run-windows-02" || len(latest.ArtifactRefs) != 2 ||
+		latest.ArtifactRefs[0].Digest != projection.ArtifactDigest {
+		t.Fatalf("new candidate did not preserve prior evidence and update latest projection: %#v", latest)
+	}
 }
 
 func TestAONextCandidateImportFailsClosedWithoutMissionMutation(t *testing.T) {
