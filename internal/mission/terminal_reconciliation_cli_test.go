@@ -139,6 +139,128 @@ func TestCreateSliceCheckpointReplayConflictAndOrder(t *testing.T) {
 	})
 }
 
+func TestCreateSliceCheckpointRejectsInvalidEvidenceWithoutMutation(t *testing.T) {
+	newMission := func(t *testing.T) (Store, Record) {
+		t.Helper()
+		store := NewStore(t.TempDir())
+		contract, err := store.StartObjective(
+			"Coordinate one bounded implementation workgraph",
+			ObjectiveStartOptions{CorrelationID: "slice-validation-test"},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		record, err := store.Load(contract.MissionID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return store, record
+	}
+	assertRejectedWithoutCheckpoint := func(t *testing.T, store Store, record Record, options SliceCheckpointOptions, want string) {
+		t.Helper()
+		before, err := store.Load(record.MissionID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = CreateSliceCheckpoint(store, record.MissionID, options)
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Fatalf("wanted rejection containing %q, got %v", want, err)
+		}
+		after, loadErr := store.Load(record.MissionID)
+		if loadErr != nil {
+			t.Fatal(loadErr)
+		}
+		if !reflect.DeepEqual(after, before) {
+			t.Fatalf("failed slice checkpoint mutated record:\nbefore=%+v\nafter=%+v", before, after)
+		}
+	}
+
+	for _, test := range []struct {
+		name   string
+		slice  string
+		digest string
+		want   string
+	}{
+		{name: "empty slice", slice: "", digest: "sha256:" + strings.Repeat("a", 64), want: "slice must be one of S01 through S07"},
+		{name: "unknown slice", slice: "S08", digest: "sha256:" + strings.Repeat("a", 64), want: "slice must be one of S01 through S07"},
+		{name: "bare digest", slice: "S01", digest: strings.Repeat("a", 64), want: "evidence digest must be sha256"},
+		{name: "uppercase digest", slice: "S01", digest: "sha256:" + strings.Repeat("A", 64), want: "evidence digest must be sha256"},
+		{name: "short digest", slice: "S01", digest: "sha256:abcd", want: "evidence digest must be sha256"},
+		{name: "missing artifact", slice: "S01", digest: "sha256:" + strings.Repeat("a", 64), want: "not retained by Mission"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			store, record := newMission(t)
+			assertRejectedWithoutCheckpoint(t, store, record, SliceCheckpointOptions{Slice: test.slice, EvidenceDigest: test.digest}, test.want)
+		})
+	}
+
+	for _, test := range []struct {
+		name   string
+		mutate func(map[string]any)
+		want   string
+	}{
+		{name: "wrong correlation", mutate: func(doc map[string]any) { doc["correlation_id"] = "other-correlation" }, want: "correlation_id mismatch"},
+		{name: "wrong mission", mutate: func(doc map[string]any) { doc["mission_ref"] = "mission-other" }, want: "mission_ref mismatch"},
+		{name: "wrong slice", mutate: func(doc map[string]any) { doc["slice"] = "S02" }, want: "slice mismatch"},
+		{name: "non-pass result", mutate: func(doc map[string]any) { doc["result"] = "fail" }, want: "result must be pass"},
+		{name: "missing authority", mutate: func(doc map[string]any) { delete(doc["authority"].(map[string]any), "provider_calls") }, want: "authority missing property: provider_calls"},
+		{name: "true authority", mutate: func(doc map[string]any) { doc["authority"].(map[string]any)["provider_calls"] = true }, want: "authority must remain false: provider_calls"},
+		{name: "unknown authority", mutate: func(doc map[string]any) { doc["authority"].(map[string]any)["deploy_anyway"] = false }, want: "authority unknown property: deploy_anyway"},
+		{name: "authority case variant", mutate: func(doc map[string]any) { doc["authority"].(map[string]any)["Provider_Calls"] = false }, want: "authority field case variant"},
+		{name: "nested true authority", mutate: func(doc map[string]any) { doc["producer"] = map[string]any{"executes_work": true} }, want: "nested authority must remain false: /producer/executes_work"},
+		{name: "oversized evidence", mutate: func(doc map[string]any) { doc["padding"] = strings.Repeat("x", 16*1024*1024) }, want: "slice evidence exceeds 16777216 bytes"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			store, record := newMission(t)
+			digest := writeSliceCheckpointEvidence(t, store, record, "S01", test.mutate)
+			assertRejectedWithoutCheckpoint(t, store, record, SliceCheckpointOptions{Slice: "S01", EvidenceDigest: digest}, test.want)
+		})
+	}
+
+	t.Run("mismatched content ref", func(t *testing.T) {
+		store, record := newMission(t)
+		digest := writeSliceCheckpointEvidence(t, store, record, "S01", nil)
+		updated, err := store.Update(record.MissionID, func(candidate *Record) error {
+			candidate.ArtifactRefs[0].ContentRef = filepath.Join(store.Root, "artifacts", "sha256", strings.Repeat("b", 64))
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertRejectedWithoutCheckpoint(t, store, updated, SliceCheckpointOptions{Slice: "S01", EvidenceDigest: digest}, "content_ref is not the expected retained object")
+	})
+
+	t.Run("retained byte drift", func(t *testing.T) {
+		store, record := newMission(t)
+		digest := writeSliceCheckpointEvidence(t, store, record, "S01", nil)
+		current, err := store.Load(record.MissionID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(current.ArtifactRefs[0].ContentRef, []byte(`{"tampered":true}`), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		assertRejectedWithoutCheckpoint(t, store, current, SliceCheckpointOptions{Slice: "S01", EvidenceDigest: digest}, "retained evidence digest mismatch")
+	})
+
+	t.Run("duplicate JSON key", func(t *testing.T) {
+		store, record := newMission(t)
+		body := []byte(`{"schema":"ao.test.v1","correlation_id":"slice-validation-test","mission_ref":"` + record.MissionID + `","slice":"S01","result":"pass","result":"fail","authority":{}}`)
+		contentRef, digest, err := store.retainArtifact(body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		updated, err := store.Update(record.MissionID, func(candidate *Record) error {
+			candidate.ArtifactRefs = append(candidate.ArtifactRefs, ArtifactRef{Schema: ArtifactRefSchema, Ref: "duplicate.json", ContentRef: contentRef, Digest: digest})
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertRejectedWithoutCheckpoint(t, store, updated, SliceCheckpointOptions{Slice: "S01", EvidenceDigest: digest}, "duplicate JSON key")
+	})
+}
+
 func writeSliceCheckpointEvidence(
 	t *testing.T,
 	store Store,

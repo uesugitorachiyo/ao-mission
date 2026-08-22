@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	MissionCheckpointSchema = "ao.mission.checkpoint.v0.3"
-	CheckpointBundleSchema  = "ao.mission.checkpoint-resume-bundle.v0.3"
+	MissionCheckpointSchema  = "ao.mission.checkpoint.v0.3"
+	CheckpointBundleSchema   = "ao.mission.checkpoint-resume-bundle.v0.3"
+	maximumSliceEvidenceSize = 16 * 1024 * 1024
 )
 
 var (
@@ -18,6 +19,13 @@ var (
 	sliceEvidencePattern   = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 	sliceResultPattern     = regexp.MustCompile(`^slice_pass:(S0[1-7]):(sha256:[0-9a-f]{64})$`)
 )
+
+var sliceAuthorityFields = map[string]struct{}{
+	"safe_to_execute": {}, "executes_work": {}, "approves_work": {},
+	"mutates_repositories": {}, "provider_calls": {}, "credential_use": {},
+	"release": {}, "publication": {}, "deployment": {}, "promotion": {},
+	"compatibility_activation": {}, "external_beta": {}, "rsi": {},
+}
 
 type SliceCheckpointOptions struct {
 	Slice          string
@@ -147,6 +155,13 @@ func validateSliceCheckpointEvidence(s Store, record Record, options SliceCheckp
 		return fmt.Errorf("open retained evidence root: %w", err)
 	}
 	defer root.Close()
+	info, err := root.Lstat(objectName)
+	if err != nil {
+		return fmt.Errorf("inspect retained slice evidence: %w", err)
+	}
+	if info.Size() > maximumSliceEvidenceSize {
+		return fmt.Errorf("slice evidence exceeds %d bytes", maximumSliceEvidenceSize)
+	}
 	body, err := readRetainedArtifact(root, objectName)
 	if err != nil {
 		return err
@@ -180,13 +195,57 @@ func validateSliceCheckpointEvidence(s Store, record Record, options SliceCheckp
 	if !ok {
 		return fmt.Errorf("slice evidence authority must be an object")
 	}
-	for _, field := range []string{
-		"safe_to_execute", "executes_work", "approves_work", "mutates_repositories",
-		"provider_calls", "credential_use", "release", "publication", "deployment",
-		"promotion", "compatibility_activation", "external_beta", "rsi",
-	} {
-		if value, present := authority[field]; !present || value != false {
+	for field := range authority {
+		if _, known := sliceAuthorityFields[field]; known {
+			continue
+		}
+		for known := range sliceAuthorityFields {
+			if strings.EqualFold(field, known) {
+				return fmt.Errorf("slice evidence authority field case variant: %s", field)
+			}
+		}
+		return fmt.Errorf("slice evidence authority unknown property: %s", field)
+	}
+	for field := range sliceAuthorityFields {
+		value, present := authority[field]
+		if !present {
+			return fmt.Errorf("slice evidence authority missing property: %s", field)
+		}
+		if value != false {
 			return fmt.Errorf("slice evidence authority must remain false: %s", field)
+		}
+	}
+	if err := rejectNestedSliceAuthority(document, ""); err != nil {
+		return err
+	}
+	return nil
+}
+
+func rejectNestedSliceAuthority(value any, path string) error {
+	switch typed := value.(type) {
+	case map[string]any:
+		for field, child := range typed {
+			childPath := path + "/" + strings.ReplaceAll(strings.ReplaceAll(field, "~", "~0"), "/", "~1")
+			if _, known := sliceAuthorityFields[field]; known {
+				if child != false {
+					return fmt.Errorf("slice evidence nested authority must remain false: %s", childPath)
+				}
+			} else {
+				for known := range sliceAuthorityFields {
+					if strings.EqualFold(field, known) {
+						return fmt.Errorf("slice evidence authority field case variant: %s", childPath)
+					}
+				}
+			}
+			if err := rejectNestedSliceAuthority(child, childPath); err != nil {
+				return err
+			}
+		}
+	case []any:
+		for index, child := range typed {
+			if err := rejectNestedSliceAuthority(child, fmt.Sprintf("%s/%d", path, index)); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
