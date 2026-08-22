@@ -16,6 +16,7 @@ const (
 var (
 	sliceCheckpointPattern = regexp.MustCompile(`^S0[1-7]$`)
 	sliceEvidencePattern   = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
+	sliceResultPattern     = regexp.MustCompile(`^slice_pass:(S0[1-7]):(sha256:[0-9a-f]{64})$`)
 )
 
 type SliceCheckpointOptions struct {
@@ -76,6 +77,13 @@ func CreateSliceCheckpoint(s Store, missionID string, options SliceCheckpointOpt
 		if err := validateSliceCheckpointEvidence(s, *record, options); err != nil {
 			return err
 		}
+		appendCheckpoint, err := validateSliceCheckpointOrder(*record, options)
+		if err != nil {
+			return err
+		}
+		if !appendCheckpoint {
+			return nil
+		}
 		appendMissionCheckpoint(record, ContinuationStep{
 			Iteration:       len(record.Steps),
 			Route:           record.CurrentRoute,
@@ -89,6 +97,31 @@ func CreateSliceCheckpoint(s Store, missionID string, options SliceCheckpointOpt
 		return MissionCheckpointBundle{}, err
 	}
 	return BuildCheckpointBundle(record), nil
+}
+
+func validateSliceCheckpointOrder(record Record, options SliceCheckpointOptions) (bool, error) {
+	latestSlice := 0
+	for _, checkpoint := range record.Checkpoints {
+		match := sliceResultPattern.FindStringSubmatch(checkpoint.Result)
+		if match == nil {
+			continue
+		}
+		if match[1] == options.Slice {
+			if match[2] == options.EvidenceDigest {
+				return false, nil
+			}
+			return false, fmt.Errorf("slice %s already checkpointed with a different evidence digest", options.Slice)
+		}
+		current := int(match[1][2] - '0')
+		if current > latestSlice {
+			latestSlice = current
+		}
+	}
+	requested := int(options.Slice[2] - '0')
+	if requested != latestSlice+1 {
+		return false, fmt.Errorf("slice checkpoint is out of order: got %s after S%02d", options.Slice, latestSlice)
+	}
+	return true, nil
 }
 
 func validateSliceCheckpointEvidence(s Store, record Record, options SliceCheckpointOptions) error {

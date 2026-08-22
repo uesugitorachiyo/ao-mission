@@ -59,6 +59,86 @@ func TestCreateSliceCheckpointAppendsEvidenceBoundS01WithoutLifecycleMutation(t 
 	}
 }
 
+func TestCreateSliceCheckpointReplayConflictAndOrder(t *testing.T) {
+	newMission := func(t *testing.T) (Store, Record) {
+		t.Helper()
+		store := NewStore(t.TempDir())
+		contract, err := store.StartObjective(
+			"Coordinate one bounded implementation workgraph",
+			ObjectiveStartOptions{CorrelationID: "slice-order-test"},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		record, err := store.Load(contract.MissionID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return store, record
+	}
+
+	t.Run("exact replay is idempotent", func(t *testing.T) {
+		store, record := newMission(t)
+		digest := writeSliceCheckpointEvidence(t, store, record, "S01", nil)
+		options := SliceCheckpointOptions{Slice: "S01", EvidenceDigest: digest}
+		first, err := CreateSliceCheckpoint(store, record.MissionID, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		replay, err := CreateSliceCheckpoint(store, record.MissionID, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if replay.CheckpointCount != first.CheckpointCount {
+			t.Fatalf("exact replay appended a checkpoint: first=%d replay=%d", first.CheckpointCount, replay.CheckpointCount)
+		}
+	})
+
+	t.Run("same slice with another digest conflicts", func(t *testing.T) {
+		store, record := newMission(t)
+		first := writeSliceCheckpointEvidence(t, store, record, "S01", nil)
+		second := writeSliceCheckpointEvidence(t, store, record, "S01", func(document map[string]any) {
+			document["producer_note"] = "distinct reviewed evidence"
+		})
+		if _, err := CreateSliceCheckpoint(store, record.MissionID, SliceCheckpointOptions{Slice: "S01", EvidenceDigest: first}); err != nil {
+			t.Fatal(err)
+		}
+		_, err := CreateSliceCheckpoint(store, record.MissionID, SliceCheckpointOptions{Slice: "S01", EvidenceDigest: second})
+		if err == nil || !strings.Contains(err.Error(), "slice S01 already checkpointed with a different evidence digest") {
+			t.Fatalf("conflicting replay was not rejected: %v", err)
+		}
+	})
+
+	t.Run("S02 requires S01", func(t *testing.T) {
+		store, record := newMission(t)
+		digest := writeSliceCheckpointEvidence(t, store, record, "S02", nil)
+		_, err := CreateSliceCheckpoint(store, record.MissionID, SliceCheckpointOptions{Slice: "S02", EvidenceDigest: digest})
+		if err == nil || !strings.Contains(err.Error(), "slice checkpoint is out of order") {
+			t.Fatalf("out-of-order S02 was not rejected: %v", err)
+		}
+	})
+
+	t.Run("S02 follows S01 but S03 cannot skip S02", func(t *testing.T) {
+		store, record := newMission(t)
+		s01 := writeSliceCheckpointEvidence(t, store, record, "S01", nil)
+		s02 := writeSliceCheckpointEvidence(t, store, record, "S02", nil)
+		s03 := writeSliceCheckpointEvidence(t, store, record, "S03", nil)
+		if _, err := CreateSliceCheckpoint(store, record.MissionID, SliceCheckpointOptions{Slice: "S01", EvidenceDigest: s01}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := CreateSliceCheckpoint(store, record.MissionID, SliceCheckpointOptions{Slice: "S03", EvidenceDigest: s03}); err == nil || !strings.Contains(err.Error(), "slice checkpoint is out of order") {
+			t.Fatalf("skipped S02 was not rejected: %v", err)
+		}
+		bundle, err := CreateSliceCheckpoint(store, record.MissionID, SliceCheckpointOptions{Slice: "S02", EvidenceDigest: s02})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if bundle.CheckpointCount != 2 || bundle.LatestCheckpoint.Result != "slice_pass:S02:"+s02 {
+			t.Fatalf("S02 checkpoint mismatch: %+v", bundle)
+		}
+	})
+}
+
 func writeSliceCheckpointEvidence(
 	t *testing.T,
 	store Store,
