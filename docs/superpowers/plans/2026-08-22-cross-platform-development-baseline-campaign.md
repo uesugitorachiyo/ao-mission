@@ -20,6 +20,7 @@
 - Keep provider execution, deployment, promotion, compatibility activation, external beta, credentials, and RSI denied.
 - Preserve completed Windows-remediation evidence unchanged. New readiness claims must use new self-contained evidence.
 - Use new empty qualification roots and new Mission/Atlas identities. Never reuse consumed run roots.
+- Use correlation ID `ao-cross-platform-development-baseline-20260822-r2` and a new private, empty `AO_MISSION_HOME` outside every source checkout and previous campaign root. Preserve earlier intake readbacks only as diagnostic evidence; never resume or import them.
 - Mission coordinates and reconciles; it does not execute repository mutations or infer approval from readiness.
 - Execute slices sequentially. A failed slice blocks later slices until its owning fix is reviewed and the baseline identity is regenerated.
 
@@ -53,15 +54,44 @@ Expected: the commit exists and the blob digest is recorded in the Mission intak
 
 - [ ] **Step 2: Start one correlation-bound Mission**
 
-Run from AO Mission with a new empty `AO_MISSION_HOME`:
+Run from the AO Mission checkout containing this reviewed plan. First require a
+tracked-clean exact source commit and a new operator-selected private root:
+
+```powershell
+git diff --quiet
+if ($LASTEXITCODE -ne 0) { throw "AO Mission tracked worktree is dirty" }
+git diff --cached --quiet
+if ($LASTEXITCODE -ne 0) { throw "AO Mission index is dirty" }
+$missionSourceCommit = git rev-parse HEAD
+if ($LASTEXITCODE -ne 0) { throw "cannot resolve AO Mission source commit" }
+if (-not $env:AO_BASELINE_CAMPAIGN_ROOT) { throw "AO_BASELINE_CAMPAIGN_ROOT is required" }
+$campaignRoot = [System.IO.Path]::GetFullPath($env:AO_BASELINE_CAMPAIGN_ROOT)
+$sourceRoot = [System.IO.Path]::GetFullPath((Get-Location).Path)
+if ($campaignRoot.StartsWith($sourceRoot + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
+  throw "campaign root must be outside the AO Mission checkout"
+}
+if (Test-Path -LiteralPath $campaignRoot) { throw "campaign root already exists" }
+[void](New-Item -ItemType Directory -Path $campaignRoot)
+$env:AO_MISSION_HOME = Join-Path $campaignRoot "mission-state"
+[void](New-Item -ItemType Directory -Path $env:AO_MISSION_HOME)
+```
+
+Record `$missionSourceCommit` in intake evidence. Do not use an installed AO
+Mission binary, container image, previous Mission home, or previous campaign
+root. Then start the replacement Mission:
 
 ```powershell
 go run ./cmd/ao-mission objective start `
-  --objective "Create and independently qualify one exact AO full-source development baseline that materializes from clean inputs and produces semantically equivalent credential-free results on macOS and Windows, without beginning AO Office Pool or widening release, provider, deployment, promotion, compatibility, credential, or RSI authority." `
-  --correlation-id ao-cross-platform-development-baseline-20260822
+  --objective "Create and independently qualify one exact AO full-source development baseline that materializes from clean inputs and produces semantically equivalent credential-free results on macOS and Windows, without beginning AO Office Pool or widening release, provider, deployment, promotion, compatibility, credential, or RSI authority. Coordinate this as one bounded implementation workgraph." `
+  --correlation-id ao-cross-platform-development-baseline-20260822-r2
 ```
 
-Expected: one new mission is persisted, the route is `complex`, and the first destination is Blueprint.
+Expected: one new Mission is persisted, `routing_class=complex`,
+`initial_route=ao-atlas`, AO Atlas is `required`, AO Blueprint is `omitted`, and
+all execution and approval authority flags remain false. Stop before S01 if any
+field differs. Blueprint remains mandatory in the independently exercised S04
+fixture; accepted complex Mission intake does not itself repeat Blueprint
+requirements acceptance.
 
 - [ ] **Step 3: Record the campaign constraints**
 
