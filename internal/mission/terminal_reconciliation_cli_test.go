@@ -379,6 +379,78 @@ func TestCheckpointCreateAppendsOneIdempotentReadOnlyCheckpoint(t *testing.T) {
 	}
 }
 
+func TestCheckpointCreateEvidenceBoundSliceCLI(t *testing.T) {
+	home := t.TempDir()
+	store := NewStore(home)
+	contract, err := store.StartObjective(
+		"Coordinate one bounded implementation workgraph",
+		ObjectiveStartOptions{CorrelationID: "slice-cli-test"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	record, err := store.Load(contract.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := writeSliceCheckpointEvidence(t, store, record, "S01", nil)
+
+	for _, test := range []struct {
+		name string
+		args []string
+	}{
+		{
+			name: "slice without digest",
+			args: []string{"--home", home, "checkpoint", "create", "--mission", record.MissionID, "--slice", "S01", "--json"},
+		},
+		{
+			name: "digest without slice",
+			args: []string{"--home", home, "checkpoint", "create", "--mission", record.MissionID, "--evidence-digest", digest, "--json"},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			if code := Run(test.args, &stdout, &stderr); code == 0 ||
+				!strings.Contains(stderr.String(), "checkpoint create requires --slice and --evidence-digest together") || stdout.Len() != 0 {
+				t.Fatalf("unpaired flags accepted: code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+			}
+		})
+	}
+
+	args := []string{
+		"--home", home, "checkpoint", "create", "--mission", record.MissionID,
+		"--slice", "S01", "--evidence-digest", digest, "--json",
+	}
+	for attempt := 0; attempt < 2; attempt++ {
+		var stdout, stderr bytes.Buffer
+		if code := Run(args, &stdout, &stderr); code != 0 {
+			t.Fatalf("slice checkpoint attempt %d: code=%d stderr=%s", attempt+1, code, stderr.String())
+		}
+		var bundle MissionCheckpointBundle
+		if err := json.Unmarshal(stdout.Bytes(), &bundle); err != nil {
+			t.Fatal(err)
+		}
+		if bundle.CheckpointCount != 1 || bundle.LatestCheckpoint == nil ||
+			bundle.LatestCheckpoint.Result != "slice_pass:S01:"+digest ||
+			bundle.ExecutesWork || bundle.ApprovesWork || bundle.MutatesRepositories {
+			t.Fatalf("unexpected slice checkpoint bundle: %+v", bundle)
+		}
+	}
+
+	var stdout, stderr bytes.Buffer
+	textArgs := args[:len(args)-1]
+	if code := Run(textArgs, &stdout, &stderr); code != 0 {
+		t.Fatalf("text replay: code=%d stderr=%s", code, stderr.String())
+	}
+	for _, line := range []string{
+		"checkpoints=1", "safe_to_execute=false", "executes_work=false", "approves_work=false",
+	} {
+		if !strings.Contains(stdout.String(), line) {
+			t.Fatalf("text readback missing %q: %s", line, stdout.String())
+		}
+	}
+}
+
 func TestCheckpointCreateDoesNotChangePauseSemantics(t *testing.T) {
 	store := NewStore(t.TempDir())
 	record, err := store.Start("pause without creating a checkpoint")

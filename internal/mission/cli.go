@@ -759,6 +759,11 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 		fs := flag.NewFlagSet("checkpoint "+args[1], flag.ContinueOnError)
 		id := fs.String("mission", "", "")
 		jsonOut := fs.Bool("json", false, "")
+		var slice, evidenceDigest *string
+		if args[1] == "create" {
+			slice = fs.String("slice", "", "")
+			evidenceDigest = fs.String("evidence-digest", "", "")
+		}
 		if err := fs.Parse(args[2:]); err != nil {
 			return err
 		}
@@ -768,7 +773,18 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 		var bundle MissionCheckpointBundle
 		var err error
 		if args[1] == "create" {
-			bundle, err = CreateMissionCheckpoint(s, *id)
+			hasSlice := strings.TrimSpace(*slice) != ""
+			hasEvidence := strings.TrimSpace(*evidenceDigest) != ""
+			if hasSlice != hasEvidence {
+				return errors.New("checkpoint create requires --slice and --evidence-digest together")
+			}
+			if hasSlice {
+				bundle, err = CreateSliceCheckpoint(s, *id, SliceCheckpointOptions{
+					Slice: *slice, EvidenceDigest: *evidenceDigest,
+				})
+			} else {
+				bundle, err = CreateMissionCheckpoint(s, *id)
+			}
 		} else {
 			bundle, err = s.LoadCheckpointBundle(*id)
 		}
