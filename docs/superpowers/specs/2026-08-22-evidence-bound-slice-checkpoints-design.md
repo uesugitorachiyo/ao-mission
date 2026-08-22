@@ -64,6 +64,11 @@ Rules:
   slice, report `result: "pass"`, and preserve false execution, approval,
   repository-mutation, provider, credential, release, publication, deployment,
   promotion, compatibility, external-beta, and RSI authority.
+- Producer-specific evidence fields are preserved and may vary by slice. The
+  validator requires the common identity/result fields, rejects duplicate JSON
+  keys, requires the exact top-level authority object, and recursively rejects
+  any known authority field that is true or case-variant anywhere in the
+  document.
 - The checkpoint result is
   `slice_pass:<slice>:sha256:<64-lowercase-hex>`.
 - Exact replay returns the existing checkpoint bundle without appending.
