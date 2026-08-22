@@ -7,6 +7,7 @@ authorization prompts in the active operator surface.
 
 | Handoff | Status | Notes |
 | --- | --- | --- |
+| [Cross-platform development baseline](active/ao-cross-platform-development-baseline-handoff-prompt.md) | active-next | Creates the clean macOS/Windows AO development foundation; explicitly excludes AO Office Pool implementation. |
 | [Six-month roadmap](active/ao-stack-six-month-roadmap-handoff-prompt.md) | governing pointer | Points to the single canonical Mission execution prompt. |
 | [Month 5 beta operations](active/ao-stack-month5-beta-operations-handoff-prompt.md) | active-next | Current execution prompt after Month 4 parent reconciliation. |
 
