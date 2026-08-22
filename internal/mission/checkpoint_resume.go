@@ -1,11 +1,27 @@
 package mission
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+	"path/filepath"
+	"regexp"
+	"strings"
+)
 
 const (
 	MissionCheckpointSchema = "ao.mission.checkpoint.v0.3"
 	CheckpointBundleSchema  = "ao.mission.checkpoint-resume-bundle.v0.3"
 )
+
+var (
+	sliceCheckpointPattern = regexp.MustCompile(`^S0[1-7]$`)
+	sliceEvidencePattern   = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
+)
+
+type SliceCheckpointOptions struct {
+	Slice          string
+	EvidenceDigest string
+}
 
 func appendMissionCheckpoint(r *Record, step ContinuationStep) MissionCheckpoint {
 	checkpoint := MissionCheckpoint{
@@ -47,6 +63,100 @@ func CreateMissionCheckpoint(s Store, missionID string) (MissionCheckpointBundle
 		return MissionCheckpointBundle{}, err
 	}
 	return BuildCheckpointBundle(record), nil
+}
+
+func CreateSliceCheckpoint(s Store, missionID string, options SliceCheckpointOptions) (MissionCheckpointBundle, error) {
+	if !sliceCheckpointPattern.MatchString(options.Slice) {
+		return MissionCheckpointBundle{}, fmt.Errorf("slice must be one of S01 through S07")
+	}
+	if !sliceEvidencePattern.MatchString(options.EvidenceDigest) {
+		return MissionCheckpointBundle{}, fmt.Errorf("evidence digest must be sha256 followed by 64 lowercase hex characters")
+	}
+	record, err := s.Update(missionID, func(record *Record) error {
+		if err := validateSliceCheckpointEvidence(s, *record, options); err != nil {
+			return err
+		}
+		appendMissionCheckpoint(record, ContinuationStep{
+			Iteration:       len(record.Steps),
+			Route:           record.CurrentRoute,
+			Result:          "slice_pass:" + options.Slice + ":" + options.EvidenceDigest,
+			ExactNextAction: record.ExactNextAction,
+			GeneratedAtUTC:  now(s.Clock),
+		})
+		return nil
+	})
+	if err != nil {
+		return MissionCheckpointBundle{}, err
+	}
+	return BuildCheckpointBundle(record), nil
+}
+
+func validateSliceCheckpointEvidence(s Store, record Record, options SliceCheckpointOptions) error {
+	var ref *ArtifactRef
+	for index := range record.ArtifactRefs {
+		if record.ArtifactRefs[index].Digest == options.EvidenceDigest {
+			if ref != nil {
+				return fmt.Errorf("evidence digest resolves to multiple artifact references")
+			}
+			ref = &record.ArtifactRefs[index]
+		}
+	}
+	if ref == nil {
+		return fmt.Errorf("evidence digest is not retained by Mission")
+	}
+	objectName := filepath.Join(retainedArtifactDirectory, strings.TrimPrefix(options.EvidenceDigest, "sha256:"))
+	expectedRef := filepath.Join(s.Root, objectName)
+	if filepath.Clean(ref.ContentRef) != filepath.Clean(expectedRef) {
+		return fmt.Errorf("evidence content_ref is not the expected retained object")
+	}
+	root, err := openRetainedArtifactRoot(s.Root)
+	if err != nil {
+		return fmt.Errorf("open retained evidence root: %w", err)
+	}
+	defer root.Close()
+	body, err := readRetainedArtifact(root, objectName)
+	if err != nil {
+		return err
+	}
+	if digestBytes(body) != options.EvidenceDigest {
+		return fmt.Errorf("retained evidence digest mismatch")
+	}
+	if err := validateNoDuplicateJSONKeys(body); err != nil {
+		return fmt.Errorf("slice evidence: %w", err)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(body, &document); err != nil {
+		return fmt.Errorf("slice evidence must be one JSON object: %w", err)
+	}
+	if schema, ok := document["schema"].(string); !ok || strings.TrimSpace(schema) == "" {
+		return fmt.Errorf("slice evidence schema is required")
+	}
+	if document["correlation_id"] != record.CorrelationID {
+		return fmt.Errorf("slice evidence correlation_id mismatch")
+	}
+	if document["mission_ref"] != record.MissionID {
+		return fmt.Errorf("slice evidence mission_ref mismatch")
+	}
+	if document["slice"] != options.Slice {
+		return fmt.Errorf("slice evidence slice mismatch")
+	}
+	if document["result"] != "pass" {
+		return fmt.Errorf("slice evidence result must be pass")
+	}
+	authority, ok := document["authority"].(map[string]any)
+	if !ok {
+		return fmt.Errorf("slice evidence authority must be an object")
+	}
+	for _, field := range []string{
+		"safe_to_execute", "executes_work", "approves_work", "mutates_repositories",
+		"provider_calls", "credential_use", "release", "publication", "deployment",
+		"promotion", "compatibility_activation", "external_beta", "rsi",
+	} {
+		if value, present := authority[field]; !present || value != false {
+			return fmt.Errorf("slice evidence authority must remain false: %s", field)
+		}
+	}
+	return nil
 }
 
 func BuildCheckpointBundle(r Record) MissionCheckpointBundle {

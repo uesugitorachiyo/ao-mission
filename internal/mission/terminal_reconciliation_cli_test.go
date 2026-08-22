@@ -5,9 +5,112 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
+
+func TestCreateSliceCheckpointAppendsEvidenceBoundS01WithoutLifecycleMutation(t *testing.T) {
+	home := t.TempDir()
+	store := NewStore(home)
+	contract, err := store.StartObjective(
+		"Coordinate one bounded implementation workgraph",
+		ObjectiveStartOptions{CorrelationID: "cross-platform-baseline-test"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	record, err := store.Load(contract.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := writeSliceCheckpointEvidence(t, store, record, "S01", nil)
+	before, err := store.Load(record.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bundle, err := CreateSliceCheckpoint(store, record.MissionID, SliceCheckpointOptions{
+		Slice: "S01", EvidenceDigest: digest,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bundle.CheckpointCount != 1 || bundle.LatestCheckpoint == nil {
+		t.Fatalf("missing S01 checkpoint: %+v", bundle)
+	}
+	if bundle.LatestCheckpoint.Result != "slice_pass:S01:"+digest {
+		t.Fatalf("wrong evidence binding: %+v", bundle.LatestCheckpoint)
+	}
+	if bundle.ExecutesWork || bundle.ApprovesWork || bundle.MutatesRepositories {
+		t.Fatalf("slice checkpoint widened authority: %+v", bundle)
+	}
+
+	after, err := store.Load(record.MissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before.UpdatedAtUTC = ""
+	after.UpdatedAtUTC = ""
+	before.Checkpoints = nil
+	after.Checkpoints = nil
+	if !reflect.DeepEqual(after, before) {
+		t.Fatalf("slice checkpoint changed Mission lifecycle:\nbefore=%+v\nafter=%+v", before, after)
+	}
+}
+
+func writeSliceCheckpointEvidence(
+	t *testing.T,
+	store Store,
+	record Record,
+	slice string,
+	mutate func(map[string]any),
+) string {
+	t.Helper()
+	document := map[string]any{
+		"schema":         "ao.architecture.development-baseline-slice-evidence.v1",
+		"correlation_id": record.CorrelationID,
+		"mission_ref":    record.MissionID,
+		"slice":          slice,
+		"result":         "pass",
+		"authority": map[string]any{
+			"safe_to_execute":          false,
+			"executes_work":            false,
+			"approves_work":            false,
+			"mutates_repositories":     false,
+			"provider_calls":           false,
+			"credential_use":           false,
+			"release":                  false,
+			"publication":              false,
+			"deployment":               false,
+			"promotion":                false,
+			"compatibility_activation": false,
+			"external_beta":            false,
+			"rsi":                      false,
+		},
+	}
+	if mutate != nil {
+		mutate(document)
+	}
+	body, err := json.Marshal(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contentRef, digest, err := store.retainArtifact(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Update(record.MissionID, func(candidate *Record) error {
+		candidate.ArtifactRefs = append(candidate.ArtifactRefs, ArtifactRef{
+			Schema: ArtifactRefSchema, Ref: "slice-evidence.json", ContentRef: contentRef,
+			Digest: digest, Kind: "correlation-evidence",
+		})
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return digest
+}
 
 func TestOperatorReadbackSchemasDeclareTerminalProjectionFields(t *testing.T) {
 	for _, name := range []string{"command-status-v0.1.schema.json", "dashboard-readback-v0.1.schema.json"} {
