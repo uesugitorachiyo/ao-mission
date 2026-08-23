@@ -545,6 +545,30 @@ func TestReleaseNotesAreCommittedAndBoundToExactHead(t *testing.T) {
 	}
 }
 
+func TestV016ReleaseNotesBoundCandidateAndCheckpointAuthority(t *testing.T) {
+	notes := mustReadFile(t, filepath.Join("..", "..", "docs", "release", "V0.1.6-RELEASE-NOTES.md"))
+	for _, want := range []string{
+		"# AO Mission v0.1.6 Release Notes",
+		"ao.next.live-run-record.v1",
+		"S01, S02, S03, S04, S05, S06, S07",
+		"idempotent",
+		"execution: false",
+		"approval: false",
+		"repository_mutation: false",
+		"provider_calls: false",
+		"publication: false",
+		"promotion: false",
+		"compatibility activation",
+		"beta",
+		"RSI",
+		"AO Office Pool",
+	} {
+		if !bytes.Contains(notes, []byte(want)) {
+			t.Fatalf("v0.1.6 release notes missing %q", want)
+		}
+	}
+}
+
 func TestPublishedReleaseVerifierBindsRepositoryWithoutCheckout(t *testing.T) {
 	workflow := readReleaseWorkflow(t)
 	verifier := strings.Split(workflow, "  verify-published-release:")[1]
