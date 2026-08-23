@@ -1,6 +1,7 @@
 # AO Next Integration Six-Month Roadmap
 
-- Status: conditional roadmap; Month 1 feasibility only
+- Status: stopped after Month 1; `STOP_SUCCESSOR_WORK`
+- Decision: [AO Next Windows Successor-Slice Month 1 Decision](ao-next-windows-successor-slice-month1-decision.md)
 - Created: 2026-08-21
 - Revised: 2026-08-22
 - Durable lifecycle owner: AO Mission
@@ -16,6 +17,9 @@
 Determine whether a narrow AO Next successor architecture is materially simpler
 than extending the existing AO2/Mission execution boundary without weakening
 authority, recovery, evidence, compatibility, or rollback guarantees.
+
+Month 1 ended with `STOP_SUCCESSOR_WORK`. Months 2-6 remain unauthorized and
+must not start from this roadmap.
 
 Month 1 is a bounded 40-60 focused-hour feasibility slice. Months 2-6 remain
 conditional and cannot start unless Month 1 records

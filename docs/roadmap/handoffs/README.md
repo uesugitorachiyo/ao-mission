@@ -8,13 +8,13 @@ authorization prompts in the active operator surface.
 | Handoff | Status | Notes |
 | --- | --- | --- |
 | [Six-month roadmap](active/ao-stack-six-month-roadmap-handoff-prompt.md) | governing pointer | Points to the single canonical Mission execution prompt. |
-| [AO Next successor slice](active/ao-next-integration-six-month-handoff-prompt.md) | bounded feasibility | Runs only the 40-60 focused-hour Windows slice and stops before conditional Months 2-6. |
 | [Month 5 beta operations](active/ao-stack-month5-beta-operations-handoff-prompt.md) | active-next | Current execution prompt after Month 4 parent reconciliation. |
 
 ## Completed History
 
 | Handoff | Status | Notes |
 | --- | --- | --- |
+| [AO Next successor slice](completed/ao-next-integration-six-month-handoff-prompt.md) | stopped | Month 1 recorded `STOP_SUCCESSOR_WORK`; Months 2-6 remain unauthorized. Do not re-execute. |
 | [Cross-platform development baseline](completed/ao-cross-platform-development-baseline-handoff-prompt.md) | completed | Qualified the frozen 14-repository baseline on clean macOS and Windows hosts; AO Office Pool remains a separate future objective. |
 | [Month 3 golden path](completed/ao-stack-month3-golden-path-implementation-handoff.md) | completed | Historical prompt for the completed Month 3 implementation wave. Do not re-execute. |
 | [Month 4 consolidation](completed/ao-stack-month4-consolidation-handoff-prompt.md) | completed | Historical source prompt for the completed Month 4 baseline and continuation-soak waves. Do not re-execute. |
