@@ -41,9 +41,10 @@ invalidate the separately released and qualified Windows AO stack.
 
 ## Measurements
 
-- Focused time through the node-7 disposition: 5,079 seconds, or 1.411
-  focused hours. The terminal evidence failure ended the slice early; no
-  calendar or elapsed-time padding was added toward the 40-60-hour ceiling.
+- Total focused time through the decision: 5,499 seconds, or 1.528 focused
+  hours. Nodes 1-7 used 5,079 seconds; decision authoring and verification used
+  420 seconds. The terminal evidence failure ended the slice early; no calendar
+  or elapsed-time padding was added toward the 40-60-hour ceiling.
 - AO Next implementation delta: 635 lines added and 12 deleted across three
   implementation files, net +623 lines. The repository moved from 15,220 to
   15,843 tracked implementation lines while remaining at 31 implementation

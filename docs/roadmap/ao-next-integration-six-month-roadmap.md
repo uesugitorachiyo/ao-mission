@@ -3,7 +3,7 @@
 - Status: stopped after Month 1; `STOP_SUCCESSOR_WORK`
 - Decision: [AO Next Windows Successor-Slice Month 1 Decision](ao-next-windows-successor-slice-month1-decision.md)
 - Created: 2026-08-21
-- Revised: 2026-08-22
+- Revised: 2026-08-23
 - Durable lifecycle owner: AO Mission
 - Slice execution owner: AO Next
 - Implementation owners: AO Next, AO Mission, AO2, and
