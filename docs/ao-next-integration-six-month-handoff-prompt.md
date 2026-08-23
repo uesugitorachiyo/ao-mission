@@ -1,7 +1,8 @@
 # AO Next Windows Successor-Slice Handoff
 
 - Status: bounded feasibility handoff; stops after the Month 1 decision
-- Execution owner: AO Mission
+- Durable lifecycle owner: AO Mission
+- Slice execution owner: AO Next
 - Implementation owners: AO Next and AO Mission
 - Comparison and rollback baseline: AO2
 - Execution client: Codex

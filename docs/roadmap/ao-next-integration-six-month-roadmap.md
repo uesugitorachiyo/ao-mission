@@ -3,7 +3,8 @@
 - Status: conditional roadmap; Month 1 feasibility only
 - Created: 2026-08-21
 - Revised: 2026-08-22
-- Execution owner: AO Mission
+- Durable lifecycle owner: AO Mission
+- Slice execution owner: AO Next
 - Implementation owners: AO Next, AO Mission, AO2, and
   `ao-mission/plugins/ao-stack`
 - Trigger: start only after the active AO Stack production-adoption Mission
@@ -18,7 +19,8 @@ authority, recovery, evidence, compatibility, or rollback guarantees.
 
 Month 1 is a bounded 40-60 focused-hour feasibility slice. Months 2-6 remain
 conditional and cannot start unless Month 1 records
-`ADVANCE_SUCCESSOR_ARCHITECTURE`. AO2 remains available for release,
+`ADVANCE_SUCCESSOR_ARCHITECTURE` and the operator approves a separate bounded
+handoff for the next month. AO2 remains available for release,
 cross-host, legacy, and rollback work until current-head evidence proves that
 another owner covers each required capability. Codex executes bounded
 implementation tasks. AO Mission remains the durable program ledger and source
@@ -125,7 +127,8 @@ Decision gate:
 
 - `ADVANCE_SUCCESSOR_ARCHITECTURE`: the slice is materially simpler, preserves
   the required safety and readback semantics, and makes the next Windows
-  capability cheaper to add. Months 2-6 may start.
+  capability cheaper to add. Months 2-6 become eligible for separate bounded
+  handoffs; this decision does not authorize or start them.
 - `KEEP_AO_NEXT_AS_EXECUTION_KERNEL`: the slice works, but moving surrounding
   ownership creates semantic duplication or no measured simplification.
   Retain AO Next as a bounded execution kernel and stop this roadmap.
@@ -283,7 +286,9 @@ Success criteria:
 
 ## Monthly Operating Contract
 
-At each month start after its entry gate passes:
+After a later month's entry gate passes, the operator must approve a separate
+bounded handoff for that month. The entry gate alone grants no execution or
+mutation authority. Once that handoff is approved:
 
 1. Verify the preceding terminal index and artifact manifest.
 2. Inventory exact source heads and unresolved operator decisions.
