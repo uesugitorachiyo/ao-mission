@@ -41,6 +41,7 @@ ao-mission mission verification-bundle --mission <id> [--readiness-bundle <bundl
 ao-mission mission compact --mission <id> [--keep-route-history N] [--keep-steps N] [--timeline]
 ao-mission continue --mission <id> [--until-done] [--max-iterations N] [--min-nodes N] [--min-minutes N] [--max-minutes N] [--return-only-when <gate>] [--checkpoint-policy <policy>]
 ao-mission checkpoint create --mission <id> [--json]
+ao-mission checkpoint create --mission <id> --slice S01 --evidence-digest sha256:<digest> [--json]
 ao-mission checkpoint inspect --mission <id> [--json]
 ao-mission status --mission <id> [--terminal-state <state.json>] [--json]
 ao-mission command status --mission <id> [--terminal-state <state.json>] [--json]
@@ -106,6 +107,11 @@ legacy records continue to omit that optional field.
 
 By default state is stored under `.ao-mission/`. Use `AO_MISSION_HOME` to choose another state root.
 Every command also accepts `--home <dir>` before the command name for explicit local state routing.
+
+Evidence-bound slice checkpoints accept only ordered `S01` through `S07` and
+an exact retained passing-evidence digest. Exact replay is idempotent; a
+conflicting digest or skipped slice fails closed. This mode appends a checkpoint
+without changing Mission status, route, phase, next action, or authority.
 
 ### Content-addressed evidence retention
 

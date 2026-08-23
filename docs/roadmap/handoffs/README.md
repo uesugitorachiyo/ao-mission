@@ -14,6 +14,7 @@ authorization prompts in the active operator surface.
 
 | Handoff | Status | Notes |
 | --- | --- | --- |
+| [Cross-platform development baseline](completed/ao-cross-platform-development-baseline-handoff-prompt.md) | completed | Qualified the frozen 14-repository baseline on clean macOS and Windows hosts; AO Office Pool remains a separate future objective. |
 | [Month 3 golden path](completed/ao-stack-month3-golden-path-implementation-handoff.md) | completed | Historical prompt for the completed Month 3 implementation wave. Do not re-execute. |
 | [Month 4 consolidation](completed/ao-stack-month4-consolidation-handoff-prompt.md) | completed | Historical source prompt for the completed Month 4 baseline and continuation-soak waves. Do not re-execute. |
 | [Foundry bridge](completed/ao-stack-productization-foundry-bridge-handoff.md) | completed | One-time planning authorization superseded by later merged work. Do not re-execute. |
