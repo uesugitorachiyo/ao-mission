@@ -1,6 +1,7 @@
 # AO Next Windows Successor-Slice Handoff
 
-- Status: bounded feasibility handoff; stops after the Month 1 decision
+- Status: completed; Month 1 recorded `STOP_SUCCESSOR_WORK`
+- Decision: [AO Next Windows Successor-Slice Month 1 Decision](roadmap/ao-next-windows-successor-slice-month1-decision.md)
 - Durable lifecycle owner: AO Mission
 - Slice execution owner: AO Next
 - Implementation owners: AO Next and AO Mission
@@ -12,6 +13,8 @@
 
 This is the canonical first-stage handoff for the conditional
 [AO Next Integration Six-Month Roadmap](roadmap/ao-next-integration-six-month-roadmap.md).
+Its one authorized execution ended with `STOP_SUCCESSOR_WORK`. Do not re-run or
+extend it without a new operator-approved handoff.
 Run it from a clean AO Mission repository inside the shared parent workspace.
 AO Mission owns durable state. Codex executes bounded nodes and must not become
 the only record of progress.
