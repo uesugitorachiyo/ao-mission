@@ -259,7 +259,7 @@ func TestImportTerminalIndexPreservesFailClosedTiming(t *testing.T) {
 }
 
 func TestBuildHistoricalMissionTerminalIndexFailsClosed(t *testing.T) {
-	root := filepath.Join("..", "..", "docs", "evidence", "ao-mission-doubled-wave-v01")
+	root := filepath.Join("..", "..", "testdata", "production-readiness", "ao-mission-doubled-wave-v01")
 	index, err := BuildHistoricalMissionTerminalIndex(root, "2026-07-28T12:00:00Z")
 	if err != nil {
 		t.Fatal(err)

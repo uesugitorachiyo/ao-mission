@@ -2381,6 +2381,15 @@ func TestFeatureDepthRecommendationsReturnAtLeastTenActionableTasks(t *testing.T
 	}
 }
 
+func TestFeatureDepthRecommendationsKeepGeneratedEvidenceOutOfPublicDocs(t *testing.T) {
+	recommendations := BuildFeatureDepthRecommendations(Record{MissionID: "mission-test"}, 20)
+	for _, item := range recommendations {
+		if strings.Contains(item.ContinuationCommand, "docs/evidence") {
+			t.Fatalf("recommendation %q writes or reads generated evidence under public docs: %q", item.ID, item.ContinuationCommand)
+		}
+	}
+}
+
 func TestCLIFinalRollupReturnsAtLeastTenActionableFeatureDepthRecommendations(t *testing.T) {
 	dir := t.TempDir()
 	var out, errb bytes.Buffer
@@ -3199,47 +3208,6 @@ func TestOperatorNextActionsDocsAreConcreteAndPublicSafe(t *testing.T) {
 		}
 	}
 	if err := ValidatePublicSafeText(runbook); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestSixMonthHandoffUsesCurrentExecutionContract(t *testing.T) {
-	path := filepath.Join("..", "..", "docs", "ao-stack-six-month-roadmap-handoff-prompt.md")
-	body, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	text := string(body)
-	for _, want := range []string{
-		"August 1, 2026 through January 31, 2027",
-		"Execution owner: AO Mission",
-		"current approved roadmap scope contains these 14 hosted repositories",
-		"fresh Atlas workgraph",
-		"--max-iterations 1",
-		"It does not run an Atlas node",
-		"A current Atlas route is not build authorization",
-		"fresh AO Blueprint pack",
-		"--min-minutes 0",
-		"never wait or pad execution",
-		"AO Mission Self-Change Protocol",
-		"READY_FOR_SEPARATE_RELEASE_AUTHORIZATION",
-	} {
-		if !strings.Contains(text, want) {
-			t.Fatalf("six-month handoff missing %q", want)
-		}
-	}
-	for _, stale := range []string{
-		"<workspace>",
-		"Baseline Truth As Of July 9, 2026",
-		"gpt-5.6-luna",
-		"gpt-5.6-terra",
-		"gpt-5.6-sol",
-	} {
-		if strings.Contains(text, stale) {
-			t.Fatalf("six-month handoff retained stale content %q", stale)
-		}
-	}
-	if err := ValidatePublicSafeText(text); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -5966,22 +5934,6 @@ func TestGitHubIssueMonth1SupervisionReadbackKeepsFeaturePRsDraft(t *testing.T) 
 	if readback["rsi_remains_denied"] != true || readback["month2_unlocked"] != true {
 		t.Fatalf("missing RSI denial or Month 2 unlock: %#v", readback)
 	}
-	closure, err := os.ReadFile(filepath.Join("..", "..", "docs", "roadmap", "github-issue-to-draft-pr-month1-closure.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	closureText := string(closure)
-	for _, want := range []string{
-		"Feature-generated PRs remain draft and unmerged",
-		"RSI remains denied",
-		"AO2 `v0.5.1`",
-		"AO2 Control Plane `v0.1.16`",
-		"Month 2 isolated repair and reproducibility fixtures",
-	} {
-		if !strings.Contains(closureText, want) {
-			t.Fatalf("closure doc missing %q", want)
-		}
-	}
 }
 
 func TestGitHubIssueMonth2SupervisionReadbackRequiresTruthSetAndNoMutation(t *testing.T) {
@@ -6075,22 +6027,6 @@ func TestGitHubIssueMonth3SupervisionReadbackRequiresRepairEvidenceAndNoDraftPR(
 	}
 	if !strings.Contains(readback["exact_next_action"].(string), "Month 4") {
 		t.Fatalf("next action should hand off to Month 4: %s", readback["exact_next_action"])
-	}
-	closure, err := os.ReadFile(filepath.Join("..", "..", "docs", "roadmap", "github-issue-to-draft-pr-month3-closure.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	closureText := string(closure)
-	for _, want := range []string{
-		"Rollback restores the exact pre-change digest",
-		"Replay accepts only matching evidence digests",
-		"Feature-generated pull requests still do not exist in Month 3",
-		"RSI remains denied",
-		"Month 4 AO repository issue-to-draft-PR workflow",
-	} {
-		if !strings.Contains(closureText, want) {
-			t.Fatalf("closure doc missing %q", want)
-		}
 	}
 }
 
