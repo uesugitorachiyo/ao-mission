@@ -9,6 +9,7 @@ authorization prompts in the active operator surface.
 | --- | --- | --- |
 | [Six-month roadmap](active/ao-stack-six-month-roadmap-handoff-prompt.md) | governing pointer | Points to the single canonical Mission execution prompt. |
 | [Month 5 beta operations](active/ao-stack-month5-beta-operations-handoff-prompt.md) | active-next | Current execution prompt after Month 4 parent reconciliation. |
+| [AO Next dual-process Stages 1-5](active/ao-next-dual-process-stage1-5-handoff-prompt.md) | governed-next | Continues from verified Stage-0 Engine closure through independent adoption decision with per-stage gates. |
 
 ## Completed History
 
