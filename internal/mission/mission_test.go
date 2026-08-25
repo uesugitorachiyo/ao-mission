@@ -3264,6 +3264,36 @@ func TestOperatorNextActionsDocsAreConcreteAndPublicSafe(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	readmeBody, err := os.ReadFile(filepath.Join("..", "..", "README.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"ao-mission-0.1.6-macos-aarch64.tar.gz",
+		"ao-mission init",
+		"AO_MISSION_HOME=\"$tmp_home/state\" ao-mission doctor --json",
+		"$env:AO_MISSION_HOME = $missionHome",
+		"ao-mission.exe doctor --json",
+		"gh release view v0.1.6 --repo uesugitorachiyo/ao-mission --json assets",
+		"Go 1.26.4 or later",
+	} {
+		if !strings.Contains(string(readmeBody), want) {
+			t.Fatalf("README missing current-user onboarding detail %q", want)
+		}
+	}
+	for _, want := range []string{
+		"AO2 Control Plane [v0.1.19]",
+		"AO Mission [v0.1.6]",
+		"AO Command [v0.1.3]",
+		"AO Forge [v0.1.5]",
+		"AO Atlas [v0.2.1]",
+		"[System.Text.UTF8Encoding]::new($false)",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("operator docs missing current release %q", want)
+		}
+	}
+
 	runbookPath := filepath.Join("..", "..", "docs", "long-run-operator-runbook.md")
 	runbookBody, err := os.ReadFile(runbookPath)
 	if err != nil {

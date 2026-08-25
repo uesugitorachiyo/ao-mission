@@ -22,6 +22,75 @@ and the
 [AO Mission component page](https://github.com/uesugitorachiyo/ao-architecture/blob/main/components/ao-mission.md)
 for the cross-repository flow.
 
+## Install v0.1.6
+
+Prebuilt archives are available for Linux x86_64, macOS aarch64, and Windows
+x86_64. The release has no separate checksum file. Verify the downloaded
+archive against the GitHub asset digest before extracting it.
+
+On macOS (Apple silicon):
+
+```sh
+release=v0.1.6
+archive=ao-mission-0.1.6-macos-aarch64.tar.gz
+curl -fL -o "$archive" "https://github.com/uesugitorachiyo/ao-mission/releases/download/$release/$archive"
+expected="$(gh release view v0.1.6 --repo uesugitorachiyo/ao-mission --json assets --jq '.assets[] | select(.name == "ao-mission-0.1.6-macos-aarch64.tar.gz") | .digest')"
+actual="sha256:$(shasum -a 256 "$archive" | awk '{print $1}')"
+test "$actual" = "$expected"
+tar -xzf "$archive"
+mkdir -p "$HOME/.local/bin"
+install -m 0755 ao-mission "$HOME/.local/bin/ao-mission"
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+On Linux x86_64:
+
+```sh
+release=v0.1.6
+archive=ao-mission-0.1.6-linux-x86_64.tar.gz
+curl -fL -o "$archive" "https://github.com/uesugitorachiyo/ao-mission/releases/download/$release/$archive"
+expected="$(gh release view v0.1.6 --repo uesugitorachiyo/ao-mission --json assets --jq '.assets[] | select(.name == "ao-mission-0.1.6-linux-x86_64.tar.gz") | .digest')"
+actual="sha256:$(sha256sum "$archive" | awk '{print $1}')"
+test "$actual" = "$expected"
+tar -xzf "$archive"
+mkdir -p "$HOME/.local/bin"
+install -m 0755 ao-mission "$HOME/.local/bin/ao-mission"
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+On PowerShell:
+
+```powershell
+$release = 'v0.1.6'
+$archive = 'ao-mission-0.1.6-windows-x86_64.zip'
+Invoke-WebRequest "https://github.com/uesugitorachiyo/ao-mission/releases/download/$release/$archive" -OutFile $archive
+$expected = gh release view $release --repo uesugitorachiyo/ao-mission --json assets --jq '.assets[] | select(.name == "ao-mission-0.1.6-windows-x86_64.zip") | .digest'
+$actual = "sha256:$((Get-FileHash $archive -Algorithm SHA256).Hash.ToLower())"
+if ($actual -ne $expected) { throw "release digest mismatch" }
+Expand-Archive $archive -DestinationPath .\ao-mission-0.1.6
+$env:Path = "$PWD\ao-mission-0.1.6;$env:Path"
+```
+
+Then initialize and inspect a private, isolated state directory:
+
+```sh
+tmp_home="$(mktemp -d)"
+AO_MISSION_HOME="$tmp_home/state" ao-mission init
+AO_MISSION_HOME="$tmp_home/state" ao-mission doctor --json
+```
+
+On PowerShell:
+
+```powershell
+$missionHome = Join-Path $env:TEMP ('ao-mission-onboarding-' + [guid]::NewGuid().ToString('N'))
+$env:AO_MISSION_HOME = $missionHome
+ao-mission.exe init
+ao-mission.exe doctor --json
+```
+
+To build from source instead, install Go 1.26.4 or later, then run
+`go install github.com/uesugitorachiyo/ao-mission/cmd/ao-mission@v0.1.6`.
+
 ## Commands
 
 ```sh
