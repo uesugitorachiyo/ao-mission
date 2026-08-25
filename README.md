@@ -95,7 +95,9 @@ ao-mission import foundry-final-rollup --mission <id> --path <json>
 ao-mission import scheduler-readback --mission <id> --path <json>
 ao-mission import scheduler-recovery-readback --mission <id> --path <json>
 ao-mission import ledger-compaction-readback --mission <id> --path <json>
-ao-mission final rollup --mission <id>
+ao-mission final rollup --mission <id> [--evidence-root <dir>]
+ao-mission final atlas-prompt --mission <id> --event-index <event-index.json> [--evidence-root <dir>] --out <prompt.json>
+ao-mission final synthesize --mission <id> --evidence-root <dir>
 ao-mission final reconcile --mission <id> [--correlation-chain <chain.json>]
 ```
 
@@ -107,6 +109,9 @@ legacy records continue to omit that optional field.
 
 By default state is stored under `.ao-mission/`. Use `AO_MISSION_HOME` to choose another state root.
 Every command also accepts `--home <dir>` before the command name for explicit local state routing.
+Pass `--evidence-root <dir>` to recommendation-bearing final commands. When it
+is omitted, Mission emits `<evidence-root>` rather than selecting a
+repository-local evidence directory.
 
 Evidence-bound slice checkpoints accept only ordered `S01` through `S07` and
 an exact retained passing-evidence digest. Exact replay is idempotent; a

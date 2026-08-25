@@ -40,7 +40,7 @@ func BuildAtlasWaveFinalSynthesis(r Record, evidenceRoot string) (AtlasWaveFinal
 		status = "completed"
 		exactNextAction = "use next-wave-recommended-prompt.md for the next AO Atlas wave"
 	}
-	recommendations := BuildFeatureDepthRecommendations(r, 20)
+	recommendations := buildFeatureDepthRecommendations(r, 20, evidenceRoot)
 	if err := ValidateFeatureDepthRecommendations(recommendations, 20); err != nil {
 		return AtlasWaveFinalSynthesis{}, err
 	}

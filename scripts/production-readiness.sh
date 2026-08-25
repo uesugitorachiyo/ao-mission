@@ -80,10 +80,11 @@ doctor_mission_id="$(python3 "$json_helper" extract-mission-id "$mission_json")"
 "$mission_bin" --home "$tmp_home/state" doctor --json >"$doctor_json"
 json_check doctor_runtime "$doctor_json"
 
-grep -q "25-node Atlas recommendation import wave" docs/operator-next-actions.md
+grep -Fq "ao-mission final rollup --mission <mission-id>" docs/operator-next-actions.md
 grep -q "Do not stop before 25 completed nodes" "$readiness_fixtures/ao-mission-atlas-wave-import-v01/next-recommended-prompt.md"
-grep -q "final-reconciliation-packet.json" docs/operator-next-actions.md
-grep -q "Command and final reconciliation closure check" docs/operator-next-actions.md
+grep -Fq "ao-mission command status --mission <mission-id> --json" docs/operator-next-actions.md
+grep -Fq "ao-mission final reconcile --mission <mission-id>" docs/operator-next-actions.md
+grep -Fq "final-reconciliation-packet.json" docs/operator-next-actions.md
 json_check final_reconciliation_fixture examples/valid/final-reconciliation-packet.json
 json_check final_reconciliation_mismatch_fixture examples/valid/final-reconciliation-mismatch-packet.json
 json_check final_rollup_ready_node_denial examples/valid/final-rollup-ready-node-denial.json

@@ -26,8 +26,12 @@ type FinalRollup struct {
 }
 
 func BuildFinalRollup(r Record) FinalRollup {
+	return buildFinalRollup(r, "")
+}
+
+func buildFinalRollup(r Record, evidenceRoot string) FinalRollup {
 	gate := EvaluateReturnGate(r)
-	recommendations := BuildFeatureDepthRecommendations(r, defaultMinNodes)
+	recommendations := buildFeatureDepthRecommendations(r, defaultMinNodes, evidenceRoot)
 	exactNextAction := r.ExactNextAction
 	if !gate.FinalResponseAllowed {
 		exactNextAction = gate.ExactNextAction

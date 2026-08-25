@@ -1,8 +1,8 @@
 # AO Mission Long-Run Operator Runbook
 
 Use this runbook for multi-repository AO programs that need durable Mission
-state across bounded execution leases. It supplements the canonical
-[six-month production-adoption handoff](ao-stack-six-month-roadmap-handoff-prompt.md).
+state across bounded execution leases. Historical program handoffs are context
+only and do not authorize execution.
 
 ## Runtime Layout
 
@@ -27,16 +27,22 @@ the source and binary digests:
 # Run from the clean AO Mission repository root.
 export AO_STACK_CAMPAIGN="${AO_STACK_CAMPAIGN:-$HOME/.local/state/ao-stack/production-adoption-20260801}"
 export AO_MISSION_HOME="$AO_STACK_CAMPAIGN/mission-state"
+export AO_MISSION_EVIDENCE_ROOT="$AO_STACK_CAMPAIGN/evidence"
 
 SUPERVISOR_SHA="$(git rev-parse HEAD)"
 MISSION_BIN="$AO_STACK_CAMPAIGN/bin/ao-mission-$SUPERVISOR_SHA"
-mkdir -p "$(dirname "$MISSION_BIN")" "$AO_MISSION_HOME" "$AO_STACK_CAMPAIGN/readbacks"
+mkdir -p "$(dirname "$MISSION_BIN")" "$AO_MISSION_HOME" "$AO_MISSION_EVIDENCE_ROOT" "$AO_STACK_CAMPAIGN/readbacks"
 go build -o "$MISSION_BIN" ./cmd/ao-mission
 shasum -a 256 "$MISSION_BIN"
 ```
 
 Keep using that binary until an AO Mission change has merged and passed the
 self-change procedure below.
+
+Pass `--evidence-root "$AO_MISSION_EVIDENCE_ROOT"` to `final rollup`,
+`final atlas-prompt`, and `final synthesize` so emitted recommendations remain
+bound to this campaign. If omitted, Mission emits an explicit
+`<evidence-root>` placeholder and does not infer a repository-local directory.
 
 ## Monthly Bootstrap
 

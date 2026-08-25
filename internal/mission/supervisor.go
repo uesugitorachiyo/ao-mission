@@ -2,6 +2,8 @@ package mission
 
 import (
 	"fmt"
+	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -11,6 +13,10 @@ const (
 )
 
 func BuildFeatureDepthRecommendations(r Record, min int) []FeatureDepthRecommendation {
+	return buildFeatureDepthRecommendations(r, min, "")
+}
+
+func buildFeatureDepthRecommendations(r Record, min int, evidenceRoot string) []FeatureDepthRecommendation {
 	if min <= 0 {
 		min = defaultMinNodes
 	}
@@ -20,6 +26,9 @@ func BuildFeatureDepthRecommendations(r Record, min int) []FeatureDepthRecommend
 	}
 	continueCommand := fmt.Sprintf("ao-mission continue --mission %s --until-done --max-iterations 10", missionID)
 	eventIndexCommand := fmt.Sprintf("ao-mission mission events index --out tmp/%s-event-index.json", missionID)
+	evidenceRoot = recommendationEvidenceRoot(evidenceRoot)
+	quotedEvidenceRoot := strconv.Quote(evidenceRoot)
+	rollbackManifest := strconv.Quote(filepath.ToSlash(filepath.Join(evidenceRoot, "rollback-audit-manifest.json")))
 	seeds := []FeatureDepthRecommendation{
 		featureDepthRecommendation("mission-continue-loop", "ao-mission", "Continue the governed supervisor loop until lease minimums, ready work, or terminal blockers are resolved.", "run "+continueCommand, "Final response remains denied while lease minimums, ready nodes, or exact next action remain.", continueCommand, []string{"goal lease", "return gate", "checkpoint bundle"}),
 		featureDepthRecommendation("atlas-workgraph-refresh", "ao-atlas", "Refresh the Atlas workgraph from current Mission readiness, event-index digest, and final rollup evidence.", "import the current Mission record and emit the next bounded Atlas workgraph node", "Atlas workgraph refresh records total, completed, ready, and blocked node counts.", "atlas workgraph import --mission "+missionID, []string{"mission record", "event index digest", "final rollup digest"}),
@@ -29,7 +38,7 @@ func BuildFeatureDepthRecommendations(r Record, min int) []FeatureDepthRecommend
 		featureDepthRecommendation("event-index-search-binding", "ao-mission", "Index and search route, node, PR, CI, rollup, and blocker evidence for the active mission.", "record event search readbacks for every terminal node before closure", "Event search returns mission-bound evidence for node, PR, CI, rollup, and blocker kinds.", eventIndexCommand, []string{"event index", "search readback", "artifact refs"}),
 		featureDepthRecommendation("command-compact-readback", "ao-command", "Emit a compact long-run mission timeline readback for operator scanning.", "bind Mission dashboard and event-index output into AO Command readback", "Command readback summarizes status, ready work, blockers, and exact next action.", "ao command mission status --mission "+missionID+" --compact", []string{"Command status", "mission timeline", "exact next action"}),
 		featureDepthRecommendation("promoter-summary", "ao-promoter", "Record promotion or no-promotion readiness for the exact terminal rollup status.", "keep broad RSI denied unless governed evidence separately proves it", "Promoter summary records no-promotion or exact missing evidence without broad RSI claims.", "ao-promoter summarize --mission "+missionID, []string{"Promoter verdict", "denied surfaces", "RSI denied"}),
-		featureDepthRecommendation("sentinel-wording-scan", "ao-sentinel", "Scan changed public docs and readbacks for unsafe or stale public-safety wording.", "record Sentinel/public-safety wording evidence before rollup closure", "Sentinel scan passes without broad capability or RSI wording.", "ao-sentinel scan .ao-mission/evidence docs/operator-next-actions.md", []string{"public docs", "readbacks", "wording scan"}),
+		featureDepthRecommendation("sentinel-wording-scan", "ao-sentinel", "Scan changed public docs and readbacks for unsafe or stale public-safety wording.", "record Sentinel/public-safety wording evidence before rollup closure", "Sentinel scan passes without broad capability or RSI wording.", "ao-sentinel scan "+quotedEvidenceRoot+" docs/operator-next-actions.md", []string{"public docs", "readbacks", "wording scan"}),
 		featureDepthRecommendation("operator-runbook", "ao-mission", "Keep the operator runbook explicit about Mission, Atlas, Blueprint, Foundry, and long-run requests.", "update docs/operator-next-actions.md with 2-3 hour Mission usage", "Runbook explains when to use Mission, Atlas, Blueprint, Foundry, and how to request long runs.", "ao-mission docs verify --operator-runbook", []string{"operator docs", "route guidance", "long-run prompt"}),
 		featureDepthRecommendation("production-readiness", "ao-mission", "Run tests, vet, build, production-readiness, and public-safety wording scans over changed artifacts.", "record verification command output in the mission evidence root", "Verification evidence includes local tests, build, readiness, and wording scan status.", "scripts/production-readiness.sh", []string{"test output", "build output", "readiness output"}),
 		featureDepthRecommendation("final-response-gate", "ao-mission", "Prove final response is denied while ready nodes or exact next actions remain.", "add or run a final-response denial regression before node closure", "Regression fails if ready nodes can still allow final response.", "go test ./internal/mission -run TestFinalRollupDeniesFinalResponseWhenReadyNodesRemain -count=1", []string{"return gate", "ready node fixture", "regression output"}),
@@ -38,9 +47,9 @@ func BuildFeatureDepthRecommendations(r Record, min int) []FeatureDepthRecommend
 		featureDepthRecommendation("stale-rollup-normalization", "ao-mission", "Normalize completed, promoted, denied, and blocked terminal rollup statuses before route decisions.", "import a terminal Foundry rollup fixture and verify exact Mission route/readback state", "Terminal status normalization records done or blocker status without preserving stale denial blindly.", "go test ./internal/mission -run TestImportFoundryFinalRollup -count=1", []string{"Foundry rollup", "normalized status", "route readback"}),
 		featureDepthRecommendation("branch-lifecycle-evidence", "ao-mission", "Record local and remote codex branch cleanup evidence after each merged node.", "fetch with prune and record branch cleanup in node evidence", "Branch cleanup evidence shows no current node branch remains after merge.", "git fetch --prune && git branch --list 'codex/*'", []string{"local branches", "remote branches", "merge PR"}),
 		featureDepthRecommendation("ci-run-link-evidence", "ao-mission", "Bind PR and CI run links to the node evidence root before completing the node.", "record PR number, CI job results, and merge head for the active node", "CI evidence contains passing jobs and merge head for the completed node.", "gh pr checks --watch --interval 10", []string{"PR link", "CI checks", "merge head"}),
-		featureDepthRecommendation("rollback-record-audit", "ao-mission", "Audit every active node for a rollback record before implementation evidence is accepted.", "reject node closure if rollback evidence is missing", "Each node evidence root contains rollback record and verification output.", "find .ao-mission/evidence -name rollback-record.json -print", []string{"rollback record", "node gate", "verification"}),
+		featureDepthRecommendation("rollback-record-audit", "ao-mission", "Record an artifact manifest before implementation evidence is accepted.", "inspect the manifest and reject node closure if required rollback evidence is missing", "The manifest binds each required rollback record and verification digest.", "ao-mission artifacts manifest --mission "+missionID+" --out "+rollbackManifest, []string{"rollback record", "node gate", "verification"}),
 		featureDepthRecommendation("blueprint-routing-audit", "ao-atlas", "Route directly through Atlas or Foundry unless a node genuinely needs new requirements or authorization from Blueprint.", "record route decision explaining why Blueprint was not used for implementation nodes", "Route decision denies Blueprint for ordinary bounded implementation work.", "atlas route decide --mission "+missionID, []string{"route decision", "Blueprint denial", "Foundry import"}),
-		featureDepthRecommendation("final-synthesis-readback", "ao-mission", "Regenerate final synthesis readback and verify it blocks final status until minimum nodes and ready-work gates clear.", "run final synthesis and compare completed, ready, blocked, and final-response fields", "Final synthesis carries exact next action and at least the minimum Feature Depth recommendations.", "ao-mission final synthesize --mission "+missionID+" --evidence-root .ao-mission/evidence", []string{"final synthesis", "workgraph", "Feature Depth recommendations"}),
+		featureDepthRecommendation("final-synthesis-readback", "ao-mission", "Regenerate final synthesis readback and verify it blocks final status until minimum nodes and ready-work gates clear.", "run final synthesis and compare completed, ready, blocked, and final-response fields", "Final synthesis carries exact next action and at least the minimum Feature Depth recommendations.", "ao-mission final synthesize --mission "+missionID+" --evidence-root "+quotedEvidenceRoot, []string{"final synthesis", "workgraph", "Feature Depth recommendations"}),
 	}
 	for len(seeds) < min {
 		n := len(seeds) + 1
@@ -55,6 +64,14 @@ func BuildFeatureDepthRecommendations(r Record, min int) []FeatureDepthRecommend
 		))
 	}
 	return seeds
+}
+
+func recommendationEvidenceRoot(root string) string {
+	root = strings.TrimSpace(root)
+	if root == "" {
+		return "<evidence-root>"
+	}
+	return filepath.ToSlash(filepath.Clean(root))
 }
 
 func featureDepthRecommendation(id, owner, task, exactNextAction, gate, command string, evidence []string) FeatureDepthRecommendation {
