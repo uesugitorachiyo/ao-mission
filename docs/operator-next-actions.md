@@ -38,210 +38,9 @@ Next action: continue the bounded release-boundary and installability cycle.
 Do not start a new release train, external beta, promotion, provider pilot,
 live self-modification, or RSI work from this readback.
 
-The earlier bounded-autonomy and product validation cycle remains recorded
-below as historical closure context.
-
-Bounded Autonomy Month 1 is closed:
-[Bounded Autonomy Month 1 Closure](roadmap/bounded-autonomy-month1-baseline-closure.md).
-
-Month 1 verified the current public pair, created the bounded-autonomy
-benchmark corpus and result schema, recorded baseline metrics, and added AO
-Command benchmark readback. The compatibility gate remains `ready`, not active.
-
-Bounded Autonomy Month 2 is closed:
-[Bounded Autonomy Month 2 Closure](roadmap/bounded-autonomy-month2-end-to-end-workflows-closure.md).
-
-Month 2 completed one documentation/support correction, one deterministic
-single-repository code change, and one cross-repository producer/consumer
-contract change. AO Architecture and AO Command now share a canonical
-bounded-autonomy benchmark-to-operator-readback vector. The compatibility gate
-remains `ready`, not active.
-
-Next action: start Bounded Autonomy Month 3 long-running reliability and
-recovery. Focus on interrupted mission resume behavior, checkpoint integrity,
-failed-CI repair, partial cross-repo merge recovery, and evidence
-reconciliation without duplicate work or false completion. Do not start a
-release train by default.
-
-Bounded Autonomy Month 3 is closed:
-[Bounded Autonomy Month 3 Closure](roadmap/bounded-autonomy-month3-reliability-recovery-closure.md).
-
-Month 3 added a machine-checked recovery readback covering 10 failure
-injection classes and 9 recovery proof classes. The long-run drill verified
-checkpoint integrity, restart proof, archive validation, event indexing,
-Command status, final rollup, final reconciliation, and final-response denial
-while continuation evidence remains.
-
-Next action: start Bounded Autonomy Month 4 controlled improvement engine v1.
-Evaluate bounded improvement candidates from Month 1-3 evidence, measure
-baseline and candidate outcomes, require approval where existing gates require
-it, verify rollback, and accept only measured improvements after green CI.
-Do not start a release train, RSI, or live self-modification.
-
-Bounded Autonomy Month 4 is closed:
-[Bounded Autonomy Month 4 Closure](roadmap/bounded-autonomy-month4-controlled-improvement-closure.md).
-
-Month 4 evaluated three controlled-improvement candidate classes, added a
-machine-checked AO Mission closure fixture, and added AO Command operator
-readback coverage for proposal, approval, measurement, decision, and rollback
-state. The compatibility gate remains `ready`, not active.
-
-Next action: start Bounded Autonomy Month 5 one-operator production dogfood.
-Use genuine bounded AO repository maintenance where it provides evidence, and
-use fixtures where a real mutation adds no proof. Do not start a release train,
-external beta, promotion, provider pilot, live self-modification, or RSI work.
-
-Bounded Autonomy Month 5 is closed:
-[Bounded Autonomy Month 5 Closure](roadmap/bounded-autonomy-month5-dogfood-closure.md).
-
-Month 5 completed the five-task one-operator dogfood portfolio and records the
-result as machine-checked AO Mission production-readiness evidence. The
-portfolio covered support handoff, product/reliability readiness, cross-repo
-Command readback, failure recovery, and a correctly denied RSI/live
-self-modification route. The compatibility gate remains `ready`, not active.
-
-Next action: start Bounded Autonomy Month 6 autonomy qualification. Rerun the
-full evidence base, compare final measurements with Month 1, and make a
-release/no-release assessment. Do not publish unless Month 6 selects a release
-and all release gates pass.
-
-Bounded Autonomy Month 6 is closed:
-[Bounded Autonomy Month 6 Closure](roadmap/bounded-autonomy-month6-qualification-closure.md).
-
-Month 6 reran the bounded-autonomy evidence base. The repaired release decision
-keeps AO2 at `v0.5.1` and publishes AO2 Control Plane `v0.1.16` after exact
-stable-patch qualification and public-asset verification. Controlled RSI
-research is not authorized by this closure; RSI remains denied.
-
-Next action: start a new roadmap only with explicit authorization. Use the
-bounded-autonomy evidence and no-release decision as the baseline.
-
-Bounded Autonomy repair from Month 3 is closed:
-[Bounded Autonomy Repair Closure](roadmap/bounded-autonomy-repair-from-month3-closure.md).
-
-The previous Month 1-6 closure is classified as `PARTIAL_INVALID_CLOSURE`.
-The repair reopens from Month 3, fixes terminal final-rollup exact-next-action
-handling, reruns terminal recovery, executes rollback verification, runs a
-fresh dogfood portfolio, and repeats Month 6 qualification. The repeated
-release decision keeps AO2 at `v0.5.1` and publishes AO2 Control Plane
-`v0.1.16`; the Control Plane `spin` lockfile change is recorded as a compiled
-dependency impact. RSI remains denied.
-
-Month 6 is closed after Control Plane stable-patch qualification. AO2 v0.5.1
-remains the current public AO2 release, AO2 Control Plane v0.1.16 is the
-companion release, AO
-Architecture records all 16 live compatibility matrix edges with canonical
-vectors and consumer tests, the controlled self-improvement loop remains
-fixture-only dry-run evidence, and the operator workflow readback chain is
-merged.
-
-Closure evidence:
-
-- [Month 3 evidence and audit compatibility closure](roadmap/month3-evidence-audit-compatibility-closure.md)
-- [Month 4 controlled self-improvement dry-run closure](roadmap/month4-controlled-self-improvement-dry-run-closure.md)
-- [Month 5 operator workflow hardening closure](roadmap/month5-operator-workflow-hardening-closure.md)
-- [Month 6 release train readiness closure](roadmap/month6-release-train-readiness-closure.md)
-- AO Architecture final matrix PR:
-  https://github.com/uesugitorachiyo/ao-architecture/pull/122
-- AO Architecture Month 6 no-release readiness PR:
-  https://github.com/uesugitorachiyo/ao-architecture/pull/125
-- AO Mission Month 6 closure records the implementation PRs and local evidence
-  directory.
-- The closure document records the local evidence directory and report paths.
-
-The new adoption/evidence cycle has started:
-[AO Stack adoption and evidence maintenance](roadmap/ao-stack-adoption-evidence-six-month-roadmap.md).
-
-Month 1 is closed:
-[Adoption/Evidence Month 1 Closure](roadmap/adoption-month1-evidence-freshness-closure.md).
-
-Month 1 made the evidence base refreshable and defined compatibility gate
-states. AO Architecture now records the compatibility gate state as `ready`,
-not active. `compatibility_gate_complete` remains false because activation was
-not authorized.
-
-Month 2 is closed:
-[Adoption/Evidence Month 2 Closure](roadmap/adoption-month2-operator-drills-closure.md).
-
-Month 2 proved the operator adoption drill path against the current public pair
-and refreshed evidence base. AO Command presents the current pair, 16/16 matrix
-state, gate state `ready` but not active, safe-next-work, run-state, policy,
-observation, support categories, denied states, and next safe action. Sentinel
-and Promoter prevent unsupported adoption, release, external beta, promotion,
-provider, or RSI claims.
-
-Month 3 is closed:
-[Adoption/Evidence Month 3 Closure](roadmap/adoption-month3-evidence-maintenance-closure.md).
-
-Month 3 made evidence maintenance repeatable through Architecture freshness and
-matrix drift checks, Atlas maintenance workgraph/readback, Command maintenance
-readback, Sentinel wording checks, and Promoter no-promotion/no-RSI readback.
-The current public pair still matches the manifest, the matrix remains 16/16
-tested, and the compatibility gate remains `ready`, not active.
-
-Month 4 is closed:
-[Adoption/Evidence Month 4 Closure](roadmap/adoption-month4-controlled-improvement-evaluation-closure.md).
-
-Month 4 fixed production-readiness hygiene and reverified controlled
-improvement evaluation as fixture-only dry-run evidence. AO2 rollback evidence,
-Control Plane observation, Command readback, Sentinel wording checks, and
-Promoter no-promotion/no-RSI readback remain bounded. The compatibility gate is
-`ready`, not active.
-
-Month 5 is closed:
-[Adoption/Evidence Month 5 Closure](roadmap/adoption-month5-support-readiness-closure.md).
-
-Month 5 added the adoption support package source of truth, Command
-support-readiness readback, Sentinel support wording checks, and Promoter
-no-promotion/no-RSI verdict. The support package covers install, checksum,
-manifest mismatch, approval/replay, rollback, Windows-safe rollback, operator
-readback issues, and public-safe issue-report fields. The compatibility gate
-remains `ready`, not active.
-
-Month 6 is closed:
-[Adoption/Evidence Month 6 Closure](roadmap/adoption-month6-no-release-readiness-closure.md).
-
-Month 6 previously selected `release_decision=no_release`; the later repaired
-stable-patch qualification selected and published AO2 Control Plane `v0.1.16`.
-AO2 remains `v0.5.1`, and the compatibility gate remains `ready`, not active.
-
-The GitHub issue-to-draft-PR cycle has started:
-[GitHub Issue To Draft PR Month 1 Closure](roadmap/github-issue-to-draft-pr-month1-closure.md).
-
-Month 1 established the supervised contract boundary for GitHub issue URL
-intake, immutable issue evidence, policy classification, draft-PR authority,
-Command readback, Sentinel wording checks, and Promoter no-promotion/no-RSI
-readback. Feature-generated PRs remain draft and unmerged by default.
-
-Month 2 is closed:
-[GitHub Issue To Draft PR Month 2 Closure](roadmap/github-issue-to-draft-pr-month2-closure.md).
-
-Month 2 added the authenticity and reproduction gate. It records the issue
-truth set, isolated acquisition planning, command and network policy,
-deterministic/flaky reproduction metrics, non-bug and security-sensitive stop
-states, Control Plane observation, Command readback, Sentinel wording checks,
-and AO Mission supervision. Feature-generated PRs remain draft and unmerged by
-default.
-
-Month 3 is closed:
-[GitHub Issue To Draft PR Month 3 Closure](roadmap/github-issue-to-draft-pr-month3-closure.md).
-
-Month 3 added isolated repair, verification, rollback, replay, resume,
-Control Plane observation, Command readback, and Sentinel false-fix wording
-checks for authentic-bug fixtures. Feature-generated PRs still do not exist in
-Month 3 and remain draft-only when later authorized.
-
-Next action: continue with GitHub issue-to-draft-PR Month 4 AO repository
-issue-to-draft-PR workflow. Create any feature-generated pull request only as
-a draft, and do not approve, merge, mark ready, or otherwise advance
-feature-generated PRs automatically.
-
-External beta has not launched, promotion is not requested or granted, and RSI
-remains denied. This is not a release train by default.
-
 For doubled 2-3 hour waves, use the dedicated
 [Long-Run Operator Runbook](long-run-operator-runbook.md). It defines the
-30-node request shape, role routing, stop gate, per-node evidence, and Atlas
+bounded request shape, role routing, stop gate, per-node evidence, and Atlas
 continuation prompt template.
 
 For local private pilots on real local codebases, use the
@@ -263,7 +62,12 @@ ao-mission status --mission <mission-id>
 
 ## Continue Locally
 
+Select a campaign evidence root outside every source repository. Pass it to
+recommendation-bearing final commands; omission leaves an explicit
+`<evidence-root>` placeholder rather than selecting checkout-local storage.
+
 ```sh
+export AO_MISSION_EVIDENCE_ROOT="<campaign-evidence-root>"
 ao-mission continue --mission <mission-id> --until-done --max-iterations 20 --min-nodes 15 --min-minutes 0 --max-minutes 180
 ao-mission mission history --mission <mission-id>
 ao-mission mission events index --out tmp/mission-event-index.json
@@ -280,7 +84,9 @@ ao-mission mission archive --mission <mission-id> --out tmp/<mission-id>-archive
 ao-mission mission validate-archive --path tmp/<mission-id>-archive.json --out tmp/<mission-id>-archive-validation.json
 ao-mission artifacts manifest --mission <mission-id> --out tmp/<mission-id>-artifact-manifest.json
 ao-mission import atlas-recommendation-readback --mission <mission-id> --path tmp/recommendation-readback.json
-ao-mission final rollup --mission <mission-id>
+ao-mission final rollup --mission <mission-id> --evidence-root "$AO_MISSION_EVIDENCE_ROOT"
+ao-mission final atlas-prompt --mission <mission-id> --event-index tmp/mission-event-index.json --evidence-root "$AO_MISSION_EVIDENCE_ROOT" --out tmp/<mission-id>-atlas-prompt.json
+ao-mission final synthesize --mission <mission-id> --evidence-root "$AO_MISSION_EVIDENCE_ROOT"
 ao-mission final reconcile --mission <mission-id>
 ```
 
@@ -303,22 +109,15 @@ checkpoint evidence for the wave, the long-run lease minimum met, and
 `final_response_allowed=true`. If any of those are missing, Mission keeps the
 route on AO Atlas and preserves the exact next action for continuation.
 
-For the 25-node Atlas recommendation import wave, use Mission as the supervisor
-and keep importing Atlas readbacks after each bounded node. Do not stop at a
-green PR, a single rollup, or one completed import. Continue until at least 25
-nodes complete, all ready nodes are gone, the 120-minute lease minimum is met,
-and Mission, Atlas, Foundry, Command, and Promoter readbacks agree. This is the
-25-node Atlas recommendation import wave closure gate.
-
 Use `examples/valid/final-reconciliation-packet.json` as the shape reference for
 the final Mission reconciliation packet. A valid packet keeps
 `promotion_claimed=false`, `rsi_remains_denied=true`,
 `claims_authority_advance=false`, and all execution/approval flags false.
 
-## Command And Final Reconciliation Closure Check
+## Final Reconciliation Check
 
-Before any final response for an Atlas recommendation import wave, run the
-Command and final reconciliation closure check:
+Before any final response for an imported Atlas recommendation, reconcile the
+Mission and Command surfaces:
 
 ```sh
 ao-mission command status --mission <mission-id>

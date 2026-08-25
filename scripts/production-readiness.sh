@@ -11,6 +11,7 @@ trap 'exit 1' HUP INT TERM
 
 mission_bin="$tmp_home/ao-mission"
 json_helper="scripts/production_readiness_json.py"
+readiness_fixtures="testdata/production-readiness"
 json_check() {
   python3 "$json_helper" check "$@"
 }
@@ -25,7 +26,7 @@ python3 scripts/test_public_safety_scan.py
 python3 scripts/test_production_readiness_json.py
 python3 scripts/public-safety-scan.py \
   --root . \
-  README.md docs examples internal cmd scripts
+  README.md docs examples testdata internal cmd scripts
 
 mission_json="$tmp_home/mission.json"
 import_json="$tmp_home/import.json"
@@ -60,7 +61,7 @@ json_check restart_recovery_proof "$restart_recovery_proof_json" --mission-id "$
 json_check event_search_runtime "$event_search_json"
 "$mission_bin" --home "$tmp_home/state" final atlas-prompt --mission "$mission_id" --event-index "$event_index_json" --out "$atlas_prompt_json" >/dev/null
 json_check atlas_continuation_prompt "$atlas_prompt_json" --mission-id "$mission_id"
-"$mission_bin" --home "$tmp_home/state" final synthesize --mission "$mission_id" --evidence-root docs/evidence/ao-mission-doubled-wave-v01 >"$synthesis_json"
+"$mission_bin" --home "$tmp_home/state" final synthesize --mission "$mission_id" --evidence-root "$readiness_fixtures/ao-mission-doubled-wave-v01" >"$synthesis_json"
 json_check atlas_wave_synthesis_runtime "$synthesis_json"
 
 "$mission_bin" --home "$tmp_home/state" start "import Atlas final synthesis readback" >"$mission_json"
@@ -79,16 +80,17 @@ doctor_mission_id="$(python3 "$json_helper" extract-mission-id "$mission_json")"
 "$mission_bin" --home "$tmp_home/state" doctor --json >"$doctor_json"
 json_check doctor_runtime "$doctor_json"
 
-grep -q "25-node Atlas recommendation import wave" docs/operator-next-actions.md
-grep -q "Do not stop before 25 completed nodes" docs/evidence/ao-mission-atlas-wave-import-v01/next-recommended-prompt.md
-grep -q "final-reconciliation-packet.json" docs/operator-next-actions.md
-grep -q "Command and final reconciliation closure check" docs/operator-next-actions.md
+grep -Fq "ao-mission final rollup --mission <mission-id>" docs/operator-next-actions.md
+grep -q "Do not stop before 25 completed nodes" "$readiness_fixtures/ao-mission-atlas-wave-import-v01/next-recommended-prompt.md"
+grep -Fq "ao-mission command status --mission <mission-id> --json" docs/operator-next-actions.md
+grep -Fq "ao-mission final reconcile --mission <mission-id>" docs/operator-next-actions.md
+grep -Fq "final-reconciliation-packet.json" docs/operator-next-actions.md
 json_check final_reconciliation_fixture examples/valid/final-reconciliation-packet.json
 json_check final_reconciliation_mismatch_fixture examples/valid/final-reconciliation-mismatch-packet.json
 json_check final_rollup_ready_node_denial examples/valid/final-rollup-ready-node-denial.json
-json_check sentinel_public_safety_scan docs/evidence/ao-mission-atlas-wave-import-v01/sentinel-public-safety-scan.json
-json_check production_readiness_branch_cleanup docs/evidence/ao-mission-atlas-wave-import-v01/production-readiness-branch-cleanup.json
-json_check promoter_no_promotion_summary docs/evidence/ao-mission-atlas-wave-import-v01/promoter-no-promotion-summary.json
+json_check sentinel_public_safety_scan "$readiness_fixtures/ao-mission-atlas-wave-import-v01/sentinel-public-safety-scan.json"
+json_check production_readiness_branch_cleanup "$readiness_fixtures/ao-mission-atlas-wave-import-v01/production-readiness-branch-cleanup.json"
+json_check promoter_no_promotion_summary "$readiness_fixtures/ao-mission-atlas-wave-import-v01/promoter-no-promotion-summary.json"
 json_check foundry_terminal_state_binding examples/valid/foundry-terminal-state-binding.json
 json_check command_compact_timeline examples/valid/command-compact-timeline-readback.json
 json_check mission_status_timeline_vector examples/valid/mission-status-timeline-compatibility-vector.json
@@ -97,18 +99,18 @@ json_check doctor_command_compact_risk examples/valid/doctor-command-compact-ear
 json_check beta_incident_stop_rule examples/valid/beta-incident-stop-rule-readback.json
 json_check pilot_feedback_capture examples/valid/pilot-feedback-capture-packet.json
 json_check final_reconciliation_event_search examples/valid/final-reconciliation-event-search-readback.json
-python3 "$json_helper" check-tree promoter_no_promotion_node docs/evidence/ao-mission-atlas-wave-import-v01/nodes promoter-no-promotion.json
-python3 "$json_helper" check-tree sentinel_public_safety_node docs/evidence/ao-mission-atlas-wave-import-v01/nodes sentinel-public-safety.json
-json_check wave_boundary_readiness docs/evidence/ao-mission-atlas-wave-import-v01/wave-boundary-readiness.json
-json_check merged_pr_branch_cleanup docs/evidence/ao-mission-atlas-wave-import-v01/merged-pr-branch-cleanup.json
-json_check atlas_wave_final_synthesis_fixture docs/evidence/ao-mission-atlas-wave-import-v01/final-synthesis.json
-json_check post_merge_final_closure docs/evidence/ao-mission-atlas-wave-import-v01/post-merge-final-closure.json
-grep -q "Do not stop before 30 completed nodes" docs/evidence/ao-mission-atlas-wave-import-v01/next-wave-recommended-prompt.md
-json_check wave_duration_ledger docs/evidence/ao-mission-doubled-wave-v01/duration-ledger.json
-json_check codex_session_duration docs/evidence/ao-mission-doubled-wave-v01/codex-session-duration-readback.json
+python3 "$json_helper" check-tree promoter_no_promotion_node "$readiness_fixtures/ao-mission-atlas-wave-import-v01/nodes" promoter-no-promotion.json
+python3 "$json_helper" check-tree sentinel_public_safety_node "$readiness_fixtures/ao-mission-atlas-wave-import-v01/nodes" sentinel-public-safety.json
+json_check wave_boundary_readiness "$readiness_fixtures/ao-mission-atlas-wave-import-v01/wave-boundary-readiness.json"
+json_check merged_pr_branch_cleanup "$readiness_fixtures/ao-mission-atlas-wave-import-v01/merged-pr-branch-cleanup.json"
+json_check atlas_wave_final_synthesis_fixture "$readiness_fixtures/ao-mission-atlas-wave-import-v01/final-synthesis.json"
+json_check post_merge_final_closure "$readiness_fixtures/ao-mission-atlas-wave-import-v01/post-merge-final-closure.json"
+grep -q "Do not stop before 30 completed nodes" "$readiness_fixtures/ao-mission-atlas-wave-import-v01/next-wave-recommended-prompt.md"
+json_check wave_duration_ledger "$readiness_fixtures/ao-mission-doubled-wave-v01/duration-ledger.json"
+json_check codex_session_duration "$readiness_fixtures/ao-mission-doubled-wave-v01/codex-session-duration-readback.json"
 json_check atlas_final_synthesis_fixture examples/valid/atlas-final-synthesis-readback.json
-json_check event_search_production_smoke docs/evidence/ao-mission-atlas-wave-import-v01/event-search-production-smoke.json
-json_check event_evidence_alias_readback docs/evidence/ao-mission-doubled-wave-v01/nodes/node-10-event-evidence-aliases/event-alias-search-readbacks.json
+json_check event_search_production_smoke "$readiness_fixtures/ao-mission-atlas-wave-import-v01/event-search-production-smoke.json"
+json_check event_evidence_alias_readback "$readiness_fixtures/ao-mission-doubled-wave-v01/nodes/node-10-event-evidence-aliases/event-alias-search-readbacks.json"
 json_check event_evidence_alias_searches examples/valid/event-evidence-alias-search-readbacks.json
 json_check bounded_autonomy_month3 examples/valid/bounded-autonomy-month3-recovery-readback.json
 json_check bounded_autonomy_month4 examples/valid/bounded-autonomy-month4-controlled-improvement-readback.json

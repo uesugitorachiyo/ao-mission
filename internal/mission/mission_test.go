@@ -2142,13 +2142,14 @@ func TestCLIAtlasContinuationPromptWritesPacket(t *testing.T) {
 		t.Fatal(err)
 	}
 	indexPath := filepath.Join(dir, "event-index.json")
+	evidenceRoot := filepath.Join(dir, "campaign evidence")
 	outPath := filepath.Join(dir, "atlas-prompt-packet.json")
 	out.Reset()
 	if code := Run([]string{"--home", dir, "mission", "events", "index", "--out", indexPath}, &out, &errb); code != 0 {
 		t.Fatalf("event index: %s", errb.String())
 	}
 	out.Reset()
-	if code := Run([]string{"--home", dir, "final", "atlas-prompt", "--mission", rec.MissionID, "--event-index", indexPath, "--out", outPath, "--json"}, &out, &errb); code != 0 {
+	if code := Run([]string{"--home", dir, "final", "atlas-prompt", "--mission", rec.MissionID, "--event-index", indexPath, "--evidence-root", evidenceRoot, "--out", outPath, "--json"}, &out, &errb); code != 0 {
 		t.Fatalf("atlas prompt: %s", errb.String())
 	}
 	var packet AtlasContinuationPromptPacket
@@ -2157,6 +2158,19 @@ func TestCLIAtlasContinuationPromptWritesPacket(t *testing.T) {
 	}
 	if packet.MissionID != rec.MissionID || packet.EventIndexDigest == "" || packet.FinalRollupDigest == "" || packet.Prompt == "" {
 		t.Fatalf("bad CLI prompt packet: %+v", packet)
+	}
+	wantSynthesisCommand := fmt.Sprintf("ao-mission final synthesize --mission %s --evidence-root %q", rec.MissionID, filepath.ToSlash(filepath.Clean(evidenceRoot)))
+	foundSynthesisCommand := false
+	for _, recommendation := range packet.FeatureDepthRecommendations {
+		if recommendation.ID == "final-synthesis-readback" {
+			foundSynthesisCommand = true
+			if recommendation.ContinuationCommand != wantSynthesisCommand {
+				t.Fatalf("atlas prompt recommendation root mismatch: got %q want %q", recommendation.ContinuationCommand, wantSynthesisCommand)
+			}
+		}
+	}
+	if !foundSynthesisCommand {
+		t.Fatal("atlas prompt omitted final synthesis recommendation")
 	}
 	if _, err := os.Stat(outPath); err != nil {
 		t.Fatal(err)
@@ -2326,6 +2340,23 @@ func TestCLIFinalSynthesizeEmitsEvidenceRootPacket(t *testing.T) {
 	if len(packet.FeatureDepthRecommendations) < 20 {
 		t.Fatalf("recommendations too shallow: %d", len(packet.FeatureDepthRecommendations))
 	}
+	wantSynthesisCommand := fmt.Sprintf(
+		"ao-mission final synthesize --mission %s --evidence-root %q",
+		rec.MissionID,
+		filepath.ToSlash(filepath.Clean(evidenceRoot)),
+	)
+	foundSynthesisCommand := false
+	for _, recommendation := range packet.FeatureDepthRecommendations {
+		if recommendation.ID == "final-synthesis-readback" {
+			foundSynthesisCommand = true
+			if recommendation.ContinuationCommand != wantSynthesisCommand {
+				t.Fatalf("final synthesis recommendation root mismatch: got %q want %q", recommendation.ContinuationCommand, wantSynthesisCommand)
+			}
+		}
+	}
+	if !foundSynthesisCommand {
+		t.Fatal("final synthesis omitted its evidence-root recommendation")
+	}
 	if packet.CurrentNodePRPending || packet.PromotionClaimed || packet.ClaimsAuthorityAdvance || !packet.RSIRemainsDenied || packet.ExecutesWork || packet.ApprovesWork || packet.MutatesRepositories {
 		t.Fatalf("final synthesis widened authority or kept stale pending state: %+v", packet)
 	}
@@ -2378,6 +2409,63 @@ func TestFeatureDepthRecommendationsReturnAtLeastTenActionableTasks(t *testing.T
 		if item.ID == "" || item.Task == "" || item.Owner == "" || item.ExactNextAction == "" {
 			t.Fatalf("recommendation is not actionable: %+v", item)
 		}
+	}
+}
+
+func TestFeatureDepthRecommendationsKeepGeneratedEvidenceOutOfPublicDocs(t *testing.T) {
+	recommendations := BuildFeatureDepthRecommendations(Record{MissionID: "mission-test"}, 20)
+	for _, item := range recommendations {
+		if strings.Contains(item.ContinuationCommand, "docs/evidence") || strings.Contains(item.ContinuationCommand, ".ao-mission/evidence") {
+			t.Fatalf("recommendation %q falls back to repository-local evidence: %q", item.ID, item.ContinuationCommand)
+		}
+		if (item.ID == "sentinel-wording-scan" || item.ID == "rollback-record-audit" || item.ID == "final-synthesis-readback") && !strings.Contains(item.ContinuationCommand, "<evidence-root>") {
+			t.Fatalf("recommendation %q must require a caller-selected evidence root: %q", item.ID, item.ContinuationCommand)
+		}
+	}
+}
+
+func TestCLIFinalRollupUsesCallerSelectedEvidenceRoot(t *testing.T) {
+	workspace := t.TempDir()
+	home := filepath.Join(workspace, "non-default mission home")
+	evidenceRoot := filepath.Join(workspace, "campaign evidence")
+	var out, errb bytes.Buffer
+	if code := Run([]string{"--home", home, "start", "caller-selected evidence root"}, &out, &errb); code != 0 {
+		t.Fatalf("start: %s", errb.String())
+	}
+	var record Record
+	if err := json.Unmarshal(out.Bytes(), &record); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	errb.Reset()
+	if code := Run([]string{"--home", home, "final", "rollup", "--mission", record.MissionID, "--evidence-root", evidenceRoot}, &out, &errb); code != 0 {
+		t.Fatalf("final rollup: %s", errb.String())
+	}
+	var rollup FinalRollup
+	if err := json.Unmarshal(out.Bytes(), &rollup); err != nil {
+		t.Fatal(err)
+	}
+	root := filepath.ToSlash(filepath.Clean(evidenceRoot))
+	want := map[string]string{
+		"sentinel-wording-scan":    fmt.Sprintf("ao-sentinel scan %q docs/operator-next-actions.md", root),
+		"rollback-record-audit":    fmt.Sprintf("ao-mission artifacts manifest --mission %s --out %q", record.MissionID, filepath.ToSlash(filepath.Join(evidenceRoot, "rollback-audit-manifest.json"))),
+		"final-synthesis-readback": fmt.Sprintf("ao-mission final synthesize --mission %s --evidence-root %q", record.MissionID, root),
+	}
+	for _, recommendation := range rollup.FeatureDepthRecommendations {
+		expected, ok := want[recommendation.ID]
+		if !ok {
+			continue
+		}
+		if recommendation.ContinuationCommand != expected {
+			t.Fatalf("recommendation %q command = %q, want %q", recommendation.ID, recommendation.ContinuationCommand, expected)
+		}
+		if strings.Contains(recommendation.ContinuationCommand, ".ao-mission/evidence") || strings.Contains(recommendation.ContinuationCommand, "docs/evidence") {
+			t.Fatalf("recommendation %q fell back to repository-local evidence: %q", recommendation.ID, recommendation.ContinuationCommand)
+		}
+		delete(want, recommendation.ID)
+	}
+	if len(want) != 0 {
+		t.Fatalf("missing evidence-root recommendations: %v", want)
 	}
 }
 
@@ -3199,47 +3287,6 @@ func TestOperatorNextActionsDocsAreConcreteAndPublicSafe(t *testing.T) {
 		}
 	}
 	if err := ValidatePublicSafeText(runbook); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestSixMonthHandoffUsesCurrentExecutionContract(t *testing.T) {
-	path := filepath.Join("..", "..", "docs", "ao-stack-six-month-roadmap-handoff-prompt.md")
-	body, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	text := string(body)
-	for _, want := range []string{
-		"August 1, 2026 through January 31, 2027",
-		"Execution owner: AO Mission",
-		"current approved roadmap scope contains these 14 hosted repositories",
-		"fresh Atlas workgraph",
-		"--max-iterations 1",
-		"It does not run an Atlas node",
-		"A current Atlas route is not build authorization",
-		"fresh AO Blueprint pack",
-		"--min-minutes 0",
-		"never wait or pad execution",
-		"AO Mission Self-Change Protocol",
-		"READY_FOR_SEPARATE_RELEASE_AUTHORIZATION",
-	} {
-		if !strings.Contains(text, want) {
-			t.Fatalf("six-month handoff missing %q", want)
-		}
-	}
-	for _, stale := range []string{
-		"<workspace>",
-		"Baseline Truth As Of July 9, 2026",
-		"gpt-5.6-luna",
-		"gpt-5.6-terra",
-		"gpt-5.6-sol",
-	} {
-		if strings.Contains(text, stale) {
-			t.Fatalf("six-month handoff retained stale content %q", stale)
-		}
-	}
-	if err := ValidatePublicSafeText(text); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -5966,22 +6013,6 @@ func TestGitHubIssueMonth1SupervisionReadbackKeepsFeaturePRsDraft(t *testing.T) 
 	if readback["rsi_remains_denied"] != true || readback["month2_unlocked"] != true {
 		t.Fatalf("missing RSI denial or Month 2 unlock: %#v", readback)
 	}
-	closure, err := os.ReadFile(filepath.Join("..", "..", "docs", "roadmap", "github-issue-to-draft-pr-month1-closure.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	closureText := string(closure)
-	for _, want := range []string{
-		"Feature-generated PRs remain draft and unmerged",
-		"RSI remains denied",
-		"AO2 `v0.5.1`",
-		"AO2 Control Plane `v0.1.16`",
-		"Month 2 isolated repair and reproducibility fixtures",
-	} {
-		if !strings.Contains(closureText, want) {
-			t.Fatalf("closure doc missing %q", want)
-		}
-	}
 }
 
 func TestGitHubIssueMonth2SupervisionReadbackRequiresTruthSetAndNoMutation(t *testing.T) {
@@ -6075,22 +6106,6 @@ func TestGitHubIssueMonth3SupervisionReadbackRequiresRepairEvidenceAndNoDraftPR(
 	}
 	if !strings.Contains(readback["exact_next_action"].(string), "Month 4") {
 		t.Fatalf("next action should hand off to Month 4: %s", readback["exact_next_action"])
-	}
-	closure, err := os.ReadFile(filepath.Join("..", "..", "docs", "roadmap", "github-issue-to-draft-pr-month3-closure.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	closureText := string(closure)
-	for _, want := range []string{
-		"Rollback restores the exact pre-change digest",
-		"Replay accepts only matching evidence digests",
-		"Feature-generated pull requests still do not exist in Month 3",
-		"RSI remains denied",
-		"Month 4 AO repository issue-to-draft-PR workflow",
-	} {
-		if !strings.Contains(closureText, want) {
-			t.Fatalf("closure doc missing %q", want)
-		}
 	}
 }
 

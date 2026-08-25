@@ -37,6 +37,7 @@ Mission consumes Blueprint authorization, Atlas workgraphs and terminal indexes,
 - Treat an explicit zero-minute lease minimum as useful-work mode: preserve zero, enforce the hard maximum, and never require elapsed-time padding. Omission may preserve an existing historical minimum.
 - Evidence-bound slice checkpoints require an exact retained passing artifact, strict S01-S07 order, idempotent digest replay, and all denied authority fields false. They append evidence-bound checkpoints only; never change Mission lifecycle state or reinterpret evidence as execution or approval.
 - An explicit `--min-nodes` reduction is allowed only when it exactly matches the retained imported Atlas workgraph total; reject any unbound or arbitrary lower lease value.
+- Recommendation-bearing final surfaces must use the caller-selected campaign evidence root. Preserve explicit `<evidence-root>` placeholders when none is supplied; never invent a checkout-local fallback from `.ao-mission/`, `AO_MISSION_HOME`, or `--home`.
 - Change source fixtures under `examples/` only with their producer/consumer tests. Never edit a result to inflate completion, hide ready nodes, or claim a historical wave succeeded differently.
 - If durable commands, lifecycle ownership, authority, or architecture guidance changes, update this file in the same pull request.
 

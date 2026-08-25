@@ -1654,12 +1654,20 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 		return err
 	case "final":
 		if len(args) >= 2 && args[1] == "rollup" {
-			id := missionFlag(args[2:])
-			r, err := s.Load(id)
+			fs := flag.NewFlagSet("final rollup", flag.ContinueOnError)
+			id := fs.String("mission", "", "")
+			evidenceRoot := fs.String("evidence-root", "", "")
+			if err := fs.Parse(args[2:]); err != nil {
+				return err
+			}
+			if fs.NArg() != 0 {
+				return errors.New("final rollup does not accept positional arguments")
+			}
+			r, err := s.Load(*id)
 			if err != nil {
 				return err
 			}
-			return printJSON(stdout, BuildFinalRollup(r))
+			return printJSON(stdout, buildFinalRollup(r, *evidenceRoot))
 		}
 		if len(args) >= 2 && args[1] == "reconcile" {
 			fs := flag.NewFlagSet("final reconcile", flag.ContinueOnError)
@@ -1702,6 +1710,7 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 			fs := flag.NewFlagSet("final atlas-prompt", flag.ContinueOnError)
 			id := fs.String("mission", "", "")
 			eventIndexPath := fs.String("event-index", "", "")
+			evidenceRoot := fs.String("evidence-root", "", "")
 			outPath := fs.String("out", "", "")
 			jsonOut := fs.Bool("json", false, "")
 			if err := fs.Parse(args[2:]); err != nil {
@@ -1719,7 +1728,7 @@ func runCLICommand(s Store, args []string, stdout io.Writer) error {
 			if err := json.Unmarshal(body, &index); err != nil {
 				return err
 			}
-			packet, err := BuildAtlasContinuationPromptPacket(r, index)
+			packet, err := buildAtlasContinuationPromptPacket(r, index, buildFinalRollup(r, *evidenceRoot))
 			if err != nil {
 				return err
 			}

@@ -1,26 +1,14 @@
 # AO Stack Roadmap Handoffs
 
-This directory preserves AO Stack roadmap handoffs without leaving completed
-authorization prompts in the active operator surface.
+This directory points to the current governed AO Next continuation handoff.
+Completed and superseded owner handoffs are retained outside the public
+repository.
 
 ## Active
 
 | Handoff | Status | Notes |
 | --- | --- | --- |
-| [Six-month roadmap](active/ao-stack-six-month-roadmap-handoff-prompt.md) | governing pointer | Points to the single canonical Mission execution prompt. |
-| [Month 5 beta operations](active/ao-stack-month5-beta-operations-handoff-prompt.md) | active-next | Current execution prompt after Month 4 parent reconciliation. |
 | [AO Next dual-process Stages 1-5](active/ao-next-dual-process-stage1-5-handoff-prompt.md) | governed-next | Continues from verified Stage-0 Engine closure through independent adoption decision with per-stage gates. |
-
-## Completed History
-
-| Handoff | Status | Notes |
-| --- | --- | --- |
-| [AO Next successor slice](completed/ao-next-integration-six-month-handoff-prompt.md) | stopped | Month 1 recorded `STOP_SUCCESSOR_WORK`; Months 2-6 remain unauthorized. Do not re-execute. |
-| [Cross-platform development baseline](completed/ao-cross-platform-development-baseline-handoff-prompt.md) | completed | Qualified the frozen 14-repository baseline on clean macOS and Windows hosts; AO Office Pool remains a separate future objective. |
-| [Month 3 golden path](completed/ao-stack-month3-golden-path-implementation-handoff.md) | completed | Historical prompt for the completed Month 3 implementation wave. Do not re-execute. |
-| [Month 4 consolidation](completed/ao-stack-month4-consolidation-handoff-prompt.md) | completed | Historical source prompt for the completed Month 4 baseline and continuation-soak waves. Do not re-execute. |
-| [Foundry bridge](completed/ao-stack-productization-foundry-bridge-handoff.md) | completed | One-time planning authorization superseded by later merged work. Do not re-execute. |
-| [Draft PR advancement](completed/ao-stack-productization-draft-pr-advancement-handoff.md) | completed | Narrow authorization for old Atlas, Foundry, and Mission PR lifecycle work. Do not re-execute. |
 
 The runtime `.ao-mission/` store remains local durable state and is not staged
 or committed through this documentation archive.
